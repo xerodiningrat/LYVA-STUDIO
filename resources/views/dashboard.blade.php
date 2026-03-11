@@ -1,5 +1,14 @@
 <x-layouts::app :title="__('Dashboard')">
     <div class="space-y-6">
+        @if (! empty($managedGuild))
+            <section class="rounded-[1.5rem] border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-900">
+                Server aktif: <strong>{{ $managedGuild['name'] }}</strong>
+                <span class="mx-2 text-sky-400">•</span>
+                Guild ID {{ $managedGuild['id'] }}
+                <a href="{{ route('guilds.select') }}" class="ml-3 font-semibold underline">Ganti server</a>
+            </section>
+        @endif
+
         @unless ($hasBotTables)
             <section class="rounded-[1.5rem] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
                 Tabel bot Roblox belum tersedia, jadi dashboard memakai data contoh. Jalankan <code>php artisan migrate</code> untuk mengaktifkan penyimpanan data asli.
