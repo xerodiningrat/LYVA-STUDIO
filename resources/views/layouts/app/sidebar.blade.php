@@ -185,8 +185,9 @@
 
             .ops-sidebar-shell [data-flux-sidebar-item] {
                 position: relative;
-                min-height: auto !important;
-                align-items: center !important;
+                height: auto !important;
+                min-height: 4.25rem !important;
+                align-items: flex-start !important;
                 gap: 0.78rem !important;
                 border-radius: 1rem !important;
                 padding: 0.85rem 0.92rem !important;
@@ -209,6 +210,7 @@
                 justify-content: center;
                 width: 2rem;
                 height: 2rem;
+                margin-top: 0.08rem;
                 border-radius: 0.78rem;
                 background: linear-gradient(180deg, rgba(14, 30, 62, 0.95), rgba(10, 19, 40, 0.82));
                 border: 1px solid rgba(117, 141, 212, 0.16);
@@ -232,6 +234,10 @@
                 font-weight: 700;
                 line-height: 1.15;
                 color: #edf4ff;
+            }
+
+            .ops-sidebar-shell [data-flux-sidebar-item] [data-content] > :first-child {
+                display: block;
             }
 
             .ops-sidebar-link-note {
@@ -303,6 +309,7 @@
 
                 .ops-sidebar-shell [data-flux-sidebar-item] {
                     padding: 0.82rem 0.88rem !important;
+                    min-height: 4.4rem !important;
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-item] [data-content] {
