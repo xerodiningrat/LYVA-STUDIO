@@ -12,8 +12,8 @@
         <style>
             .ops-sidebar-shell {
                 position: relative;
-                padding-top: 1rem !important;
-                padding-bottom: 1.1rem !important;
+                padding-top: calc(1.75rem + env(safe-area-inset-top, 0px)) !important;
+                padding-bottom: calc(1.35rem + env(safe-area-inset-bottom, 0px)) !important;
                 background:
                     radial-gradient(circle at top left, rgba(104, 240, 255, 0.12), transparent 24%),
                     radial-gradient(circle at 82% 18%, rgba(84, 115, 255, 0.16), transparent 24%),
@@ -85,7 +85,7 @@
 
             .ops-sidebar-header {
                 position: relative;
-                padding-top: 0.2rem;
+                padding-top: 0.45rem;
             }
 
             .ops-sidebar-guild {
@@ -167,6 +167,7 @@
             }
 
             .ops-sidebar-shell [data-flux-sidebar-brand] {
+                margin-top: 0.35rem;
                 border-radius: 1.1rem;
                 padding-inline: 0.9rem;
                 min-height: 3.4rem;
@@ -303,16 +304,24 @@
             }
 
             .ops-sidebar-account {
-                margin-top: 1.35rem;
-                padding-top: 0.35rem;
-                border-top: 1px solid rgba(114, 143, 255, 0.1);
+                margin-top: 1.9rem;
+                padding-top: 0.85rem;
+                padding-bottom: 0.35rem;
+                border-top: 1px solid rgba(114, 143, 255, 0.12);
+            }
+
+            .ops-sidebar-account::before {
+                content: "";
+                display: block;
+                margin-bottom: 0.75rem;
+                height: 0.6rem;
             }
 
             @media (max-width: 768px) {
                 .ops-sidebar-shell {
                     width: min(20.5rem, 90vw);
-                    padding-top: 1.2rem !important;
-                    padding-bottom: 1.2rem !important;
+                    padding-top: calc(2.15rem + env(safe-area-inset-top, 0px)) !important;
+                    padding-bottom: calc(1.6rem + env(safe-area-inset-bottom, 0px)) !important;
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-nav] {
@@ -347,7 +356,8 @@
                 }
 
                 .ops-sidebar-account {
-                    margin-top: 1.5rem;
+                    margin-top: 2.1rem;
+                    padding-top: 1rem;
                 }
             }
         </style>
