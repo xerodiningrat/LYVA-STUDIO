@@ -7,12 +7,18 @@ use App\Models\PlatformAlert;
 use App\Models\PlayerReport;
 use App\Models\RaceEvent;
 use App\Models\RobloxGame;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke()
+    public function __invoke(): View|RedirectResponse
     {
+        if (auth()->user()?->discord_user_id && ! session()->has('managed_guild')) {
+            return redirect()->route('guilds.select');
+        }
+
         $hasBotTables = Schema::hasTable('roblox_games')
             && Schema::hasTable('discord_webhooks')
             && Schema::hasTable('platform_alerts')
@@ -226,6 +232,7 @@ class DashboardController extends Controller
             'webhooks' => $webhooks,
             'races' => $races,
             'hasBotTables' => $hasBotTables,
+            'managedGuild' => session('managed_guild'),
         ]);
     }
 }

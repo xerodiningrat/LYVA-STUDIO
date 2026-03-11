@@ -37,6 +37,8 @@ return [
 
     'discord' => [
         'application_id' => env('DISCORD_APPLICATION_ID'),
+        'client_secret' => env('DISCORD_CLIENT_SECRET'),
+        'redirect_uri' => env('DISCORD_REDIRECT_URI'),
         'public_key' => env('DISCORD_PUBLIC_KEY'),
         'bot_token' => env('DISCORD_BOT_TOKEN'),
         'guild_id' => env('DISCORD_GUILD_ID'),

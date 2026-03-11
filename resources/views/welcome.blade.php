@@ -89,10 +89,8 @@
                             @auth
                                 <a href="{{ route('dashboard') }}" class="pill">Dashboard</a>
                             @else
-                                <a href="{{ route('login') }}" class="pill">Masuk</a>
-                                @if (Route::has('register'))
-                                    <a href="{{ route('register') }}" class="pill primary">Mulai setup</a>
-                                @endif
+                                <a href="{{ route('auth.discord.redirect') }}" class="pill" data-open-auth>Masuk</a>
+                                <a href="{{ route('auth.discord.redirect') }}" class="pill primary" data-open-auth>Mulai setup</a>
                             @endauth
                         </div>
                     </nav>
@@ -122,7 +120,7 @@
                                     verifikasi, tiket, deploy board, sales alert, moderation, dan dashboard Laravel dalam satu tempat.
                                 </p>
                                 <div class="actions">
-                                    <a href="{{ auth()->check() ? route('dashboard') : (Route::has('register') ? route('register') : route('login')) }}" class="cta primary">
+                                    <a href="{{ auth()->check() ? route('dashboard') : route('auth.discord.redirect') }}" class="cta primary" @guest data-open-auth @endguest>
                                         <div>
                                             <strong>Masuk ke dashboard</strong>
                                             <small>Buka panel bot dan admin tools</small>
@@ -482,10 +480,8 @@
                                     @auth
                                         <a href="{{ route('dashboard') }}" class="cta primary"><div><strong>Open dashboard</strong><small>Lanjut ke area admin sekarang</small></div></a>
                                     @else
-                                        <a href="{{ route('login') }}" class="cta"><div><strong>Log in</strong><small>Masuk ke workspace</small></div></a>
-                                        @if (Route::has('register'))
-                                            <a href="{{ route('register') }}" class="cta primary"><div><strong>Create access</strong><small>Aktifkan dashboard Laravel</small></div></a>
-                                        @endif
+                                        <a href="{{ route('auth.discord.redirect') }}" class="cta" data-open-auth><div><strong>Log in</strong><small>Masuk lewat Discord</small></div></a>
+                                        <a href="{{ route('auth.discord.redirect') }}" class="cta primary" data-open-auth><div><strong>Create access</strong><small>Pilih server lalu buka dashboard</small></div></a>
                                     @endauth
                                 </div>
                             </div>
@@ -500,7 +496,7 @@
                                         <a href="#operations">Operations surface</a>
                                         <a href="#features">Feature map</a>
                                         <a href="#workflow">Workflow bot + backend</a>
-                                        <a href="{{ auth()->check() ? route('dashboard') : route('login') }}">Workspace access</a>
+                                        <a href="{{ auth()->check() ? route('dashboard') : route('auth.discord.redirect') }}" @guest data-open-auth @endguest>Workspace access</a>
                                     </div>
                                 </article>
                                 <article class="footer-module">
@@ -523,6 +519,30 @@
             </main>
             </div>
         </div>
+
+        @guest
+            <div id="discordAuthModal" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(2,8,18,.82);backdrop-filter:blur(10px);z-index:200;">
+                <div style="width:min(560px,100%);border-radius:28px;border:1px solid rgba(104,240,255,.18);background:linear-gradient(180deg,rgba(7,14,30,.98),rgba(6,12,25,.98));box-shadow:0 24px 90px rgba(3,8,20,.58);padding:28px;position:relative;">
+                    <button id="closeDiscordAuthModal" type="button" style="position:absolute;top:16px;right:16px;width:42px;height:42px;border-radius:999px;border:1px solid rgba(104,240,255,.15);background:rgba(255,255,255,.04);color:#dffaff;font-size:18px;cursor:pointer;">×</button>
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+                        <div style="width:48px;height:48px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,#68f0ff,#6f86ff);color:#04111e;font:800 14px Orbitron,sans-serif;">DC</div>
+                        <div>
+                            <div style="font:800 18px Orbitron,sans-serif;color:#f4f7ff;text-transform:uppercase;letter-spacing:.06em;">Masuk dengan Discord</div>
+                            <div style="margin-top:4px;color:#9eacc8;font:600 13px Inter,sans-serif;">Login cepat lalu pilih server Discord yang mau kamu manage.</div>
+                        </div>
+                    </div>
+                    <div style="display:grid;gap:12px;margin-bottom:18px;">
+                        <div style="padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid rgba(104,240,255,.08);color:#cfe3ff;font-size:14px;line-height:1.7;">1. Login pakai akun Discord.</div>
+                        <div style="padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid rgba(104,240,255,.08);color:#cfe3ff;font-size:14px;line-height:1.7;">2. Pilih server yang bot-nya sudah masuk dan bisa kamu kelola.</div>
+                        <div style="padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid rgba(104,240,255,.08);color:#cfe3ff;font-size:14px;line-height:1.7;">3. Masuk ke dashboard khusus server itu.</div>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:12px;">
+                        <a href="{{ route('auth.discord.redirect') }}" style="display:inline-flex;align-items:center;justify-content:center;padding:15px 18px;border-radius:18px;background:linear-gradient(135deg,#68f0ff,#6f86ff);color:#04111e;font:800 14px Inter,sans-serif;min-width:220px;">Lanjut login Discord</a>
+                        <button id="cancelDiscordAuthModal" type="button" style="display:inline-flex;align-items:center;justify-content:center;padding:15px 18px;border-radius:18px;border:1px solid rgba(104,240,255,.15);background:rgba(255,255,255,.04);color:#dffaff;font:700 14px Inter,sans-serif;min-width:160px;cursor:pointer;">Nanti saja</button>
+                    </div>
+                </div>
+            </div>
+        @endguest
 
         <script>
             (() => {
@@ -715,6 +735,29 @@
                         }
 
                         codeRibbons.appendChild(ribbon);
+                    });
+                }
+
+                const authModal = document.getElementById('discordAuthModal');
+                if (authModal) {
+                    const openers = document.querySelectorAll('[data-open-auth]');
+                    const closeBtn = document.getElementById('closeDiscordAuthModal');
+                    const cancelBtn = document.getElementById('cancelDiscordAuthModal');
+                    const openModal = (event) => {
+                        event.preventDefault();
+                        authModal.style.display = 'flex';
+                        document.body.style.overflow = 'hidden';
+                    };
+                    const closeModal = () => {
+                        authModal.style.display = 'none';
+                        document.body.style.overflow = '';
+                    };
+
+                    openers.forEach((button) => button.addEventListener('click', openModal));
+                    closeBtn?.addEventListener('click', closeModal);
+                    cancelBtn?.addEventListener('click', closeModal);
+                    authModal.addEventListener('click', (event) => {
+                        if (event.target === authModal) closeModal();
                     });
                 }
 

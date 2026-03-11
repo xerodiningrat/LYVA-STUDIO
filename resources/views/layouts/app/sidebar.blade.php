@@ -15,8 +15,14 @@
                     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item icon="server-stack" :href="route('guilds.select')" :current="request()->routeIs('guilds.select*')" wire:navigate>
+                        {{ __('Pilih Server') }}
+                    </flux:sidebar.item>
                     <flux:sidebar.item icon="cog-6-tooth" :href="route('discord.setup')" :current="request()->routeIs('discord.setup')" wire:navigate>
                         {{ __('Discord Setup') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item icon="sparkles" :href="route('vip-title.setup')" :current="request()->routeIs('vip-title.setup*')" wire:navigate>
+                        {{ __('VIP Title Setup') }}
                     </flux:sidebar.item>
                     <flux:sidebar.item icon="code-bracket-square" :href="route('roblox.scripts.index')" :current="request()->routeIs('roblox.scripts.*')" wire:navigate>
                         {{ __('Roblox Scripts') }}

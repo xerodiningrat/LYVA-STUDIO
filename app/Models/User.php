@@ -23,6 +23,10 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'discord_user_id',
+        'discord_username',
+        'discord_avatar',
+        'selected_guild_id',
     ];
 
     /**
@@ -48,6 +52,19 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function discordAvatarUrl(): ?string
+    {
+        if (! $this->discord_user_id || ! $this->discord_avatar) {
+            return null;
+        }
+
+        return sprintf(
+            'https://cdn.discordapp.com/avatars/%s/%s.png?size=128',
+            $this->discord_user_id,
+            $this->discord_avatar,
+        );
     }
 
     /**

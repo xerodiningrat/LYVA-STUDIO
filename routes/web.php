@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DiscordAuthController;
 use App\Http\Controllers\DiscordInteractionController;
 use App\Http\Controllers\DiscordSetupController;
+use App\Http\Controllers\GuildSelectionController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\RobloxScriptController;
 use App\Http\Controllers\VipTitleSetupController;
@@ -10,11 +12,15 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', LandingController::class)->name('home');
+Route::get('/auth/discord/redirect', [DiscordAuthController::class, 'redirect'])->name('auth.discord.redirect');
+Route::get('/auth/discord/callback', [DiscordAuthController::class, 'callback'])->name('auth.discord.callback');
 Route::post('/discord/interactions', DiscordInteractionController::class)
     ->withoutMiddleware(VerifyCsrfToken::class)
     ->name('discord.interactions');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('guilds/select', [GuildSelectionController::class, 'index'])->name('guilds.select');
+    Route::post('guilds/select/{guildId}', [GuildSelectionController::class, 'select'])->name('guilds.select.store');
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('discord/setup', DiscordSetupController::class)->name('discord.setup');
     Route::get('vip-title/setup', [VipTitleSetupController::class, 'index'])->name('vip-title.setup');
