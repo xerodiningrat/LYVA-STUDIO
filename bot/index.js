@@ -1,4 +1,10 @@
 import {
+  VoiceConnectionStatus,
+  entersState,
+  getVoiceConnection,
+  joinVoiceChannel,
+} from '@discordjs/voice';
+import {
   ActionRowBuilder,
   ActivityType,
   AttachmentBuilder,
@@ -45,7 +51,8 @@ const DEFAULT_SPAM_THRESHOLD = 3;
 const DEFAULT_SPAM_WINDOW_SECONDS = 45;
 const MAX_PURGE_MESSAGES_PER_CHANNEL = 100;
 const MAX_PURGE_AGE_MS = 14 * 24 * 60 * 60 * 1000;
-const clientIntents = [GatewayIntentBits.Guilds];
+const clientIntents = [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates];
+const persistentVoiceSessions = new Map();
 
 if (config.enableMessageContentIntent) {
   clientIntents.push(GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent);
@@ -163,6 +170,9 @@ client.on('interactionCreate', async (interaction) => {
       case 'script':
         await handleScript(interaction);
         return;
+      case 'voice':
+        await handleVoice(interaction);
+        return;
       case 'titile':
         await handleTitileCommand(interaction, config);
         return;
@@ -197,6 +207,140 @@ client.on('messageCreate', async (message) => {
     console.error(error);
   }
 });
+
+client.on('voiceStateUpdate', (oldState, newState) => {
+  if (newState.id !== client.user?.id) {
+    return;
+  }
+
+  if (!newState.channelId) {
+    persistentVoiceSessions.delete(newState.guild.id);
+    return;
+  }
+
+  persistentVoiceSessions.set(newState.guild.id, {
+    channelId: newState.channelId,
+    guildId: newState.guild.id,
+  });
+});
+
+async function handleVoice(interaction) {
+  if (!interaction.inGuild()) {
+    await interaction.reply({
+      content: 'Command voice hanya bisa dipakai di server.',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const subcommand = interaction.options.getSubcommand();
+
+  if (subcommand === 'join') {
+    const memberChannel = interaction.member?.voice?.channel;
+
+    if (!memberChannel) {
+      await interaction.reply({
+        content: 'Masuk dulu ke voice channel, baru pakai `/voice join`.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+
+    const previousConnection = getVoiceConnection(interaction.guildId);
+    if (previousConnection) {
+      previousConnection.destroy();
+    }
+
+    const connection = joinVoiceChannel({
+      adapterCreator: interaction.guild.voiceAdapterCreator,
+      channelId: memberChannel.id,
+      guildId: interaction.guildId,
+      selfDeaf: true,
+      selfMute: false,
+    });
+
+    persistentVoiceSessions.set(interaction.guildId, {
+      channelId: memberChannel.id,
+      guildId: interaction.guildId,
+    });
+
+    connection.on(VoiceConnectionStatus.Disconnected, async () => {
+      try {
+        await Promise.race([
+          entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
+          entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
+        ]);
+      } catch {
+        persistentVoiceSessions.delete(interaction.guildId);
+        connection.destroy();
+      }
+    });
+
+    try {
+      await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
+    } catch {
+      await interaction.editReply({
+        content: `Bot sedang mencoba masuk ke ${memberChannel}, tapi koneksinya belum stabil. Cek permission voice channel lalu coba lagi.`,
+      });
+      return;
+    }
+
+    await interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x16a34a)
+          .setTitle('Voice Stay Aktif')
+          .setDescription(`Bot sudah masuk ke ${memberChannel} dan tidak akan auto-keluar walau channel kosong.`)
+          .addFields(
+            { name: 'Mode', value: 'AFK 24 jam / persistent', inline: true },
+            { name: 'Self Deaf', value: 'Aktif', inline: true },
+          )
+          .setTimestamp(),
+      ],
+    });
+    return;
+  }
+
+  if (subcommand === 'leave') {
+    const connection = getVoiceConnection(interaction.guildId);
+
+    if (!connection) {
+      await interaction.reply({
+        content: 'Bot sedang tidak ada di voice channel server ini.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    persistentVoiceSessions.delete(interaction.guildId);
+    connection.destroy();
+
+    await interaction.reply({
+      content: 'Bot sudah keluar dari voice channel.',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const session = persistentVoiceSessions.get(interaction.guildId);
+  const channelMention = session?.channelId ? `<#${session.channelId}>` : 'Tidak terhubung';
+
+  await interaction.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x2563eb)
+        .setTitle('Status Voice Bot')
+        .addFields(
+          { name: 'Channel', value: channelMention, inline: true },
+          { name: 'Mode', value: session ? 'Stay aktif' : 'Offline', inline: true },
+        )
+        .setTimestamp(),
+    ],
+    ephemeral: true,
+  });
+}
 
 async function handleStatus(interaction) {
   await interaction.deferReply({ ephemeral: true });

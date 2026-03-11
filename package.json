@@ -11,6 +11,7 @@
         "dev:all": "concurrently -c \"#93c5fd,#fdba74,#34d399\" \"php artisan serve\" \"npm run dev\" \"npm run bot:dev\" --names=\"laravel,vite,bot\""
     },
     "dependencies": {
+        "@discordjs/voice": "^0.18.0",
         "@napi-rs/canvas": "^0.1.96",
         "@tailwindcss/vite": "^4.1.11",
         "autoprefixer": "^10.4.20",

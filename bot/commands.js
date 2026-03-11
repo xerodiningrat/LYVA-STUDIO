@@ -275,6 +275,18 @@ export const commandDefinitions = [
       subcommand.setName('readme').setDescription('Kirim panduan setup Roblox script.'),
     ),
   new SlashCommandBuilder()
+    .setName('voice')
+    .setDescription('Kontrol bot voice agar bisa stay di channel.')
+    .addSubcommand((subcommand) =>
+      subcommand.setName('join').setDescription('Panggil bot ke voice channel kamu dan stay terus.'),
+    )
+    .addSubcommand((subcommand) =>
+      subcommand.setName('leave').setDescription('Suruh bot keluar dari voice channel server ini.'),
+    )
+    .addSubcommand((subcommand) =>
+      subcommand.setName('status').setDescription('Cek status voice bot di server ini.'),
+    ),
+  new SlashCommandBuilder()
     .setName('race')
     .setDescription('Kelola event balap komunitas.')
     .addSubcommand((subcommand) =>
