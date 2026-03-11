@@ -12,8 +12,8 @@
         <style>
             .ops-sidebar-shell {
                 position: relative;
-                padding-top: calc(1.75rem + env(safe-area-inset-top, 0px)) !important;
-                padding-bottom: calc(1.35rem + env(safe-area-inset-bottom, 0px)) !important;
+                padding-top: 0.9rem !important;
+                padding-bottom: 1rem !important;
                 background:
                     radial-gradient(circle at top left, rgba(104, 240, 255, 0.12), transparent 24%),
                     radial-gradient(circle at 82% 18%, rgba(84, 115, 255, 0.16), transparent 24%),
@@ -26,7 +26,7 @@
             }
 
             .ops-sidebar-shell [data-flux-sidebar-header] + [data-flux-sidebar-nav] {
-                margin-top: 1rem;
+                margin-top: 1.35rem;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-nav] + [data-flux-sidebar-nav] {
@@ -85,11 +85,12 @@
 
             .ops-sidebar-header {
                 position: relative;
-                padding-top: 0.45rem;
+                padding-top: 0.15rem;
             }
 
             .ops-sidebar-guild {
-                margin-top: 0.9rem;
+                margin-top: 1rem;
+                margin-bottom: 0.35rem;
                 border-radius: 1.4rem;
                 border: 1px solid rgba(104, 240, 255, 0.12);
                 background:
@@ -167,7 +168,7 @@
             }
 
             .ops-sidebar-shell [data-flux-sidebar-brand] {
-                margin-top: 0.35rem;
+                margin-top: 0;
                 border-radius: 1.1rem;
                 padding-inline: 0.9rem;
                 min-height: 3.4rem;
@@ -320,8 +321,13 @@
             @media (max-width: 768px) {
                 .ops-sidebar-shell {
                     width: min(20.5rem, 90vw);
-                    padding-top: calc(2.15rem + env(safe-area-inset-top, 0px)) !important;
-                    padding-bottom: calc(1.6rem + env(safe-area-inset-bottom, 0px)) !important;
+                    top: max(0.9rem, env(safe-area-inset-top, 0px)) !important;
+                    min-height: calc(100dvh - max(1.8rem, env(safe-area-inset-top, 0px))) !important;
+                    max-height: calc(100dvh - max(1.8rem, env(safe-area-inset-top, 0px))) !important;
+                    padding-top: 0.95rem !important;
+                    padding-bottom: calc(1.15rem + env(safe-area-inset-bottom, 0px)) !important;
+                    border-radius: 1.45rem !important;
+                    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-nav] {
@@ -329,7 +335,7 @@
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-header] + [data-flux-sidebar-nav] {
-                    margin-top: 1.1rem;
+                    margin-top: 1.45rem;
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-nav] + [data-flux-sidebar-nav] {
