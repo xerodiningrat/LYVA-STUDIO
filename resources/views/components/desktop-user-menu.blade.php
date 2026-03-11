@@ -15,6 +15,11 @@
             <div class="grid flex-1 text-start text-sm leading-tight">
                 <flux:heading class="truncate">{{ auth()->user()->name }}</flux:heading>
                 <flux:text class="truncate">{{ auth()->user()->email }}</flux:text>
+                @if (session('managed_guild'))
+                    <flux:text class="truncate text-[11px] uppercase tracking-[0.18em] text-cyan-300">
+                        {{ session('managed_guild.name') }}
+                    </flux:text>
+                @endif
             </div>
         </div>
         <flux:menu.separator />

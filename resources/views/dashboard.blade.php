@@ -1,226 +1,697 @@
 <x-layouts::app :title="__('Dashboard')">
-    <div class="space-y-6">
-        @if (! empty($managedGuild))
-            <section class="rounded-[1.5rem] border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-900">
-                Server aktif: <strong>{{ $managedGuild['name'] }}</strong>
-                <span class="mx-2 text-sky-400">•</span>
-                Guild ID {{ $managedGuild['id'] }}
-                <a href="{{ route('guilds.select') }}" class="ml-3 font-semibold underline">Ganti server</a>
-            </section>
-        @endif
+    @php
+        $activeGuild = $managedGuild ?? null;
+        $quickLinks = [
+            ['label' => 'Pilih Server', 'href' => route('guilds.select'), 'tone' => 'cyan', 'copy' => 'Ganti server Discord yang sedang kamu kelola dari panel ini.'],
+            ['label' => 'VIP Title Setup', 'href' => route('vip-title.setup'), 'tone' => 'emerald', 'copy' => 'Atur map key, gamepass, API key, dan snippet Roblox dari dashboard.'],
+            ['label' => 'Discord Setup', 'href' => route('discord.setup'), 'tone' => 'violet', 'copy' => 'Rapikan command, webhook, dan koneksi bot per server.'],
+            ['label' => 'Roblox Scripts', 'href' => route('roblox.scripts.index'), 'tone' => 'amber', 'copy' => 'Ambil file Roblox yang siap tempel dan sinkron dengan backend.'],
+        ];
 
-        @unless ($hasBotTables)
-            <section class="rounded-[1.5rem] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
-                Tabel bot Roblox belum tersedia, jadi dashboard memakai data contoh. Jalankan <code>php artisan migrate</code> untuk mengaktifkan penyimpanan data asli.
-            </section>
-        @endunless
+        $statusCards = [
+            [
+                'label' => 'Bot Routing',
+                'value' => ($stats[1]['value'] ?? 0) > 0 ? 'ONLINE' : 'IDLE',
+                'detail' => ($stats[1]['value'] ?? 0) . ' webhook aktif siap kirim alert.',
+                'progress' => min(100, max(18, (($stats[1]['value'] ?? 0) * 18) + 22)),
+                'tone' => 'cyan',
+            ],
+            [
+                'label' => 'Issue Queue',
+                'value' => ($stats[2]['value'] ?? 0) > 0 ? 'MONITOR' : 'CLEAR',
+                'detail' => ($stats[2]['value'] ?? 0) . ' insiden terbuka masih perlu tindakan.',
+                'progress' => min(100, max(20, (($stats[2]['value'] ?? 0) * 16) + 18)),
+                'tone' => 'amber',
+            ],
+            [
+                'label' => 'Reports Desk',
+                'value' => ($stats[3]['value'] ?? 0) > 0 ? 'ACTIVE' : 'QUIET',
+                'detail' => ($stats[3]['value'] ?? 0) . ' laporan player menunggu review.',
+                'progress' => min(100, max(16, (($stats[3]['value'] ?? 0) * 15) + 20)),
+                'tone' => 'emerald',
+            ],
+        ];
+    @endphp
 
-        <section class="overflow-hidden rounded-[2rem] border border-zinc-200 bg-[linear-gradient(135deg,_#18100b_0%,_#302116_50%,_#5a351c_100%)] p-6 text-white shadow-[0_24px_90px_rgba(23,17,10,0.28)]">
-            <div class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
-                <div class="space-y-4">
-                    <span class="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-stone-200">
-                        Roblox Discord Ops
-                    </span>
+    <style>
+        .ops-dashboard {
+            --dash-panel: rgba(7, 16, 34, 0.82);
+            --dash-panel-strong: rgba(9, 21, 43, 0.94);
+            --dash-line: rgba(104, 240, 255, 0.12);
+            --dash-line-strong: rgba(104, 240, 255, 0.22);
+            --dash-text: #f3f7ff;
+            --dash-muted: #95a6c9;
+            --dash-cyan: #68f0ff;
+            --dash-emerald: #76ffb8;
+            --dash-violet: #8b94ff;
+            --dash-amber: #ffbf6f;
+            --dash-shadow: 0 30px 90px rgba(0, 0, 0, 0.38);
+            --dash-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+            --dash-display: "Orbitron", "Oxanium", ui-sans-serif, sans-serif;
+            position: relative;
+            padding: 1.75rem;
+            color: var(--dash-text);
+        }
+
+        .ops-dashboard::before,
+        .ops-dashboard::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .ops-dashboard::before {
+            background:
+                radial-gradient(circle at 16% 14%, rgba(104, 240, 255, 0.11), transparent 22%),
+                radial-gradient(circle at 82% 10%, rgba(139, 148, 255, 0.12), transparent 24%),
+                linear-gradient(180deg, rgba(3, 8, 22, 0.98), rgba(2, 6, 18, 0.98));
+        }
+
+        .ops-dashboard::after {
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 46px 46px;
+            opacity: 0.18;
+            mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), transparent 96%);
+        }
+
+        .ops-stack,
+        .ops-left,
+        .ops-right,
+        .ops-list,
+        .ops-guild-box,
+        .ops-hero-actions {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .ops-hero,
+        .ops-panel,
+        .ops-metric,
+        .ops-status-card,
+        .ops-list-item,
+        .ops-mini-card,
+        .ops-action-card {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--dash-line);
+            background: var(--dash-panel);
+            box-shadow: var(--dash-shadow);
+        }
+
+        .ops-hero,
+        .ops-panel {
+            background: linear-gradient(180deg, rgba(9, 21, 43, 0.94), rgba(5, 13, 28, 0.92));
+        }
+
+        .ops-hero::after,
+        .ops-panel::after,
+        .ops-status-card::after,
+        .ops-mini-card::after,
+        .ops-action-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at top right, rgba(104, 240, 255, 0.16), transparent 34%);
+            pointer-events: none;
+        }
+
+        .ops-hero {
+            border-radius: 2rem;
+            padding: 1.6rem;
+            background:
+                radial-gradient(circle at top right, rgba(104, 240, 255, 0.14), transparent 24%),
+                radial-gradient(circle at bottom left, rgba(139, 148, 255, 0.16), transparent 28%),
+                linear-gradient(135deg, rgba(7, 18, 40, 0.95), rgba(5, 12, 26, 0.96));
+        }
+
+        .ops-eyebrow,
+        .ops-chip,
+        .ops-metric-label,
+        .ops-kicker,
+        .ops-list-label {
+            font-family: var(--dash-mono);
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+        }
+
+        .ops-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.65rem;
+            border-radius: 999px;
+            border: 1px solid rgba(104, 240, 255, 0.18);
+            background: rgba(9, 21, 43, 0.7);
+            padding: 0.6rem 0.9rem;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--dash-cyan);
+        }
+
+        .ops-eyebrow::before {
+            content: "";
+            width: 0.52rem;
+            height: 0.52rem;
+            border-radius: 999px;
+            background: var(--dash-emerald);
+            box-shadow: 0 0 14px rgba(118, 255, 184, 0.9);
+        }
+
+        .ops-hero-grid,
+        .ops-grid,
+        .ops-stats-grid,
+        .ops-status-grid,
+        .ops-quick-grid {
+            display: grid;
+            gap: 1.25rem;
+        }
+
+        .ops-hero-grid {
+            grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+            margin-top: 1rem;
+        }
+
+        .ops-grid {
+            grid-template-columns: minmax(0, 1.18fr) minmax(320px, 0.82fr);
+        }
+
+        .ops-stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        }
+
+        .ops-status-grid {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        }
+
+        .ops-quick-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .ops-hero-title {
+            margin: 0;
+            font-family: var(--dash-display);
+            font-size: clamp(2.4rem, 5vw, 4.7rem);
+            line-height: 0.92;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .ops-hero-title span {
+            display: block;
+            background: linear-gradient(90deg, var(--dash-cyan), #a1eeff, var(--dash-emerald));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .ops-lead,
+        .ops-panel-copy,
+        .ops-status-detail,
+        .ops-list-item p,
+        .ops-metric-hint,
+        .ops-mini-card p {
+            color: var(--dash-muted);
+            line-height: 1.8;
+        }
+
+        .ops-lead {
+            margin: 1rem 0 0;
+            max-width: 46rem;
+            font-size: 0.98rem;
+        }
+
+        .ops-hero-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            margin-top: 1.35rem;
+        }
+
+        .ops-chip,
+        .ops-panel-pill,
+        .ops-badge {
+            border-radius: 999px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .ops-chip {
+            border: 1px solid rgba(104, 240, 255, 0.14);
+            background: rgba(255, 255, 255, 0.04);
+            padding: 0.55rem 0.8rem;
+            color: #d7e6ff;
+        }
+
+        .ops-action-card {
+            border-radius: 1.5rem;
+            padding: 1rem 1.05rem;
+            text-decoration: none;
+            transition: transform 0.18s ease, border-color 0.18s ease;
+        }
+
+        .ops-action-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--dash-line-strong);
+        }
+
+        .ops-action-card strong,
+        .ops-panel-header h2,
+        .ops-list-item h3,
+        .ops-mini-card h3 {
+            color: var(--dash-text);
+        }
+
+        .ops-action-card strong,
+        .ops-list-item h3,
+        .ops-mini-card h3 {
+            display: block;
+            font-size: 1rem;
+        }
+
+        .ops-action-card p,
+        .ops-mini-card p {
+            margin: 0.45rem 0 0;
+            font-size: 0.84rem;
+        }
+
+        .ops-metric {
+            border-radius: 1.55rem;
+            padding: 1rem 1rem 1.1rem;
+            background: linear-gradient(180deg, rgba(10, 20, 42, 0.92), rgba(5, 13, 28, 0.92));
+        }
+
+        .ops-metric-label,
+        .ops-kicker,
+        .ops-list-label {
+            font-size: 0.68rem;
+            color: var(--dash-muted);
+            font-weight: 700;
+        }
+
+        .ops-metric-value,
+        .ops-status-value {
+            font-family: var(--dash-display);
+            letter-spacing: 0.07em;
+        }
+
+        .ops-metric-value {
+            margin-top: 0.75rem;
+            font-size: 2.2rem;
+            line-height: 1;
+        }
+
+        .ops-metric-hint {
+            margin-top: 0.55rem;
+            font-size: 0.82rem;
+        }
+
+        .ops-panel {
+            border-radius: 1.8rem;
+            padding: 1.15rem;
+        }
+
+        .ops-panel-header,
+        .ops-status-top,
+        .ops-list-item-title,
+        .ops-guild-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: start;
+        }
+
+        .ops-panel-header {
+            margin-bottom: 1rem;
+        }
+
+        .ops-panel-header h2 {
+            margin: 0.2rem 0 0;
+            font-size: 1.35rem;
+            font-weight: 700;
+        }
+
+        .ops-panel-copy {
+            margin: 0.65rem 0 0;
+            font-size: 0.88rem;
+        }
+
+        .ops-kicker {
+            display: block;
+            color: var(--dash-cyan);
+        }
+
+        .ops-panel-pill {
+            flex-shrink: 0;
+            align-self: start;
+            border: 1px solid rgba(104, 240, 255, 0.16);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.5rem 0.75rem;
+            color: #dfe9ff;
+            text-decoration: none;
+        }
+
+        .ops-status-card,
+        .ops-mini-card,
+        .ops-list-item {
+            border-radius: 1.45rem;
+            padding: 1rem;
+            background: rgba(3, 11, 24, 0.8);
+        }
+
+        .ops-status-value {
+            margin-top: 0.7rem;
+            font-size: 1.9rem;
+        }
+
+        .ops-status-detail {
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .ops-progress {
+            margin-top: 0.85rem;
+            height: 0.42rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            overflow: hidden;
+        }
+
+        .ops-progress > span {
+            display: block;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, var(--dash-cyan), var(--dash-emerald));
+            box-shadow: 0 0 18px rgba(104, 240, 255, 0.35);
+        }
+
+        .ops-list-item p {
+            margin: 0.55rem 0 0;
+            font-size: 0.84rem;
+        }
+
+        .ops-badge {
+            flex-shrink: 0;
+            padding: 0.42rem 0.7rem;
+        }
+
+        .ops-badge-cyan { background: rgba(104, 240, 255, 0.12); color: var(--dash-cyan); }
+        .ops-badge-emerald { background: rgba(118, 255, 184, 0.12); color: var(--dash-emerald); }
+        .ops-badge-violet { background: rgba(139, 148, 255, 0.14); color: #bcc2ff; }
+        .ops-badge-amber { background: rgba(255, 191, 111, 0.14); color: var(--dash-amber); }
+        .ops-badge-rose { background: rgba(255, 126, 126, 0.14); color: #ff8d8d; }
+        .ops-badge-zinc { background: rgba(255, 255, 255, 0.08); color: #dbe3f4; }
+
+        .ops-list-label {
+            margin-top: 0.7rem;
+            display: inline-block;
+            color: #adc2e8;
+        }
+
+        .ops-guild-row {
+            padding: 0.8rem 0.9rem;
+            border-radius: 1rem;
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--dash-muted);
+            font-size: 0.83rem;
+        }
+
+        .ops-guild-row strong {
+            color: var(--dash-text);
+        }
+
+        @media (max-width: 1100px) {
+            .ops-hero-grid,
+            .ops-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .ops-dashboard {
+                padding: 1rem;
+            }
+
+            .ops-stats-grid,
+            .ops-status-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+
+    <div class="ops-dashboard">
+        <div class="ops-stack">
+            @unless ($hasBotTables)
+                <section class="ops-panel">
+                    <div class="ops-panel-header">
+                        <div>
+                            <span class="ops-kicker">Fallback Mode</span>
+                            <h2>Tabel bot masih pakai data contoh</h2>
+                            <p class="ops-panel-copy">Jalankan <code>php artisan migrate</code> di VPS supaya panel ini membaca data operasional asli dari Discord, webhook, alerts, dan report queue.</p>
+                        </div>
+                        <span class="ops-panel-pill">Migration needed</span>
+                    </div>
+                </section>
+            @endunless
+
+            <section class="ops-hero">
+                <span class="ops-eyebrow">Discord Control Surface</span>
+                <div class="ops-hero-grid">
                     <div>
-                        <h1 class="font-display text-4xl font-bold tracking-tight">Command center untuk sales, deploy, server health, dan community moderation.</h1>
-                        <p class="mt-3 max-w-2xl text-sm leading-7 text-stone-200">
-                            Dashboard ini belum terhubung ke API Roblox, tapi struktur datanya sudah disiapkan untuk webhook Discord, revenue log, incident tracking, dan player reports.
-                        </p>
+                        <h1 class="ops-hero-title">Dasbor<span>operasional server</span></h1>
+                        <p class="ops-lead">Panel ini sekarang difokuskan buat jadi control room utama tim: status bot, alert operasional, webhook Discord, VIP title setup, dan surface kerja per server yang jauh lebih rapi dibanding dashboard lama.</p>
+                        <div class="ops-hero-meta">
+                            @if (! empty($activeGuild))
+                                <span class="ops-chip">Server aktif: {{ $activeGuild['name'] }}</span>
+                                <span class="ops-chip">Guild ID {{ $activeGuild['id'] }}</span>
+                            @else
+                                <span class="ops-chip">Belum pilih server aktif</span>
+                            @endif
+                            <span class="ops-chip">{{ count($stats) }} modul dipantau</span>
+                            <span class="ops-chip">Laravel + Discord sync</span>
+                        </div>
+                    </div>
+                    <div class="ops-hero-actions">
+                        @foreach ($quickLinks as $link)
+                            <a href="{{ $link['href'] }}" class="ops-action-card">
+                                <strong>{{ $link['label'] }}</strong>
+                                <p>{{ $link['copy'] }}</p>
+                            </a>
+                        @endforeach
                     </div>
                 </div>
+            </section>
 
-                <div class="grid gap-3 md:grid-cols-2">
-                    @foreach ($stats as $stat)
-                        <article class="rounded-[1.5rem] border border-white/10 bg-white/10 p-4 backdrop-blur">
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-stone-300">{{ $stat['label'] }}</p>
-                            <p class="mt-3 font-display text-4xl font-bold">{{ str_pad((string) $stat['value'], 2, '0', STR_PAD_LEFT) }}</p>
-                            <p class="mt-2 text-sm leading-6 text-stone-300">{{ $stat['hint'] }}</p>
+            <div class="ops-grid">
+                <div class="ops-left">
+                    <section class="ops-stats-grid">
+                        @foreach ($stats as $stat)
+                            <article class="ops-metric">
+                                <span class="ops-metric-label">{{ $stat['label'] }}</span>
+                                <div class="ops-metric-value">{{ str_pad((string) $stat['value'], 2, '0', STR_PAD_LEFT) }}</div>
+                                <p class="ops-metric-hint">{{ $stat['hint'] }}</p>
+                            </article>
+                        @endforeach
+                    </section>
+
+                    <section class="ops-panel">
+                        <div class="ops-panel-header">
+                            <div>
+                                <span class="ops-kicker">Status Grid</span>
+                                <h2>Operational heartbeat</h2>
+                                <p class="ops-panel-copy">Ringkasan cepat buat tahu kondisi bot, queue, dan beban kerja tim tanpa perlu lompat ke halaman lain.</p>
+                            </div>
+                            <span class="ops-panel-pill">Live summary</span>
+                        </div>
+                        <div class="ops-status-grid">
+                            @foreach ($statusCards as $card)
+                                <article class="ops-status-card">
+                                    <div class="ops-status-top">
+                                        <span class="ops-metric-label">{{ $card['label'] }}</span>
+                                        <span class="ops-badge ops-badge-{{ $card['tone'] }}">{{ $card['tone'] }}</span>
+                                    </div>
+                                    <div class="ops-status-value">{{ $card['value'] }}</div>
+                                    <p class="ops-status-detail">{{ $card['detail'] }}</p>
+                                    <div class="ops-progress"><span style="width: {{ $card['progress'] }}%;"></span></div>
+                                </article>
+                            @endforeach
+                        </div>
+                    </section>
+
+                    <section class="ops-panel">
+                        <div class="ops-panel-header">
+                            <div>
+                                <span class="ops-kicker">Race Desk</span>
+                                <h2>Community race events</h2>
+                                <p class="ops-panel-copy">Event balap komunitas yang lagi aktif, draft, atau masih buka registrasi untuk server yang kamu pilih.</p>
+                            </div>
+                            <span class="ops-panel-pill">Discord admin flow</span>
+                        </div>
+                        <div class="ops-list">
+                            @foreach ($races as $race)
+                                <article class="ops-list-item">
+                                    <div class="ops-list-item-title">
+                                        <div>
+                                            <h3>#{{ $race->id }} {{ $race->title }}</h3>
+                                            <p>{{ $race->participants_count }}/{{ $race->max_players }} player · Entry {{ $race->entry_fee_robux }} R$</p>
+                                        </div>
+                                        <span class="ops-badge ops-badge-cyan">{{ str_replace('_', ' ', ucfirst($race->status)) }}</span>
+                                    </div>
+                                    <span class="ops-list-label">Race queue</span>
+                                </article>
+                            @endforeach
+                        </div>
+                    </section>
+
+                    <section class="ops-panel">
+                        <div class="ops-panel-header">
+                            <div>
+                                <span class="ops-kicker">Incident Feed</span>
+                                <h2>Alerts and automation</h2>
+                                <p class="ops-panel-copy">Monitor deploy error, revenue anomaly, dan trigger server supaya admin cepat gerak dari satu surface.</p>
+                            </div>
+                            <span class="ops-panel-pill">Discord ready</span>
+                        </div>
+                        <div class="ops-list">
+                            @foreach ($alerts as $alert)
+                                @php
+                                    $alertTone = match ($alert->severity) {
+                                        'critical' => 'rose',
+                                        'warning' => 'amber',
+                                        default => 'cyan',
+                                    };
+                                @endphp
+                                <article class="ops-list-item">
+                                    <div class="ops-list-item-title">
+                                        <div>
+                                            <h3>{{ $alert->title }}</h3>
+                                            <p>{{ $alert->message }}</p>
+                                        </div>
+                                        <span class="ops-badge ops-badge-{{ $alertTone }}">{{ $alert->status }}</span>
+                                    </div>
+                                    <span class="ops-list-label">{{ $alert->source }} · {{ optional($alert->occurred_at)->diffForHumans() ?? 'waiting for event' }}</span>
+                                </article>
+                            @endforeach
+                        </div>
+                    </section>
+                </div>
+
+                <div class="ops-right">
+                    <section class="ops-panel">
+                        <div class="ops-panel-header">
+                            <div>
+                                <span class="ops-kicker">Active Surface</span>
+                                <h2>Server focus</h2>
+                                <p class="ops-panel-copy">Semua automation dan panel setup nanti mengacu ke server Discord yang dipilih di sini.</p>
+                            </div>
+                            <a href="{{ route('guilds.select') }}" class="ops-panel-pill">Ganti server</a>
+                        </div>
+                        <div class="ops-guild-box">
+                            <div class="ops-guild-row"><span>Server</span><strong>{{ $activeGuild['name'] ?? 'Belum dipilih' }}</strong></div>
+                            <div class="ops-guild-row"><span>Guild ID</span><strong>{{ $activeGuild['id'] ?? '-' }}</strong></div>
+                            <div class="ops-guild-row"><span>Status panel</span><strong>{{ ! empty($activeGuild) ? 'Scoped' : 'Global' }}</strong></div>
+                        </div>
+                    </section>
+
+                    <section class="ops-panel">
+                        <div class="ops-panel-header">
+                            <div>
+                                <span class="ops-kicker">Discord Delivery</span>
+                                <h2>Webhook health</h2>
+                            </div>
+                            <span class="ops-panel-pill">3 feeds</span>
+                        </div>
+                        <div class="ops-list">
+                            @foreach ($webhooks as $webhook)
+                                <article class="ops-list-item">
+                                    <div class="ops-list-item-title">
+                                        <div>
+                                            <h3>{{ $webhook->name }}</h3>
+                                            <p>{{ $webhook->channel_name }}</p>
+                                        </div>
+                                        <span class="ops-badge {{ $webhook->is_active ? 'ops-badge-emerald' : 'ops-badge-zinc' }}">{{ $webhook->is_active ? 'Active' : 'Paused' }}</span>
+                                    </div>
+                                    <span class="ops-list-label">Last delivery {{ optional($webhook->last_delivered_at)->diffForHumans() ?? 'belum pernah kirim' }}</span>
+                                </article>
+                            @endforeach
+                        </div>
+                    </section>
+
+                    <section class="ops-panel">
+                        <div class="ops-panel-header">
+                            <div>
+                                <span class="ops-kicker">Game Tracking</span>
+                                <h2>Connected experiences</h2>
+                            </div>
+                            <span class="ops-panel-pill">Universe sync</span>
+                        </div>
+                        <div class="ops-list">
+                            @foreach ($games as $game)
+                                @php
+                                    $gameTone = match ($game->status) {
+                                        'healthy' => 'emerald',
+                                        'monitoring' => 'amber',
+                                        'degraded' => 'rose',
+                                        default => 'zinc',
+                                    };
+                                @endphp
+                                <article class="ops-list-item">
+                                    <div class="ops-list-item-title">
+                                        <div>
+                                            <h3>{{ $game->name }}</h3>
+                                            <p>Universe {{ $game->universe_id }} · Place {{ $game->place_id }}</p>
+                                        </div>
+                                        <span class="ops-badge ops-badge-{{ $gameTone }}">{{ ucfirst($game->status) }}</span>
+                                    </div>
+                                    <span class="ops-list-label">Last sync {{ optional($game->last_synced_at)->diffForHumans() ?? 'belum ada sync' }}</span>
+                                </article>
+                            @endforeach
+                        </div>
+                    </section>
+
+                    <section class="ops-panel">
+                        <div class="ops-panel-header">
+                            <div>
+                                <span class="ops-kicker">Moderation Desk</span>
+                                <h2>Player & bug reports</h2>
+                            </div>
+                            <span class="ops-panel-pill">Admin queue</span>
+                        </div>
+                        <div class="ops-list">
+                            @foreach ($reports as $report)
+                                <article class="ops-list-item">
+                                    <div class="ops-list-item-title">
+                                        <div>
+                                            <h3>{{ $report->category }} · {{ $report->reported_player_name }}</h3>
+                                            <p>Reporter: {{ $report->reporter_name }}</p>
+                                        </div>
+                                        <span class="ops-badge ops-badge-violet">{{ ucfirst($report->priority) }}</span>
+                                    </div>
+                                    <p>{{ $report->summary }}</p>
+                                    <span class="ops-list-label">{{ ucfirst($report->status) }}</span>
+                                </article>
+                            @endforeach
+                        </div>
+                    </section>
+
+                    <section class="ops-quick-grid">
+                        <article class="ops-mini-card">
+                            <span class="ops-kicker">VIP title tooling</span>
+                            <h3>Setup map tanpa ribet</h3>
+                            <p>Panel VIP Title sekarang jadi jalur utama untuk generate config map, API key, gamepass mapping, dan snippet Roblox siap tempel.</p>
                         </article>
-                    @endforeach
+                        <article class="ops-mini-card">
+                            <span class="ops-kicker">Next layer</span>
+                            <h3>Dashboard server-aware</h3>
+                            <p>Flow ini sudah siap dibawa ke level berikutnya: semua modul discope per guild biar user tinggal pilih server lalu manage semuanya dari satu tempat.</p>
+                        </article>
+                    </section>
                 </div>
             </div>
-        </section>
-
-        <section class="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-            <div class="space-y-6">
-                <article class="rounded-[1.75rem] border border-zinc-200 bg-white p-5 shadow-sm">
-                    <div class="flex items-center justify-between gap-4">
-                        <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">VIP title tooling</p>
-                            <h2 class="mt-1 font-display text-2xl font-bold text-zinc-950">Setup maps, gamepass, dan API key dari dashboard</h2>
-                            <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-                                Biar admin tidak perlu lagi ngatur token dan snippet Roblox secara manual, buka panel VIP Title untuk generate config siap pakai per map.
-                            </p>
-                        </div>
-                        <a href="{{ route('vip-title.setup') }}" class="rounded-2xl bg-zinc-950 px-4 py-3 text-sm font-semibold text-white">
-                            Buka VIP Title Setup
-                        </a>
-                    </div>
-                </article>
-
-                <article class="rounded-[1.75rem] border border-zinc-200 bg-white p-5 shadow-sm">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">Community race desk</p>
-                            <h2 class="mt-1 font-display text-2xl font-bold text-zinc-950">Race events</h2>
-                        </div>
-                        <span class="rounded-full bg-[#eef6ff] px-3 py-1 text-xs font-semibold text-[#215caa]">Discord admin flow</span>
-                    </div>
-
-                    <div class="mt-5 space-y-3">
-                        @foreach ($races as $race)
-                            <div class="rounded-[1.35rem] border border-zinc-200 p-4">
-                                <div class="flex flex-wrap items-center justify-between gap-3">
-                                    <div>
-                                        <h3 class="font-semibold text-zinc-950">#{{ $race->id }} {{ $race->title }}</h3>
-                                        <p class="mt-1 text-sm text-zinc-500">
-                                            {{ $race->participants_count }}/{{ $race->max_players }} player • Entry {{ $race->entry_fee_robux }} R$
-                                        </p>
-                                    </div>
-                                    <span class="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700">
-                                        {{ str_replace('_', ' ', ucfirst($race->status)) }}
-                                    </span>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                </article>
-
-                <article class="rounded-[1.75rem] border border-zinc-200 bg-white p-5 shadow-sm">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">Game status</p>
-                            <h2 class="mt-1 font-display text-2xl font-bold text-zinc-950">Tracked experiences</h2>
-                        </div>
-                        <span class="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700">Sync overview</span>
-                    </div>
-
-                    <div class="mt-5 grid gap-4">
-                        @foreach ($games as $game)
-                            @php
-                                $statusClasses = match ($game->status) {
-                                    'healthy' => 'bg-emerald-100 text-emerald-700',
-                                    'monitoring' => 'bg-amber-100 text-amber-700',
-                                    'degraded' => 'bg-rose-100 text-rose-700',
-                                    default => 'bg-zinc-100 text-zinc-700',
-                                };
-                            @endphp
-                            <div class="rounded-[1.5rem] border border-zinc-200 p-4">
-                                <div class="flex flex-wrap items-center justify-between gap-3">
-                                    <div>
-                                        <h3 class="text-lg font-semibold text-zinc-950">{{ $game->name }}</h3>
-                                        <p class="mt-1 text-sm text-zinc-500">
-                                            Universe {{ $game->universe_id }} • Place {{ $game->place_id }}
-                                        </p>
-                                    </div>
-                                    <span class="rounded-full px-3 py-1 text-xs font-semibold {{ $statusClasses }}">
-                                        {{ ucfirst($game->status) }}
-                                    </span>
-                                </div>
-                                <p class="mt-3 text-sm text-zinc-600">
-                                    Last sync {{ optional($game->last_synced_at)->diffForHumans() ?? 'belum ada sync' }}
-                                </p>
-                            </div>
-                        @endforeach
-                    </div>
-                </article>
-
-                <article class="rounded-[1.75rem] border border-zinc-200 bg-white p-5 shadow-sm">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">Incident feed</p>
-                            <h2 class="mt-1 font-display text-2xl font-bold text-zinc-950">Alerts and automation</h2>
-                        </div>
-                        <span class="rounded-full bg-[#fff1e8] px-3 py-1 text-xs font-semibold text-[#a64b13]">Discord ready</span>
-                    </div>
-
-                    <div class="mt-5 space-y-4">
-                        @foreach ($alerts as $alert)
-                            @php
-                                $severityClasses = match ($alert->severity) {
-                                    'critical' => 'border-rose-200 bg-rose-50',
-                                    'warning' => 'border-amber-200 bg-amber-50',
-                                    default => 'border-sky-200 bg-sky-50',
-                                };
-                            @endphp
-                            <div class="rounded-[1.5rem] border p-4 {{ $severityClasses }}">
-                                <div class="flex flex-wrap items-center justify-between gap-3">
-                                    <div>
-                                        <h3 class="font-semibold text-zinc-950">{{ $alert->title }}</h3>
-                                        <p class="mt-1 text-sm text-zinc-600">{{ $alert->message }}</p>
-                                    </div>
-                                    <div class="text-right text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-                                        <div>{{ $alert->source }}</div>
-                                        <div class="mt-1">{{ $alert->status }}</div>
-                                    </div>
-                                </div>
-                                <p class="mt-3 text-xs font-medium text-zinc-500">
-                                    {{ optional($alert->occurred_at)->diffForHumans() ?? 'waiting for event' }}
-                                </p>
-                            </div>
-                        @endforeach
-                    </div>
-                </article>
-            </div>
-
-            <div class="space-y-6">
-                <article class="rounded-[1.75rem] border border-zinc-200 bg-white p-5 shadow-sm">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">Discord webhooks</p>
-                            <h2 class="mt-1 font-display text-2xl font-bold text-zinc-950">Channel delivery health</h2>
-                        </div>
-                        <span class="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700">3 feeds</span>
-                    </div>
-
-                    <div class="mt-5 space-y-3">
-                        @foreach ($webhooks as $webhook)
-                            <div class="rounded-[1.35rem] border border-zinc-200 p-4">
-                                <div class="flex items-center justify-between gap-3">
-                                    <div>
-                                        <h3 class="font-semibold text-zinc-950">{{ $webhook->name }}</h3>
-                                        <p class="mt-1 text-sm text-zinc-500">{{ $webhook->channel_name }}</p>
-                                    </div>
-                                    <span class="rounded-full px-3 py-1 text-xs font-semibold {{ $webhook->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100 text-zinc-600' }}">
-                                        {{ $webhook->is_active ? 'Active' : 'Paused' }}
-                                    </span>
-                                </div>
-                                <p class="mt-3 text-sm text-zinc-600">
-                                    Last delivery {{ optional($webhook->last_delivered_at)->diffForHumans() ?? 'belum pernah kirim' }}
-                                </p>
-                            </div>
-                        @endforeach
-                    </div>
-                </article>
-
-                <article class="rounded-[1.75rem] border border-zinc-200 bg-white p-5 shadow-sm">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">Moderation queue</p>
-                            <h2 class="mt-1 font-display text-2xl font-bold text-zinc-950">Player and bug reports</h2>
-                        </div>
-                        <span class="rounded-full bg-[#eef6ff] px-3 py-1 text-xs font-semibold text-[#215caa]">Admin panel seed</span>
-                    </div>
-
-                    <div class="mt-5 space-y-3">
-                        @foreach ($reports as $report)
-                            <div class="rounded-[1.35rem] border border-zinc-200 p-4">
-                                <div class="flex flex-wrap items-center justify-between gap-3">
-                                    <div>
-                                        <h3 class="font-semibold text-zinc-950">{{ $report->category }} • {{ $report->reported_player_name }}</h3>
-                                        <p class="mt-1 text-sm text-zinc-500">Reporter: {{ $report->reporter_name }}</p>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700">{{ ucfirst($report->priority) }}</span>
-                                        <span class="rounded-full bg-[#fff5e8] px-3 py-1 text-xs font-semibold text-[#a64b13]">{{ ucfirst($report->status) }}</span>
-                                    </div>
-                                </div>
-                                <p class="mt-3 text-sm leading-6 text-zinc-600">{{ $report->summary }}</p>
-                            </div>
-                        @endforeach
-                    </div>
-                </article>
-            </div>
-        </section>
+        </div>
     </div>
 </x-layouts::app>
