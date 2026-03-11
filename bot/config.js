@@ -1,4 +1,12 @@
-import 'dotenv/config';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import dotenv from 'dotenv';
+
+const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = path.resolve(MODULE_DIR, '..');
+
+dotenv.config({ path: path.join(PROJECT_ROOT, '.env') });
+dotenv.config({ path: path.join(MODULE_DIR, '.env'), override: false });
 
 function requireEnv(name) {
   const value = process.env[name];

@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   ActionRowBuilder,
   AttachmentBuilder,
@@ -15,7 +16,9 @@ import {
 const TITLE_PANEL_BUTTON_ID = 'title_claim_open';
 const TITLE_SCRIPT_BUTTON_ID = 'title_claim_script';
 const TITLE_CLAIM_MODAL_ID = 'title_claim_modal';
-const CLAIMS_PATH = path.resolve(process.cwd(), 'data', 'vip-title-claims.json');
+const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = path.resolve(MODULE_DIR, '..');
+const CLAIMS_PATH = path.join(PROJECT_ROOT, 'data', 'vip-title-claims.json');
 const RESERVED_TERMS = ['admin', 'administrator', 'dev', 'developer', 'owner', 'mod', 'moderator', 'staff'];
 const PROFANITY_TERMS = ['anjing', 'babi', 'bangsat', 'kontol', 'memek', 'ngentot', 'goblok', 'tolol', 'jancok', 'fuck', 'bitch'];
 const USER_LOOKUP_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -265,10 +268,10 @@ function buildClaimSuccessEmbed(username, title) {
 
 function getRobloxAttachmentPaths() {
   return [
-    path.resolve(process.cwd(), 'roblox', 'MX_VIPTitleClaim.lua'),
-    path.resolve(process.cwd(), 'roblox', 'MX_Main_VIPClaim_PATCH.lua'),
-    path.resolve(process.cwd(), 'roblox', 'MX_Main_FINAL_SAFE.lua'),
-    path.resolve(process.cwd(), 'roblox', 'VIP_TITLE_CLAIM_SETUP.md'),
+    path.join(PROJECT_ROOT, 'roblox', 'MX_VIPTitleClaim.lua'),
+    path.join(PROJECT_ROOT, 'roblox', 'MX_Main_VIPClaim_PATCH.lua'),
+    path.join(PROJECT_ROOT, 'roblox', 'MX_Main_FINAL_SAFE.lua'),
+    path.join(PROJECT_ROOT, 'roblox', 'VIP_TITLE_CLAIM_SETUP.md'),
   ];
 }
 
@@ -357,16 +360,22 @@ export async function handleTitileButton(interaction, config) {
     }
 
     const attachments = [];
+    const missingFiles = [];
     for (const filePath of getRobloxAttachmentPaths()) {
       try {
         const content = await readFile(filePath);
         attachments.push(new AttachmentBuilder(content, { name: path.basename(filePath) }));
-      } catch {}
+      } catch {
+        missingFiles.push(path.basename(filePath));
+      }
     }
 
     await interaction.reply({
       embeds: [buildScriptEmbed()],
       files: attachments,
+      content: attachments.length === 0
+        ? `File Roblox tidak ketemu di server. Cek folder \`roblox/\`. Missing: ${missingFiles.join(', ') || 'semua file'}`
+        : undefined,
       ephemeral: true,
     });
     return true;
