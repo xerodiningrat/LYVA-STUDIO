@@ -68,21 +68,19 @@ class DiscordAuthController extends Controller
             ->throw()
             ->json();
 
-        $user = User::query()->firstOrCreate(
+        $displayName = $discordUser['global_name'] ?: $discordUser['username'];
+
+        $user = User::query()->updateOrCreate(
             ['discord_user_id' => (string) $discordUser['id']],
             [
+                'name' => $displayName,
                 'email' => sprintf('%s@discord.lyva.local', $discordUser['id']),
-                'password' => Str::password(32),
+                'password' => bcrypt(Str::random(40)),
+                'discord_username' => $discordUser['username'],
+                'discord_avatar' => $discordUser['avatar'] ?? null,
                 'email_verified_at' => now(),
             ],
         );
-
-        $user->forceFill([
-            'name' => $discordUser['global_name'] ?: $discordUser['username'],
-            'discord_username' => $discordUser['username'],
-            'discord_avatar' => $discordUser['avatar'] ?? null,
-            'email_verified_at' => $user->email_verified_at ?: now(),
-        ])->save();
 
         Auth::login($user, true);
 
