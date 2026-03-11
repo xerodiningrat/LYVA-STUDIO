@@ -13,9 +13,9 @@
             .ops-sidebar-shell {
                 position: relative;
                 background:
-                    radial-gradient(circle at top left, rgba(104, 240, 255, 0.08), transparent 26%),
-                    radial-gradient(circle at bottom right, rgba(139, 148, 255, 0.12), transparent 28%),
-                    linear-gradient(180deg, rgba(4, 10, 24, 0.98), rgba(2, 7, 18, 0.98));
+                    radial-gradient(circle at top left, rgba(104, 240, 255, 0.12), transparent 24%),
+                    radial-gradient(circle at 82% 18%, rgba(84, 115, 255, 0.16), transparent 24%),
+                    linear-gradient(180deg, #040b1b 0%, #020816 100%);
                 color: #eef4ff;
             }
 
@@ -27,17 +27,38 @@
                     linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
                 background-size: 64px 64px;
-                opacity: 0.08;
+                opacity: 0.05;
+                pointer-events: none;
+            }
+
+            .ops-sidebar-shell::after {
+                content: "";
+                position: absolute;
+                inset: 1rem auto 1rem 0;
+                width: 1px;
+                background: linear-gradient(180deg, transparent, rgba(104, 240, 255, 0.2), transparent);
+                opacity: 0.7;
                 pointer-events: none;
             }
 
             .ops-sidebar-panel,
             .ops-sidebar-footer {
                 position: relative;
-                border: 1px solid rgba(104, 240, 255, 0.1);
-                background: rgba(8, 16, 34, 0.5);
-                box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
-                backdrop-filter: blur(12px);
+                overflow: hidden;
+                border: 1px solid rgba(114, 143, 255, 0.12);
+                background: linear-gradient(180deg, rgba(8, 17, 38, 0.72), rgba(5, 12, 28, 0.56));
+                box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+                backdrop-filter: blur(16px);
+            }
+
+            .ops-sidebar-panel::before,
+            .ops-sidebar-footer::before {
+                content: "";
+                position: absolute;
+                inset: 0 0 auto;
+                height: 1px;
+                background: linear-gradient(90deg, transparent, rgba(104, 240, 255, 0.34), transparent);
+                opacity: 0.7;
             }
 
             .ops-sidebar-header {
@@ -46,17 +67,16 @@
             }
 
             .ops-sidebar-guild {
-                margin-top: 0.85rem;
-                border-radius: 1rem;
+                margin-top: 0.9rem;
+                border-radius: 1.4rem;
                 border: 1px solid rgba(104, 240, 255, 0.12);
-                background: rgba(255, 255, 255, 0.025);
-                padding: 0.85rem;
+                background:
+                    linear-gradient(180deg, rgba(12, 26, 56, 0.88), rgba(7, 15, 31, 0.82));
+                padding: 1rem;
+                box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
             }
 
             .ops-sidebar-eyebrow,
-            .ops-sidebar-meta,
-            .ops-sidebar-mini,
-            .ops-sidebar-link-note,
             .ops-sidebar-block-title {
                 font-family: "JetBrains Mono", ui-monospace, monospace;
                 text-transform: uppercase;
@@ -68,10 +88,10 @@
                 align-items: center;
                 gap: 0.45rem;
                 border-radius: 999px;
-                border: 1px solid rgba(104, 240, 255, 0.14);
-                background: rgba(255, 255, 255, 0.03);
-                padding: 0.38rem 0.62rem;
-                font-size: 0.58rem;
+                border: 1px solid rgba(104, 240, 255, 0.18);
+                background: rgba(104, 240, 255, 0.08);
+                padding: 0.4rem 0.68rem;
+                font-size: 0.56rem;
                 font-weight: 700;
                 color: #68f0ff;
             }
@@ -87,81 +107,103 @@
 
             .ops-sidebar-guild strong {
                 display: block;
-                margin-top: 0.65rem;
-                font-size: 0.92rem;
-                line-height: 1.3;
+                margin-top: 0.8rem;
+                font-family: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif;
+                font-size: 1.08rem;
+                line-height: 1.15;
+                letter-spacing: 0.03em;
                 color: #f4f8ff;
             }
 
             .ops-sidebar-meta {
-                margin-top: 0.28rem;
-                font-size: 0.58rem;
+                margin-top: 0.42rem;
+                font-family: "JetBrains Mono", ui-monospace, monospace;
+                font-size: 0.62rem;
                 font-weight: 700;
+                letter-spacing: 0.12em;
                 color: #8ea4cb;
             }
 
             .ops-sidebar-mini {
                 display: inline-flex;
-                margin-top: 0.6rem;
+                margin-top: 0.85rem;
                 border-radius: 999px;
-                background: rgba(118, 255, 184, 0.12);
-                color: #76ffb8;
-                padding: 0.32rem 0.55rem;
-                font-size: 0.54rem;
+                background: linear-gradient(135deg, rgba(21, 87, 74, 0.82), rgba(18, 68, 55, 0.72));
+                color: #8fffd1;
+                padding: 0.38rem 0.72rem;
+                font-family: "JetBrains Mono", ui-monospace, monospace;
+                font-size: 0.56rem;
                 font-weight: 700;
+                letter-spacing: 0.12em;
             }
 
             .ops-sidebar-block-title {
-                margin: 0 0 0.6rem;
+                margin: 0 0 0.75rem;
                 font-size: 0.66rem;
                 font-weight: 700;
-                color: #8ea4cb;
+                color: #92a7cc;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-brand] {
-                border-radius: 0.95rem;
-                padding-inline: 0.8rem;
-                min-height: 2.9rem;
-                background: rgba(255, 255, 255, 0.03);
-                border: 1px solid rgba(104, 240, 255, 0.08);
+                border-radius: 1.1rem;
+                padding-inline: 0.9rem;
+                min-height: 3.4rem;
+                background: linear-gradient(180deg, rgba(11, 22, 46, 0.92), rgba(8, 18, 39, 0.72));
+                border: 1px solid rgba(114, 143, 255, 0.12);
+                box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
             }
 
             .ops-sidebar-shell [data-flux-sidebar-brand] > div:last-child {
                 font-family: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif;
-                font-size: 0.88rem;
+                font-size: 0.96rem;
                 font-weight: 700;
-                letter-spacing: 0.03em;
+                letter-spacing: 0.05em;
                 text-transform: uppercase;
                 color: #f4f8ff;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-group] {
-                gap: 0.25rem !important;
+                gap: 0.42rem !important;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-item] {
+                position: relative;
                 min-height: auto !important;
                 align-items: center !important;
-                gap: 0.65rem !important;
-                border-radius: 0.9rem !important;
-                padding: 0.62rem 0.72rem !important;
+                gap: 0.78rem !important;
+                border-radius: 1rem !important;
+                padding: 0.72rem 0.82rem !important;
                 white-space: normal !important;
-                border: 1px solid transparent !important;
+                border: 1px solid rgba(255, 255, 255, 0.02) !important;
+                background: rgba(255, 255, 255, 0.02) !important;
                 transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-item]:hover {
                 transform: translateY(-1px);
-                border-color: rgba(104, 240, 255, 0.14) !important;
-                background: rgba(255, 255, 255, 0.04) !important;
+                border-color: rgba(104, 240, 255, 0.1) !important;
+                background: rgba(255, 255, 255, 0.05) !important;
+                box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+            }
+
+            .ops-sidebar-shell [data-flux-sidebar-item] > div:first-child {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 2rem;
+                height: 2rem;
+                border-radius: 0.78rem;
+                background: linear-gradient(180deg, rgba(14, 30, 62, 0.95), rgba(10, 19, 40, 0.82));
+                border: 1px solid rgba(117, 141, 212, 0.16);
+                box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
             }
 
             .ops-sidebar-shell [data-flux-sidebar-item] [data-flux-icon] {
                 flex-shrink: 0;
-                width: 0.95rem;
-                height: 0.95rem;
+                width: 0.9rem;
+                height: 0.9rem;
                 margin-top: 0;
-                color: #87a2cd;
+                color: #9cb5dc;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-item] [data-content] {
@@ -169,29 +211,37 @@
                 flex: 1 1 auto;
                 overflow: visible !important;
                 white-space: normal !important;
-                font-size: 0.92rem;
-                font-weight: 600;
-                line-height: 1.15;
+                font-size: 0.97rem;
+                font-weight: 700;
+                line-height: 1.1;
                 color: #edf4ff;
             }
 
             .ops-sidebar-link-note {
                 display: block;
-                margin-top: 0.18rem;
-                font-size: 0.5rem;
-                line-height: 1.35;
-                letter-spacing: 0.12em;
+                margin-top: 0.24rem;
+                font-family: "Instrument Sans", ui-sans-serif, sans-serif;
+                font-size: 0.7rem;
+                font-weight: 500;
+                line-height: 1.25;
+                letter-spacing: 0.01em;
+                text-transform: none;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
-                color: #6f86a9;
+                color: #7f93b9;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-item][data-current] {
-                border-color: rgba(104, 240, 255, 0.2) !important;
-                background: linear-gradient(135deg, rgba(104, 240, 255, 0.14), rgba(111, 134, 255, 0.1)) !important;
+                border-color: rgba(104, 240, 255, 0.24) !important;
+                background: linear-gradient(135deg, rgba(38, 74, 127, 0.72), rgba(17, 34, 64, 0.88)) !important;
                 color: #f4f8ff !important;
-                box-shadow: inset 0 0 0 1px rgba(104, 240, 255, 0.08), 0 8px 18px rgba(0, 0, 0, 0.16);
+                box-shadow: inset 0 0 0 1px rgba(104, 240, 255, 0.08), 0 14px 30px rgba(0, 0, 0, 0.2);
+            }
+
+            .ops-sidebar-shell [data-flux-sidebar-item][data-current] > div:first-child {
+                background: linear-gradient(180deg, rgba(104, 240, 255, 0.22), rgba(82, 129, 255, 0.18));
+                border-color: rgba(104, 240, 255, 0.22);
             }
 
             .ops-sidebar-shell [data-flux-sidebar-item][data-current] [data-flux-icon],
@@ -200,30 +250,55 @@
                 color: #f4f8ff !important;
             }
 
+            .ops-sidebar-shell [data-flux-sidebar-profile] {
+                margin-top: 0.85rem;
+                border-radius: 1.15rem;
+                border: 1px solid rgba(114, 143, 255, 0.12);
+                background: linear-gradient(180deg, rgba(10, 20, 42, 0.9), rgba(7, 15, 30, 0.84));
+                padding: 0.45rem 0.5rem;
+                box-shadow: 0 14px 30px rgba(0, 0, 0, 0.16);
+            }
+
+            .ops-sidebar-shell [data-flux-sidebar-profile] span {
+                font-family: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif;
+                font-size: 0.88rem;
+                font-weight: 600;
+                letter-spacing: 0.02em;
+                color: #edf4ff !important;
+            }
+
+            .ops-sidebar-shell [data-flux-sidebar-profile] [data-flux-icon] {
+                color: #8ea4cb !important;
+            }
+
             @media (max-width: 768px) {
                 .ops-sidebar-shell {
-                    width: min(19.5rem, 88vw);
+                    width: min(20.5rem, 90vw);
                 }
 
                 .ops-sidebar-panel,
                 .ops-sidebar-footer {
-                    border-radius: 1.2rem !important;
-                    padding: 0.75rem !important;
+                    border-radius: 1.3rem !important;
+                    padding: 0.8rem !important;
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-item] {
-                    padding: 0.58rem 0.68rem !important;
+                    padding: 0.68rem 0.76rem !important;
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-item] [data-content] {
-                    font-size: 0.88rem;
+                    font-size: 0.93rem;
+                }
+
+                .ops-sidebar-link-note {
+                    font-size: 0.68rem;
                 }
             }
         </style>
 
         <flux:sidebar sticky collapsible="mobile" class="ops-sidebar-shell border-e border-[rgba(104,240,255,0.1)]">
             <flux:sidebar.header>
-                <div class="ops-sidebar-header w-full space-y-3">
+                <div class="ops-sidebar-header w-full space-y-4">
                     <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
                     <div class="ops-sidebar-guild">
                         <span class="ops-sidebar-eyebrow">Ops surface</span>
@@ -236,45 +311,45 @@
             </flux:sidebar.header>
 
             <flux:sidebar.nav>
-                <div class="ops-sidebar-panel w-full rounded-[1.4rem] p-3">
+                <div class="ops-sidebar-panel w-full rounded-[1.6rem] p-3">
                     <p class="ops-sidebar-block-title">Platform</p>
                     <flux:sidebar.group class="grid gap-1">
                         <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                             {{ __('Dashboard') }}
-                            <span class="ops-sidebar-link-note">Control center utama</span>
+                            <span class="ops-sidebar-link-note">Control room utama</span>
                         </flux:sidebar.item>
                         <flux:sidebar.item icon="server-stack" :href="route('guilds.select')" :current="request()->routeIs('guilds.select*')" wire:navigate>
                             {{ __('Pilih Server') }}
-                            <span class="ops-sidebar-link-note">Scope panel per guild</span>
+                            <span class="ops-sidebar-link-note">Pilih workspace server aktif</span>
                         </flux:sidebar.item>
                         <flux:sidebar.item icon="cog-6-tooth" :href="route('discord.setup')" :current="request()->routeIs('discord.setup')" wire:navigate>
                             {{ __('Discord Setup') }}
-                            <span class="ops-sidebar-link-note">Webhook, OAuth, command sync</span>
+                            <span class="ops-sidebar-link-note">Webhook, OAuth, dan command</span>
                         </flux:sidebar.item>
                         <flux:sidebar.item icon="sparkles" :href="route('vip-title.setup')" :current="request()->routeIs('vip-title.setup*')" wire:navigate>
                             {{ __('VIP Title Setup') }}
-                            <span class="ops-sidebar-link-note">Map key, API key, gamepass</span>
+                            <span class="ops-sidebar-link-note">Kunci map, API, dan gamepass</span>
                         </flux:sidebar.item>
                         <flux:sidebar.item icon="code-bracket-square" :href="route('roblox.scripts.index')" :current="request()->routeIs('roblox.scripts.*')" wire:navigate>
                             {{ __('Roblox Scripts') }}
-                            <span class="ops-sidebar-link-note">File siap tempel ke game</span>
+                            <span class="ops-sidebar-link-note">Snippet siap pakai di game</span>
                         </flux:sidebar.item>
                     </flux:sidebar.group>
                 </div>
             </flux:sidebar.nav>
 
-            <flux:spacer />
+            <flux:spacer class="hidden lg:block" />
 
             <flux:sidebar.nav>
-                <div class="ops-sidebar-footer w-full rounded-[1.35rem] p-3">
+                <div class="ops-sidebar-footer w-full rounded-[1.5rem] p-3">
                     <p class="ops-sidebar-block-title">Shortcuts</p>
                     <flux:sidebar.item icon="home" :href="route('home')">
                         {{ __('Landing Page') }}
-                        <span class="ops-sidebar-link-note">Kembali ke halaman utama</span>
+                        <span class="ops-sidebar-link-note">Balik ke halaman utama</span>
                     </flux:sidebar.item>
                     <flux:sidebar.item icon="book-open-text" href="https://create.roblox.com/docs" target="_blank">
                         {{ __('Roblox Docs') }}
-                        <span class="ops-sidebar-link-note">Referensi resmi Roblox</span>
+                        <span class="ops-sidebar-link-note">Dokumentasi resmi Roblox</span>
                     </flux:sidebar.item>
                 </div>
             </flux:sidebar.nav>
