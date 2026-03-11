@@ -26,8 +26,8 @@
                 background-image:
                     linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-                background-size: 44px 44px;
-                opacity: 0.16;
+                background-size: 64px 64px;
+                opacity: 0.08;
                 pointer-events: none;
             }
 
@@ -35,22 +35,22 @@
             .ops-sidebar-footer {
                 position: relative;
                 border: 1px solid rgba(104, 240, 255, 0.1);
-                background: rgba(8, 16, 34, 0.72);
-                box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
-                backdrop-filter: blur(16px);
+                background: rgba(8, 16, 34, 0.5);
+                box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
+                backdrop-filter: blur(12px);
             }
 
             .ops-sidebar-header {
                 position: relative;
-                padding-top: 0.2rem;
+                padding-top: 0;
             }
 
             .ops-sidebar-guild {
-                margin-top: 1rem;
-                border-radius: 1.25rem;
+                margin-top: 0.85rem;
+                border-radius: 1rem;
                 border: 1px solid rgba(104, 240, 255, 0.12);
-                background: rgba(255, 255, 255, 0.04);
-                padding: 0.95rem;
+                background: rgba(255, 255, 255, 0.025);
+                padding: 0.85rem;
             }
 
             .ops-sidebar-eyebrow,
@@ -66,12 +66,12 @@
             .ops-sidebar-eyebrow {
                 display: inline-flex;
                 align-items: center;
-                gap: 0.55rem;
+                gap: 0.45rem;
                 border-radius: 999px;
                 border: 1px solid rgba(104, 240, 255, 0.14);
-                background: rgba(255, 255, 255, 0.04);
-                padding: 0.45rem 0.7rem;
-                font-size: 0.64rem;
+                background: rgba(255, 255, 255, 0.03);
+                padding: 0.38rem 0.62rem;
+                font-size: 0.58rem;
                 font-weight: 700;
                 color: #68f0ff;
             }
@@ -87,79 +87,81 @@
 
             .ops-sidebar-guild strong {
                 display: block;
-                margin-top: 0.8rem;
-                font-size: 1rem;
+                margin-top: 0.65rem;
+                font-size: 0.92rem;
+                line-height: 1.3;
                 color: #f4f8ff;
             }
 
             .ops-sidebar-meta {
-                margin-top: 0.35rem;
-                font-size: 0.62rem;
+                margin-top: 0.28rem;
+                font-size: 0.58rem;
                 font-weight: 700;
                 color: #8ea4cb;
             }
 
             .ops-sidebar-mini {
                 display: inline-flex;
-                margin-top: 0.7rem;
+                margin-top: 0.6rem;
                 border-radius: 999px;
                 background: rgba(118, 255, 184, 0.12);
                 color: #76ffb8;
-                padding: 0.36rem 0.6rem;
-                font-size: 0.58rem;
+                padding: 0.32rem 0.55rem;
+                font-size: 0.54rem;
                 font-weight: 700;
             }
 
             .ops-sidebar-block-title {
-                margin: 0 0 0.8rem;
-                font-size: 0.74rem;
+                margin: 0 0 0.6rem;
+                font-size: 0.66rem;
                 font-weight: 700;
                 color: #8ea4cb;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-brand] {
-                border-radius: 1.1rem;
-                padding-inline: 0.85rem;
-                min-height: 3.25rem;
+                border-radius: 0.95rem;
+                padding-inline: 0.8rem;
+                min-height: 2.9rem;
                 background: rgba(255, 255, 255, 0.03);
                 border: 1px solid rgba(104, 240, 255, 0.08);
             }
 
             .ops-sidebar-shell [data-flux-sidebar-brand] > div:last-child {
                 font-family: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif;
-                font-size: 0.98rem;
+                font-size: 0.88rem;
                 font-weight: 700;
-                letter-spacing: 0.04em;
+                letter-spacing: 0.03em;
                 text-transform: uppercase;
                 color: #f4f8ff;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-group] {
-                gap: 0.45rem !important;
+                gap: 0.25rem !important;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-item] {
                 min-height: auto !important;
-                align-items: flex-start !important;
-                gap: 0.8rem !important;
-                border-radius: 1rem !important;
-                padding: 0.9rem 0.95rem !important;
+                align-items: center !important;
+                gap: 0.65rem !important;
+                border-radius: 0.9rem !important;
+                padding: 0.62rem 0.72rem !important;
                 white-space: normal !important;
+                border: 1px solid transparent !important;
                 transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-item]:hover {
-                transform: translateY(-2px);
-                border-color: rgba(104, 240, 255, 0.18) !important;
-                background: rgba(255, 255, 255, 0.05) !important;
+                transform: translateY(-1px);
+                border-color: rgba(104, 240, 255, 0.14) !important;
+                background: rgba(255, 255, 255, 0.04) !important;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-item] [data-flux-icon] {
                 flex-shrink: 0;
-                width: 1rem;
-                height: 1rem;
-                margin-top: 0.12rem;
-                color: #9cb4db;
+                width: 0.95rem;
+                height: 0.95rem;
+                margin-top: 0;
+                color: #87a2cd;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-item] [data-content] {
@@ -167,27 +169,29 @@
                 flex: 1 1 auto;
                 overflow: visible !important;
                 white-space: normal !important;
-                font-size: 1rem;
+                font-size: 0.92rem;
                 font-weight: 600;
-                line-height: 1.2;
+                line-height: 1.15;
                 color: #edf4ff;
             }
 
             .ops-sidebar-link-note {
                 display: block;
-                margin-top: 0.32rem;
-                font-size: 0.58rem;
-                line-height: 1.45;
-                letter-spacing: 0.16em;
-                white-space: normal;
+                margin-top: 0.18rem;
+                font-size: 0.5rem;
+                line-height: 1.35;
+                letter-spacing: 0.12em;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
                 color: #6f86a9;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-item][data-current] {
-                border-color: rgba(104, 240, 255, 0.28) !important;
-                background: linear-gradient(135deg, rgba(104, 240, 255, 0.18), rgba(111, 134, 255, 0.14)) !important;
+                border-color: rgba(104, 240, 255, 0.2) !important;
+                background: linear-gradient(135deg, rgba(104, 240, 255, 0.14), rgba(111, 134, 255, 0.1)) !important;
                 color: #f4f8ff !important;
-                box-shadow: inset 0 0 0 1px rgba(104, 240, 255, 0.14), 0 10px 22px rgba(0, 0, 0, 0.22);
+                box-shadow: inset 0 0 0 1px rgba(104, 240, 255, 0.08), 0 8px 18px rgba(0, 0, 0, 0.16);
             }
 
             .ops-sidebar-shell [data-flux-sidebar-item][data-current] [data-flux-icon],
@@ -195,11 +199,31 @@
             .ops-sidebar-shell [data-flux-sidebar-item][data-current] [data-content] {
                 color: #f4f8ff !important;
             }
+
+            @media (max-width: 768px) {
+                .ops-sidebar-shell {
+                    width: min(19.5rem, 88vw);
+                }
+
+                .ops-sidebar-panel,
+                .ops-sidebar-footer {
+                    border-radius: 1.2rem !important;
+                    padding: 0.75rem !important;
+                }
+
+                .ops-sidebar-shell [data-flux-sidebar-item] {
+                    padding: 0.58rem 0.68rem !important;
+                }
+
+                .ops-sidebar-shell [data-flux-sidebar-item] [data-content] {
+                    font-size: 0.88rem;
+                }
+            }
         </style>
 
         <flux:sidebar sticky collapsible="mobile" class="ops-sidebar-shell border-e border-[rgba(104,240,255,0.1)]">
             <flux:sidebar.header>
-                <div class="ops-sidebar-header w-full space-y-4">
+                <div class="ops-sidebar-header w-full space-y-3">
                     <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
                     <div class="ops-sidebar-guild">
                         <span class="ops-sidebar-eyebrow">Ops surface</span>
@@ -212,7 +236,7 @@
             </flux:sidebar.header>
 
             <flux:sidebar.nav>
-                <div class="ops-sidebar-panel w-full rounded-[1.6rem] p-3">
+                <div class="ops-sidebar-panel w-full rounded-[1.4rem] p-3">
                     <p class="ops-sidebar-block-title">Platform</p>
                     <flux:sidebar.group class="grid gap-1">
                         <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
@@ -242,7 +266,7 @@
             <flux:spacer />
 
             <flux:sidebar.nav>
-                <div class="ops-sidebar-footer w-full rounded-[1.5rem] p-3">
+                <div class="ops-sidebar-footer w-full rounded-[1.35rem] p-3">
                     <p class="ops-sidebar-block-title">Shortcuts</p>
                     <flux:sidebar.item icon="home" :href="route('home')">
                         {{ __('Landing Page') }}
