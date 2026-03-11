@@ -284,6 +284,15 @@ function normalizeMapKey(value) {
     .replace(/[^a-z0-9_-]/g, '');
 }
 
+function truncateText(value, maxLength) {
+  const text = String(value || '').trim();
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
 function resolveMapConfig(config, rawMapKey) {
   const mapKey = normalizeMapKey(rawMapKey);
   const maps = config?.vipTitleMaps || {};
@@ -328,9 +337,24 @@ export async function handleTitileCommand(interaction, config) {
     const response = await fetchLaravelVipTitleClaims(config, { limit: 10 }).catch(() => null);
     const rows = (response?.items || [])
       .reverse()
-      .map((claim, index) => `${index + 1}. [${claim.map_key}] @${claim.roblox_username} -> ${claim.requested_title} [${claim.status}]`);
+      .map((claim, index) => {
+        const mapKey = truncateText(claim.map_key, 24);
+        const username = truncateText(claim.roblox_username, 24);
+        const title = truncateText(claim.requested_title, 28);
+        const status = truncateText(claim.status, 16);
+        return `${index + 1}. [${mapKey}] @${username} -> ${title} [${status}]`;
+      });
 
-    await interaction.reply({ content: rows.join('\n') || 'Belum ada claim title tersimpan.', ephemeral: true });
+    await interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0xf97316)
+          .setTitle('Daftar VIP Title Claim')
+          .setDescription(rows.join('\n') || 'Belum ada claim title tersimpan.')
+          .setFooter({ text: `Total ditampilkan: ${rows.length}` }),
+      ],
+      ephemeral: true,
+    });
   }
 }
 
