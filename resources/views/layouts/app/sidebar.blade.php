@@ -117,18 +117,83 @@
                 color: #8ea4cb;
             }
 
+            .ops-sidebar-shell [data-flux-sidebar-brand] {
+                border-radius: 1.1rem;
+                padding-inline: 0.85rem;
+                min-height: 3.25rem;
+                background: rgba(255, 255, 255, 0.03);
+                border: 1px solid rgba(104, 240, 255, 0.08);
+            }
+
+            .ops-sidebar-shell [data-flux-sidebar-brand] > div:last-child {
+                font-family: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif;
+                font-size: 0.98rem;
+                font-weight: 700;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+                color: #f4f8ff;
+            }
+
+            .ops-sidebar-shell [data-flux-sidebar-group] {
+                gap: 0.45rem !important;
+            }
+
+            .ops-sidebar-shell [data-flux-sidebar-item] {
+                min-height: auto !important;
+                align-items: flex-start !important;
+                gap: 0.8rem !important;
+                border-radius: 1rem !important;
+                padding: 0.9rem 0.95rem !important;
+                white-space: normal !important;
+                transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+            }
+
+            .ops-sidebar-shell [data-flux-sidebar-item]:hover {
+                transform: translateY(-2px);
+                border-color: rgba(104, 240, 255, 0.18) !important;
+                background: rgba(255, 255, 255, 0.05) !important;
+            }
+
+            .ops-sidebar-shell [data-flux-sidebar-item] [data-flux-icon] {
+                flex-shrink: 0;
+                width: 1rem;
+                height: 1rem;
+                margin-top: 0.12rem;
+                color: #9cb4db;
+            }
+
+            .ops-sidebar-shell [data-flux-sidebar-item] [data-content] {
+                display: block !important;
+                flex: 1 1 auto;
+                overflow: visible !important;
+                white-space: normal !important;
+                font-size: 1rem;
+                font-weight: 600;
+                line-height: 1.2;
+                color: #edf4ff;
+            }
+
             .ops-sidebar-link-note {
                 display: block;
-                margin-top: 0.2rem;
-                font-size: 0.56rem;
+                margin-top: 0.32rem;
+                font-size: 0.58rem;
+                line-height: 1.45;
+                letter-spacing: 0.16em;
+                white-space: normal;
                 color: #6f86a9;
             }
 
-            .ops-sidebar-shell [data-current="true"] {
+            .ops-sidebar-shell [data-flux-sidebar-item][data-current] {
                 border-color: rgba(104, 240, 255, 0.28) !important;
                 background: linear-gradient(135deg, rgba(104, 240, 255, 0.18), rgba(111, 134, 255, 0.14)) !important;
                 color: #f4f8ff !important;
-                box-shadow: inset 0 0 0 1px rgba(104, 240, 255, 0.14);
+                box-shadow: inset 0 0 0 1px rgba(104, 240, 255, 0.14), 0 10px 22px rgba(0, 0, 0, 0.22);
+            }
+
+            .ops-sidebar-shell [data-flux-sidebar-item][data-current] [data-flux-icon],
+            .ops-sidebar-shell [data-flux-sidebar-item][data-current] .ops-sidebar-link-note,
+            .ops-sidebar-shell [data-flux-sidebar-item][data-current] [data-content] {
+                color: #f4f8ff !important;
             }
         </style>
 
