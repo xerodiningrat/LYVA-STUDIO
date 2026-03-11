@@ -293,6 +293,10 @@ function truncateText(value, maxLength) {
   return `${text.slice(0, Math.max(0, maxLength - 3))}...`;
 }
 
+function truncateDiscordContent(value, maxLength = 1800) {
+  return truncateText(value, maxLength);
+}
+
 function resolveMapConfig(config, rawMapKey) {
   const mapKey = normalizeMapKey(rawMapKey);
   const maps = config?.vipTitleMaps || {};
@@ -470,7 +474,7 @@ export async function handleTitileModal(interaction, config) {
     robloxUser = await resolveRobloxUser(robloxUsername);
   } catch (error) {
     await interaction.editReply({
-      content: `Gagal cek username Roblox: ${error.message}`,
+      content: truncateDiscordContent(`Gagal cek username Roblox: ${error.message}`),
     });
     return true;
   }
@@ -492,7 +496,7 @@ export async function handleTitileModal(interaction, config) {
     }
   } catch (error) {
     await interaction.editReply({
-      content: `Gagal cek status VIP: ${error.message}`,
+      content: truncateDiscordContent(`Gagal cek status VIP: ${error.message}`),
     });
     return true;
   }
@@ -512,7 +516,7 @@ export async function handleTitileModal(interaction, config) {
     });
   } catch (error) {
     await interaction.editReply({
-      content: `Gagal simpan claim title: ${error.message}`,
+      content: truncateDiscordContent(`Gagal simpan claim title: ${error.message}`),
     });
     return true;
   }
