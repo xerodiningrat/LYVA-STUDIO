@@ -19,6 +19,10 @@
                 color: #eef4ff;
             }
 
+            .ops-sidebar-shell [data-flux-sidebar-nav] {
+                gap: 1rem;
+            }
+
             .ops-sidebar-shell::before {
                 content: "";
                 position: absolute;
@@ -49,6 +53,14 @@
                 background: linear-gradient(180deg, rgba(8, 17, 38, 0.72), rgba(5, 12, 28, 0.56));
                 box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
                 backdrop-filter: blur(16px);
+            }
+
+            .ops-sidebar-panel {
+                padding: 0.95rem;
+            }
+
+            .ops-sidebar-footer {
+                padding: 0.9rem;
             }
 
             .ops-sidebar-panel::before,
@@ -138,7 +150,7 @@
             }
 
             .ops-sidebar-block-title {
-                margin: 0 0 0.75rem;
+                margin: 0 0 0.9rem;
                 font-size: 0.66rem;
                 font-weight: 700;
                 color: #92a7cc;
@@ -163,7 +175,12 @@
             }
 
             .ops-sidebar-shell [data-flux-sidebar-group] {
-                gap: 0.42rem !important;
+                display: block !important;
+                gap: 0 !important;
+            }
+
+            .ops-sidebar-shell [data-flux-sidebar-group] > * + * {
+                margin-top: 0.62rem;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-item] {
@@ -172,7 +189,7 @@
                 align-items: center !important;
                 gap: 0.78rem !important;
                 border-radius: 1rem !important;
-                padding: 0.72rem 0.82rem !important;
+                padding: 0.85rem 0.92rem !important;
                 white-space: normal !important;
                 border: 1px solid rgba(255, 255, 255, 0.02) !important;
                 background: rgba(255, 255, 255, 0.02) !important;
@@ -213,22 +230,20 @@
                 white-space: normal !important;
                 font-size: 0.97rem;
                 font-weight: 700;
-                line-height: 1.1;
+                line-height: 1.15;
                 color: #edf4ff;
             }
 
             .ops-sidebar-link-note {
                 display: block;
-                margin-top: 0.24rem;
+                margin-top: 0.3rem;
                 font-family: "Instrument Sans", ui-sans-serif, sans-serif;
                 font-size: 0.7rem;
                 font-weight: 500;
-                line-height: 1.25;
+                line-height: 1.35;
                 letter-spacing: 0.01em;
                 text-transform: none;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                white-space: normal;
                 color: #7f93b9;
             }
 
@@ -251,11 +266,11 @@
             }
 
             .ops-sidebar-shell [data-flux-sidebar-profile] {
-                margin-top: 0.85rem;
+                margin-top: 1rem;
                 border-radius: 1.15rem;
                 border: 1px solid rgba(114, 143, 255, 0.12);
                 background: linear-gradient(180deg, rgba(10, 20, 42, 0.9), rgba(7, 15, 30, 0.84));
-                padding: 0.45rem 0.5rem;
+                padding: 0.55rem 0.62rem;
                 box-shadow: 0 14px 30px rgba(0, 0, 0, 0.16);
             }
 
@@ -276,14 +291,18 @@
                     width: min(20.5rem, 90vw);
                 }
 
+                .ops-sidebar-shell [data-flux-sidebar-nav] {
+                    gap: 0.9rem;
+                }
+
                 .ops-sidebar-panel,
                 .ops-sidebar-footer {
                     border-radius: 1.3rem !important;
-                    padding: 0.8rem !important;
+                    padding: 0.95rem !important;
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-item] {
-                    padding: 0.68rem 0.76rem !important;
+                    padding: 0.82rem 0.88rem !important;
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-item] [data-content] {
