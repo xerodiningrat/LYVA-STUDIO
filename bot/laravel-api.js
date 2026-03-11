@@ -357,7 +357,8 @@ async function readLaravelErrorMessage(response, fallback) {
     // Ignore invalid JSON and fall back to the raw body.
   }
 
-  return raw ? `${fallback} ${response.status} ${raw}` : `${fallback} ${response.status}`;
+  const combined = raw ? `${fallback} ${response.status} ${raw}` : `${fallback} ${response.status}`;
+  return combined.length > 1000 ? `${combined.slice(0, 997)}...` : combined;
 }
 
 async function requestLaravel(url, options, action) {

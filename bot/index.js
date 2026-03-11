@@ -54,6 +54,15 @@ const MAX_PURGE_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 const clientIntents = [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates];
 const persistentVoiceSessions = new Map();
 
+function truncateForDiscordContent(value, maxLength = 1800) {
+  const text = String(value || '').trim();
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
 if (config.enableMessageContentIntent) {
   clientIntents.push(GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent);
 }
@@ -186,7 +195,7 @@ client.on('interactionCreate', async (interaction) => {
     console.error(error);
 
     const payload = {
-      content: `Perintah gagal dijalankan: ${error.message}`,
+      content: truncateForDiscordContent(`Perintah gagal dijalankan: ${error.message}`),
       ephemeral: true,
     };
 
