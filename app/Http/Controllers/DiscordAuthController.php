@@ -116,6 +116,14 @@ class DiscordAuthController extends Controller
                 ->all();
         }
 
+        $botGuildIds = $this->fetchBotGuildIds();
+
+        if ($botGuildIds !== []) {
+            $knownGuildIds = $knownGuildIds === []
+                ? $botGuildIds
+                : array_values(array_intersect($knownGuildIds, $botGuildIds));
+        }
+
         return collect($guilds)
             ->filter(function (array $guild) use ($knownGuildIds) {
                 $permissions = (int) ($guild['permissions'] ?? 0);
@@ -145,6 +153,34 @@ class DiscordAuthController extends Controller
             })
             ->values()
             ->all();
+    }
+
+    private function fetchBotGuildIds(): array
+    {
+        $token = (string) env('DISCORD_BOT_TOKEN', env('DISCORD_TOKEN', ''));
+
+        if ($token === '') {
+            return [];
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bot '.$token,
+            ])->get('https://discord.com/api/users/@me/guilds');
+
+            if (! $response->successful()) {
+                return [];
+            }
+
+            return collect($response->json())
+                ->pluck('id')
+                ->map(fn ($id) => (string) $id)
+                ->filter()
+                ->values()
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     private function redirectUri(): string
