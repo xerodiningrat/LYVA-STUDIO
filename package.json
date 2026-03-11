@@ -1,0 +1,30 @@
+{
+    "$schema": "https://www.schemastore.org/package.json",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "bot:start": "node ./bot/index.js",
+        "bot:dev": "node --watch --watch-path=./bot --watch-preserve-output ./bot/index.js",
+        "bot:register": "node ./bot/deploy-commands.js",
+        "build": "vite build",
+        "dev": "vite",
+        "dev:all": "concurrently -c \"#93c5fd,#fdba74,#34d399\" \"php artisan serve\" \"npm run dev\" \"npm run bot:dev\" --names=\"laravel,vite,bot\""
+    },
+    "dependencies": {
+        "@napi-rs/canvas": "^0.1.96",
+        "@tailwindcss/vite": "^4.1.11",
+        "autoprefixer": "^10.4.20",
+        "axios": "^1.7.4",
+        "concurrently": "^9.0.1",
+        "discord.js": "^14.25.1",
+        "dotenv": "^17.3.1",
+        "laravel-vite-plugin": "^2.0",
+        "tailwindcss": "^4.0.7",
+        "vite": "^7.0.4"
+    },
+    "optionalDependencies": {
+        "@rollup/rollup-linux-x64-gnu": "4.9.5",
+        "@tailwindcss/oxide-linux-x64-gnu": "^4.0.1",
+        "lightningcss-linux-x64-gnu": "^1.29.1"
+    }
+}

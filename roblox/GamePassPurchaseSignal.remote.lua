@@ -1,0 +1,2 @@
+-- Buat RemoteEvent di ReplicatedStorage dengan nama:
+-- GamePassPurchaseSignal

@@ -1,0 +1,23 @@
+{
+  "claims": [
+    {
+      "id": "1773217970482",
+      "robloxUsername": "fenzane25",
+      "title": "GENG",
+      "discordUserId": "1109326658793640037",
+      "discordTag": "fenzane",
+      "createdAt": "2026-03-11T08:32:50.482Z",
+      "status": "pending"
+    },
+    {
+      "id": "1773218844908",
+      "robloxUserId": 9006398922,
+      "robloxUsername": "fenzane25",
+      "title": "dfsdsfs",
+      "discordUserId": "1109326658793640037",
+      "discordTag": "fenzane",
+      "createdAt": "2026-03-11T08:47:24.909Z",
+      "status": "pending"
+    }
+  ]
+}
