@@ -12,6 +12,8 @@
         <style>
             .ops-sidebar-shell {
                 position: relative;
+                padding-top: 1rem !important;
+                padding-bottom: 1.1rem !important;
                 background:
                     radial-gradient(circle at top left, rgba(104, 240, 255, 0.12), transparent 24%),
                     radial-gradient(circle at 82% 18%, rgba(84, 115, 255, 0.16), transparent 24%),
@@ -21,6 +23,14 @@
 
             .ops-sidebar-shell [data-flux-sidebar-nav] {
                 gap: 1rem;
+            }
+
+            .ops-sidebar-shell [data-flux-sidebar-header] + [data-flux-sidebar-nav] {
+                margin-top: 1rem;
+            }
+
+            .ops-sidebar-shell [data-flux-sidebar-nav] + [data-flux-sidebar-nav] {
+                margin-top: 1.15rem;
             }
 
             .ops-sidebar-shell::before {
@@ -75,7 +85,7 @@
 
             .ops-sidebar-header {
                 position: relative;
-                padding-top: 0;
+                padding-top: 0.2rem;
             }
 
             .ops-sidebar-guild {
@@ -292,13 +302,29 @@
                 color: #8ea4cb !important;
             }
 
+            .ops-sidebar-account {
+                margin-top: 1.35rem;
+                padding-top: 0.35rem;
+                border-top: 1px solid rgba(114, 143, 255, 0.1);
+            }
+
             @media (max-width: 768px) {
                 .ops-sidebar-shell {
                     width: min(20.5rem, 90vw);
+                    padding-top: 1.2rem !important;
+                    padding-bottom: 1.2rem !important;
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-nav] {
                     gap: 0.9rem;
+                }
+
+                .ops-sidebar-shell [data-flux-sidebar-header] + [data-flux-sidebar-nav] {
+                    margin-top: 1.1rem;
+                }
+
+                .ops-sidebar-shell [data-flux-sidebar-nav] + [data-flux-sidebar-nav] {
+                    margin-top: 1.2rem;
                 }
 
                 .ops-sidebar-panel,
@@ -318,6 +344,10 @@
 
                 .ops-sidebar-link-note {
                     font-size: 0.68rem;
+                }
+
+                .ops-sidebar-account {
+                    margin-top: 1.5rem;
                 }
             }
         </style>
@@ -380,7 +410,9 @@
                 </div>
             </flux:sidebar.nav>
 
-            <x-desktop-user-menu class="hidden lg:block" :name="$currentUser->name" />
+            <div class="ops-sidebar-account">
+                <x-desktop-user-menu class="hidden lg:block" :name="$currentUser->name" />
+            </div>
         </flux:sidebar>
 
         <flux:header class="lg:hidden">
