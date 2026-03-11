@@ -72,7 +72,7 @@
             <section class="hero">
                 <div class="hero-grid">
                     <div>
-                        <span class="kicker">Roblox script library</span>
+                        <span class="kicker">Roblox Script Library</span>
                         <h2>Script siap <span>tempel dan deploy</span></h2>
                         <p>Halaman ini sekarang dibuat seperti library operasional, jadi admin bisa langsung lihat daftar script, preview isi file, dan download versi yang sudah sinkron dengan backend Laravel tanpa ngerasa buka halaman mentah.</p>
                         <div class="stats-grid">

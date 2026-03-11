@@ -77,8 +77,8 @@
             <section class="hero">
                 <div class="hero-grid">
                     <div>
-                        <span class="hero-kicker">Discord setup</span>
-                        <h2>Command setup <span>siap deploy</span></h2>
+                        <span class="hero-kicker">Discord Command Setup</span>
+                        <h2>Discord command setup <span>siap deploy</span></h2>
                         <p>Satu tempat untuk invite bot, cek environment, copy endpoint Discord, dan jalankan command register tanpa perlu loncat-loncat panel. Halaman ini sekarang sengaja dibuat fokus ke action yang benar-benar dipakai saat setup bot.</p>
                         <div class="stats-grid">
                             <div class="metric">
@@ -181,7 +181,7 @@
                     <div class="panel-header">
                         <div>
                             <span class="label">Command set</span>
-                            <h3>Slash commands siap pakai</h3>
+                            <h3>Slash commands yang sudah disiapkan</h3>
                             <p>Snapshot fitur command yang sudah disiapkan bot untuk workspace ini.</p>
                         </div>
                         <span class="pill">Bot ready</span>

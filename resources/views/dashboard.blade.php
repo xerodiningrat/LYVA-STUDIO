@@ -1,224 +1,477 @@
 @php
-$title=__('Dashboard');$activeGuild=$managedGuild??null;$currentUser=auth()->user();$serverName=$activeGuild['name']??'Belum pilih server';$guildId=$activeGuild['id']??'-';
-$quickLinks=[
-['label'=>'Pilih Server','href'=>route('guilds.select'),'copy'=>'Ganti server Discord yang sedang kamu kelola dari panel ini.'],
-['label'=>'VIP Title Setup','href'=>route('vip-title.setup'),'copy'=>'Atur map key, gamepass, API key, dan snippet Roblox dari dashboard.'],
-['label'=>'Discord Setup','href'=>route('discord.setup'),'copy'=>'Rapikan command, webhook, dan koneksi bot per server.'],
-['label'=>'Roblox Scripts','href'=>route('roblox.scripts.index'),'copy'=>'Ambil file Roblox yang siap tempel dan sinkron dengan backend.'],
-];
-$statusCards=[
-['label'=>'Bot Routing','value'=>($stats[1]['value']??0)>0?'ONLINE':'IDLE','detail'=>($stats[1]['value']??0).' webhook aktif siap kirim alert.','progress'=>min(100,max(18,(($stats[1]['value']??0)*18)+22)),'tone'=>'cyan'],
-['label'=>'Issue Queue','value'=>($stats[2]['value']??0)>0?'MONITOR':'CLEAR','detail'=>($stats[2]['value']??0).' insiden terbuka masih perlu tindakan.','progress'=>min(100,max(20,(($stats[2]['value']??0)*16)+18)),'tone'=>'amber'],
-['label'=>'Reports Desk','value'=>($stats[3]['value']??0)>0?'ACTIVE':'QUIET','detail'=>($stats[3]['value']??0).' laporan player menunggu review.','progress'=>min(100,max(16,(($stats[3]['value']??0)*15)+20)),'tone'=>'emerald'],
-];
+    $title = __('Dashboard');
+    $activeGuild = $managedGuild ?? null;
+    $serverName = $activeGuild['name'] ?? 'Belum pilih server';
+    $guildId = $activeGuild['id'] ?? 'Guild belum dipilih';
+
+    $alertCount = (int) ($stats[2]['value'] ?? 0);
+    $reportCount = (int) ($stats[3]['value'] ?? 0);
+    $webhookCount = (int) ($stats[1]['value'] ?? 0);
+    $raceCount = (int) ($stats[4]['value'] ?? 0);
+    $activeWebhookCount = collect($webhooks)->where('is_active', true)->count();
+    $healthScore = max(52, min(98, 92 - ($alertCount * 6) - ($reportCount * 3) + ($activeWebhookCount * 2)));
+
+    $quickLinks = [
+        ['label' => 'Pilih Server', 'href' => route('guilds.select'), 'copy' => 'Pindah guild aktif dan scope modul.', 'tone' => 'cyan'],
+        ['label' => 'Discord Setup', 'href' => route('discord.setup'), 'copy' => 'Rapikan webhook, endpoint, dan sync bot.', 'tone' => 'violet'],
+        ['label' => 'VIP Title Setup', 'href' => route('vip-title.setup'), 'copy' => 'Kelola map key, gamepass, dan API key.', 'tone' => 'emerald'],
+        ['label' => 'Roblox Scripts', 'href' => route('roblox.scripts.index'), 'copy' => 'Ambil file siap tempel ke game.', 'tone' => 'amber'],
+    ];
+
+    $statusCards = [
+        ['label' => 'Bot routing', 'value' => $webhookCount > 0 ? 'Online' : 'Idle', 'copy' => $webhookCount.' webhook siap kirim event.', 'progress' => min(100, max(20, ($webhookCount * 18) + 28))],
+        ['label' => 'Alert pressure', 'value' => $alertCount > 0 ? 'Monitor' : 'Stable', 'copy' => $alertCount.' alert aktif perlu perhatian.', 'progress' => min(100, max(24, ($alertCount * 22) + 16))],
+        ['label' => 'Reports desk', 'value' => $reportCount > 0 ? 'Active' : 'Quiet', 'copy' => $reportCount.' report menunggu triage.', 'progress' => min(100, max(18, ($reportCount * 20) + 14))],
+    ];
+
+    $primaryAlert = collect($alerts)->first();
+    $primaryReport = collect($reports)->first();
 @endphp
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
-<head>
-@include('partials.head')
-<style>
-:root{color-scheme:dark;--panel:rgba(7,16,34,.82);--line:rgba(104,240,255,.12);--strong:rgba(104,240,255,.28);--text:#f3f7ff;--muted:#95a6c9;--cyan:#68f0ff;--emerald:#76ffb8;--violet:#8b94ff;--amber:#ffbf6f;--shadow:0 30px 90px rgba(0,0,0,.38);--soft:0 16px 40px rgba(0,0,0,.26);--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;--display:"Orbitron","Oxanium",ui-sans-serif,sans-serif}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 12% 8%,rgba(104,240,255,.1),transparent 24%),radial-gradient(circle at 84% 8%,rgba(139,148,255,.12),transparent 24%),linear-gradient(180deg,#020612 0%,#020815 100%);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,sans-serif}body:before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:44px 44px;opacity:.14;mask-image:linear-gradient(180deg,rgba(0,0,0,.9),transparent 96%)}a{text-decoration:none;color:inherit}.shell{display:grid;grid-template-columns:332px minmax(0,1fr);min-height:100vh}.sidebar{position:sticky;top:0;height:100vh;padding:1.25rem 1rem;border-right:1px solid rgba(104,240,255,.1);background:radial-gradient(circle at top left,rgba(104,240,255,.08),transparent 26%),radial-gradient(circle at bottom right,rgba(139,148,255,.12),transparent 28%),linear-gradient(180deg,rgba(4,10,24,.98),rgba(2,7,18,.98));overflow-y:auto}.main{padding:1.45rem 1.65rem}.stack,.list,.actions,.right,.left{display:grid;gap:1.5rem}.card,.hero,.panel,.brand,.navcard,.usercard,.shortcut{border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);position:relative;overflow:hidden}.brand,.navcard,.usercard,.shortcut,.card,.panel,.hero{border-radius:1.6rem}.brand,.navcard,.usercard,.shortcut{padding:1rem}.hero,.panel{padding:1.4rem}.hero{min-height:540px;background:radial-gradient(circle at top right,rgba(104,240,255,.14),transparent 24%),radial-gradient(circle at bottom left,rgba(139,148,255,.16),transparent 28%),linear-gradient(135deg,rgba(7,18,40,.95),rgba(5,12,26,.96))}.card:after,.panel:after,.hero:after,.brand:after,.navcard:after,.usercard:after,.shortcut:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at top right,rgba(104,240,255,.16),transparent 34%);pointer-events:none}.brandhead{display:flex;gap:.9rem;align-items:center}.mark{width:3rem;height:3rem;display:grid;place-items:center;border-radius:1rem;background:linear-gradient(135deg,var(--cyan),var(--emerald));color:#04111e;font:800 .9rem/1 var(--display);letter-spacing:.12em;text-transform:uppercase}.brand h1,.title,.panel h2,.spotlight h3{margin:0;font-family:var(--display);text-transform:uppercase;letter-spacing:.08em}.brand p,.copy,.muted,.panel p,.card p{color:var(--muted);line-height:1.8}.guildbox{margin-top:1rem;border-radius:1.25rem;border:1px solid rgba(104,240,255,.12);background:linear-gradient(135deg,rgba(255,255,255,.05),rgba(255,255,255,.02));padding:1rem}.guildbox strong{display:block;margin-top:.8rem;font-size:1rem}.guildmeta{margin-top:.35rem;color:var(--muted);font-size:.7rem;font-weight:700}.kicker,.chip,.block,.statlabel,.listlabel,.navnote{font-family:var(--mono);letter-spacing:.16em;text-transform:uppercase}.kicker{display:inline-flex;align-items:center;gap:.55rem;border-radius:999px;border:1px solid rgba(104,240,255,.14);background:rgba(255,255,255,.04);padding:.45rem .7rem;font-size:.64rem;font-weight:700;color:var(--cyan)}.kicker:before{content:"";width:.46rem;height:.46rem;border-radius:999px;background:var(--emerald);box-shadow:0 0 14px rgba(118,255,184,.9)}.chip{display:inline-flex;margin-top:.7rem;border-radius:999px;background:rgba(118,255,184,.12);color:var(--emerald);padding:.36rem .6rem;font-size:.58rem;font-weight:700}.block{margin:0 0 .8rem;font-size:.72rem;font-weight:700;color:var(--muted)}.navlist{display:grid;gap:.55rem}.navlink{display:block;border-radius:1rem;border:1px solid rgba(104,240,255,.08);background:rgba(255,255,255,.02);padding:.92rem 1rem;transition:.2s transform,.2s border-color,.2s background,.2s box-shadow}.navlink:hover,.navlink.active{transform:translateY(-3px);border-color:rgba(104,240,255,.26);background:linear-gradient(135deg,rgba(104,240,255,.14),rgba(111,134,255,.12));box-shadow:var(--soft)}.navlink strong{display:block;font-size:1rem}.navnote{display:block;margin-top:.34rem;color:#6f86a9;font-size:.56rem}.logout{margin-top:.9rem;width:100%;border:0;border-radius:1rem;background:linear-gradient(135deg,rgba(104,240,255,.14),rgba(111,134,255,.12));color:var(--text);padding:.86rem 1rem;font-weight:700;cursor:pointer}.mobiletop{display:none}.heroGrid,.grid,.stats,.status,.orbitgrid{display:grid;gap:1.2rem}.heroGrid{grid-template-columns:minmax(0,1.06fr) minmax(360px,.94fr);align-items:stretch;min-height:420px;margin-top:1rem}.grid{grid-template-columns:minmax(0,1.15fr) minmax(360px,.9fr)}.stats{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}.status{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}.orbitgrid{grid-template-columns:repeat(2,minmax(0,1fr))}.title{font-size:clamp(2.8rem,5.5vw,5.2rem);line-height:.9}.title span{display:block;background:linear-gradient(90deg,var(--cyan),#a1eeff,var(--emerald));-webkit-background-clip:text;background-clip:text;color:transparent}.copy{margin:1rem 0 0;max-width:46rem;font-size:1rem}.meta{display:flex;flex-wrap:wrap;gap:.8rem;margin-top:1.35rem}.meta .chip{margin-top:0;background:rgba(255,255,255,.04);color:#d7e6ff}.spotlight{display:grid;gap:1rem;align-content:start;background:linear-gradient(180deg,rgba(8,20,42,.98),rgba(6,14,31,.95));border-radius:2rem;padding:1.4rem;border:1px solid var(--line);box-shadow:var(--shadow)}.spothead{display:flex;justify-content:space-between;gap:1rem;align-items:start}.spotlight h3{font-size:1.55rem}.pill,.badge{border-radius:999px;padding:.46rem .72rem;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}.pill{border:1px solid rgba(104,240,255,.16);background:rgba(255,255,255,.05);color:#dfe9ff}.focus{display:grid;gap:1rem;border-radius:1.55rem;padding:1rem;border:1px solid rgba(104,240,255,.12);background:linear-gradient(145deg,rgba(255,255,255,.05),rgba(255,255,255,.02))}.focustop{display:flex;justify-content:space-between;gap:1rem;align-items:center}.core{display:grid;grid-template-columns:96px minmax(0,1fr);gap:1rem;align-items:center}.orbit{position:relative;width:96px;height:96px;border-radius:999px;border:1px solid rgba(104,240,255,.2);background:radial-gradient(circle at center,rgba(104,240,255,.22),rgba(104,240,255,.04) 42%,transparent 43%);box-shadow:inset 0 0 30px rgba(104,240,255,.12)}.orbit:before,.orbit:after{content:"";position:absolute;border-radius:999px;inset:10px;border:1px solid rgba(118,255,184,.16)}.orbit:after{inset:28px;border-color:rgba(139,148,255,.18)}.orbitdot{position:absolute;top:12px;right:16px;width:12px;height:12px;border-radius:999px;background:var(--emerald);box-shadow:0 0 18px rgba(118,255,184,.9)}.servername{font-family:var(--display);font-size:1.26rem;letter-spacing:.06em;text-transform:uppercase}.serverid{margin-top:.45rem;color:var(--muted);font:700 .74rem/1.8 var(--mono);letter-spacing:.08em}.serverstrip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem}.serverstat{border-radius:1.2rem;padding:.95rem;border:1px solid rgba(104,240,255,.08);background:rgba(255,255,255,.03)}.serverstat span{display:block;color:var(--muted);font:700 .62rem/1 var(--mono);text-transform:uppercase;letter-spacing:.14em}.serverstat strong{display:block;margin-top:.55rem;font-size:1rem}.actions{grid-template-columns:repeat(2,minmax(0,1fr));align-content:start}.card{min-height:152px;display:flex;flex-direction:column;justify-content:space-between;padding:1rem;transition:.2s transform,.2s border-color,.2s box-shadow}.card:hover{transform:translateY(-4px) scale(1.01);border-color:var(--strong);box-shadow:0 20px 48px rgba(0,0,0,.36)}.card:before{content:"Open";align-self:flex-start;border-radius:999px;border:1px solid rgba(104,240,255,.14);padding:.38rem .62rem;color:var(--cyan);font:700 .62rem/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;background:rgba(255,255,255,.03)}.metric{min-height:190px;background:linear-gradient(180deg,rgba(10,20,42,.92),rgba(5,13,28,.92));padding:1rem}.statlabel,.panelkick,.listlabel{font-size:.68rem;color:var(--muted);font-weight:700}.statvalue,.statusvalue{font-family:var(--display);letter-spacing:.07em}.statvalue{margin-top:.75rem;font-size:2.35rem;line-height:1}.statcopy{margin-top:.55rem;font-size:.82rem;color:var(--muted);line-height:1.8}.panelhead,.statusTop,.listhead,.guildrow{display:flex;justify-content:space-between;gap:1rem;align-items:start}.panelhead{margin-bottom:1rem}.panel h2{margin:.2rem 0 0;font-size:1.42rem}.panelcopy{margin:.65rem 0 0;font-size:.88rem;color:var(--muted);line-height:1.8}.panelkick{display:block;color:var(--cyan)}.statuscard{min-height:210px;padding:1rem}.statusvalue{margin-top:.7rem;font-size:1.9rem}.statusdetail{margin-top:.5rem;font-size:.8rem;color:var(--muted);line-height:1.8}.progress{margin-top:.85rem;height:.42rem;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden}.progress span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--cyan),var(--emerald));box-shadow:0 0 18px rgba(104,240,255,.35)}.listitem{min-height:154px;padding:1rem}.listitem p{margin:.55rem 0 0;font-size:.84rem;color:var(--muted)}.badge.cyan{background:rgba(104,240,255,.12);color:var(--cyan)}.badge.emerald{background:rgba(118,255,184,.12);color:var(--emerald)}.badge.violet{background:rgba(139,148,255,.14);color:#bcc2ff}.badge.amber{background:rgba(255,191,111,.14);color:var(--amber)}.badge.zinc{background:rgba(255,255,255,.08);color:#dbe3f4}.listlabel{margin-top:.7rem;display:inline-block;color:#adc2e8}.guildrows{display:grid;gap:.85rem}.guildrow{padding:.95rem 1rem;border-radius:1rem;background:rgba(255,255,255,.04);color:var(--muted);font-size:.83rem}.guildrow strong{color:var(--text)}.mini{min-height:160px;padding:1rem;background:linear-gradient(180deg,rgba(10,20,42,.92),rgba(5,13,28,.92));border:1px solid var(--line);border-radius:1.45rem;box-shadow:var(--shadow);position:relative;overflow:hidden}.mini:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at top right,rgba(104,240,255,.16),transparent 34%);pointer-events:none}.mini p{margin:.55rem 0 0;color:var(--muted);line-height:1.8}.mini h3{margin:.15rem 0 0;font-size:1rem}.mini .panelkick{margin-bottom:.35rem}@media (max-width:1100px){.shell,.heroGrid,.grid{grid-template-columns:1fr}.sidebar{display:none}.mobiletop{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem}.actions,.orbitgrid,.serverstrip{grid-template-columns:1fr}.hero{min-height:auto}.core{grid-template-columns:1fr}.orbit{margin:0 auto}}@media (max-width:720px){.main{padding:1rem}.stats,.status{grid-template-columns:1fr}.hero,.panel,.spotlight{border-radius:1.5rem;padding:1rem}}
-</style>
-</head>
-<body>
-<div class="shell">
-<aside class="sidebar">
-    <div class="brand">
-        <div class="brandhead">
-            <div class="mark">LY</div>
-            <div>
-                <h1 class="brandtitle">LYVA Studio</h1>
-                <p class="brandcopy">Control center Discord + Roblox untuk tim yang mau panel admin terasa seperti produk.</p>
-            </div>
-        </div>
-        <div class="guildbox">
-            <span class="kicker">Ops surface</span>
-            <strong>{{ $serverName }}</strong>
-            <div class="guildmeta">{{ $guildId }}</div>
-            <span class="chip">{{ $activeGuild ? 'Scoped dashboard' : 'Global mode' }}</span>
-        </div>
-    </div>
-    <div class="stack">
-        <section class="navcard">
-            <p class="block">Platform</p>
-            <div class="navlist">
-                <a href="{{ route('dashboard') }}" class="navlink active"><strong>Dashboard</strong><span class="navnote">Control center utama</span></a>
-                <a href="{{ route('guilds.select') }}" class="navlink"><strong>Pilih Server</strong><span class="navnote">Scope panel per guild</span></a>
-                <a href="{{ route('discord.setup') }}" class="navlink"><strong>Discord Setup</strong><span class="navnote">Webhook, OAuth, command sync</span></a>
-                <a href="{{ route('vip-title.setup') }}" class="navlink"><strong>VIP Title Setup</strong><span class="navnote">Map key, API key, gamepass</span></a>
-                <a href="{{ route('roblox.scripts.index') }}" class="navlink"><strong>Roblox Scripts</strong><span class="navnote">File siap tempel ke game</span></a>
-            </div>
-        </section>
-        <section class="shortcut">
-            <p class="block">Shortcuts</p>
-            <div class="navlist">
-                <a href="{{ route('home') }}" class="navlink"><strong>Landing Page</strong><span class="navnote">Kembali ke halaman utama</span></a>
-                <a href="https://create.roblox.com/docs" target="_blank" class="navlink"><strong>Roblox Docs</strong><span class="navnote">Referensi resmi Roblox</span></a>
-            </div>
-        </section>
-        <section class="usercard">
-            <p class="block">Session</p>
-            <strong>{{ $currentUser->name }}</strong>
-            <p>{{ $currentUser->email }}</p>
-            @if ($activeGuild)<p>Managing: {{ $activeGuild['name'] }}</p>@endif
-            <form method="POST" action="{{ route('logout') }}">@csrf<button type="submit" class="logout">Log out</button></form>
-        </section>
-    </div>
-</aside>
-<main class="main">
-    <div class="mobiletop">
-        <div><strong>{{ $serverName }}</strong><div class="muted" style="margin-top:.25rem;font-size:.82rem;">{{ $guildId }}</div></div>
-        <a href="{{ route('guilds.select') }}" class="pill">Ganti server</a>
-    </div>
-    <div class="stack">
+
+<x-layouts::app :title="$title">
+    <style>
+        @import url('https://fonts.bunny.net/css?family=space-grotesk:500,700|jetbrains-mono:400,600,700');
+
+        .dash {
+            --bg: rgba(8, 20, 39, 0.84);
+            --bg2: rgba(10, 24, 46, 0.94);
+            --line: rgba(123, 223, 255, 0.14);
+            --line2: rgba(123, 223, 255, 0.3);
+            --text: #eef6ff;
+            --muted: #8ea6c8;
+            --cyan: #7bdfff;
+            --violet: #9da7ff;
+            --emerald: #7ff7c4;
+            --amber: #ffca7b;
+            --rose: #ff8f9d;
+            position: relative;
+            overflow: hidden;
+            padding: 1rem;
+            color: var(--text);
+            font-family: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+        }
+
+        .dash::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0.11;
+            background-image:
+                linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+            background-size: 48px 48px;
+            mask-image: linear-gradient(180deg, rgba(0,0,0,.9), transparent 98%);
+        }
+
+        .dash .orb {
+            position: absolute;
+            border-radius: 999px;
+            filter: blur(18px);
+            pointer-events: none;
+        }
+
+        .dash .orb.a { top: -3rem; left: -2rem; width: 14rem; height: 14rem; background: radial-gradient(circle, rgba(123,223,255,.22), transparent 70%); }
+        .dash .orb.b { top: 9rem; right: -5rem; width: 18rem; height: 18rem; background: radial-gradient(circle, rgba(157,167,255,.2), transparent 70%); }
+
+        .dash .hero,
+        .dash .panel,
+        .dash .metric,
+        .dash .mini,
+        .dash .cta,
+        .dash .banner {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            background: linear-gradient(180deg, var(--bg), rgba(5,12,24,.94));
+            box-shadow: 0 28px 70px rgba(0,0,0,.3);
+            backdrop-filter: blur(18px);
+        }
+
+        .dash .hero::after,
+        .dash .panel::after,
+        .dash .metric::after,
+        .dash .mini::after,
+        .dash .cta::after,
+        .dash .banner::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(123,223,255,.18), transparent 34%),
+                radial-gradient(circle at top right, rgba(157,167,255,.08), transparent 28%);
+        }
+
+        .dash .banner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; padding: 1rem 1.1rem; border-radius: 1.6rem; background: linear-gradient(135deg, rgba(39,20,20,.74), rgba(16,19,35,.94)); }
+        .dash .hero { display: grid; grid-template-columns: minmax(0,1.25fr) minmax(320px,.9fr); gap: 1rem; padding: 1.2rem; border-radius: 2rem; background: radial-gradient(circle at top left, rgba(123,223,255,.14), transparent 32%), radial-gradient(circle at bottom right, rgba(157,167,255,.12), transparent 32%), linear-gradient(135deg, rgba(5,16,32,.98), rgba(6,16,31,.92)); }
+        .dash .panel, .dash .metric, .dash .mini { border-radius: 1.5rem; }
+        .dash .panel, .dash .metric, .dash .mini, .dash .cta { padding: 1rem; }
+        .dash .cta { border-radius: 1.2rem; text-decoration: none; transition: transform .18s ease, border-color .18s ease; }
+        .dash .cta:hover, .dash .metric:hover, .dash .mini:hover, .dash .item:hover { transform: translateY(-4px); border-color: var(--line2); }
+
+        .dash .kicker, .dash .chip, .dash .tag, .dash .meta, .dash .label, .dash .note, .dash .pill {
+            font-family: "JetBrains Mono", ui-monospace, monospace;
+            text-transform: uppercase;
+            letter-spacing: .14em;
+        }
+
+        .dash .kicker { display: inline-flex; align-items: center; gap: .55rem; border-radius: 999px; border: 1px solid rgba(123,223,255,.18); background: rgba(255,255,255,.04); padding: .48rem .82rem; color: var(--cyan); font-size: .68rem; font-weight: 700; }
+        .dash .kicker::before { content: ""; width: .5rem; height: .5rem; border-radius: 999px; background: var(--emerald); box-shadow: 0 0 16px rgba(127,247,196,.9); }
+        .dash h1, .dash h2, .dash h3 { margin: 0; font-family: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif; letter-spacing: -.03em; }
+        .dash h1 { margin-top: .95rem; max-width: 13ch; font-size: clamp(2.7rem, 5vw, 4.8rem); line-height: .92; }
+        .dash h1 span { display: block; background: linear-gradient(90deg, var(--cyan), #d9f7ff 52%, var(--emerald)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .dash p { margin: 0; color: var(--muted); line-height: 1.8; }
+        .dash .lead { margin-top: 1rem; max-width: 44rem; }
+        .dash .row, .dash .stats, .dash .grid, .dash .actions, .dash .twins, .dash .subgrid { display: grid; gap: 1rem; }
+        .dash .row { margin-top: 1.1rem; display: flex; flex-wrap: wrap; gap: .7rem; }
+        .dash .chip, .dash .tag, .dash .pill { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: .45rem .76rem; font-size: .66rem; font-weight: 700; }
+        .dash .chip { border: 1px solid rgba(123,223,255,.12); background: rgba(255,255,255,.04); color: #dcebff; }
+        .dash .stats { grid-template-columns: repeat(3, minmax(0,1fr)); margin-top: 1.2rem; }
+        .dash .label { font-size: .66rem; color: var(--muted); font-weight: 700; }
+        .dash .value { display: block; margin-top: .75rem; font-family: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif; font-size: 1.8rem; font-weight: 700; }
+        .dash .copy { margin-top: .45rem; font-size: .86rem; }
+        .dash .bar { margin-top: .85rem; height: .45rem; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.06); }
+        .dash .bar span { display: block; height: 100%; width: var(--fill, 0%); border-radius: inherit; background: linear-gradient(90deg, var(--cyan), var(--emerald)); box-shadow: 0 0 18px rgba(123,223,255,.35); animation: fill .9s ease both; transform-origin: left center; }
+        .dash .stack { display: grid; gap: 1rem; }
+        .dash .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+        .dash .button, .dash .ghost { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; border-radius: 999px; font-weight: 700; transition: transform .18s ease; }
+        .dash .button { padding: .75rem 1rem; color: #04111f; background: linear-gradient(135deg, rgba(123,223,255,.92), rgba(157,167,255,.88)); border: 1px solid rgba(123,223,255,.18); }
+        .dash .ghost { padding: .62rem .95rem; color: var(--text); background: rgba(255,255,255,.04); border: 1px solid rgba(123,223,255,.16); }
+        .dash .button:hover, .dash .ghost:hover { transform: translateY(-2px); }
+        .dash .server { display: grid; grid-template-columns: 5.4rem minmax(0,1fr); gap: 1rem; align-items: center; padding: 1rem; border-radius: 1.35rem; border: 1px solid rgba(123,223,255,.1); background: linear-gradient(145deg, rgba(255,255,255,.05), rgba(255,255,255,.02)); }
+        .dash .radar { position: relative; width: 5.4rem; height: 5.4rem; border-radius: 999px; border: 1px solid rgba(123,223,255,.18); background: radial-gradient(circle at center, rgba(123,223,255,.22), rgba(123,223,255,.05) 36%, transparent 37%), radial-gradient(circle at center, rgba(127,247,196,.12), transparent 65%); }
+        .dash .radar::before, .dash .radar::after { content: ""; position: absolute; border-radius: 999px; }
+        .dash .radar::before { inset: .7rem; border: 1px solid rgba(123,223,255,.14); }
+        .dash .radar::after { inset: 1.45rem; border: 1px solid rgba(157,167,255,.16); }
+        .dash .dot { position: absolute; top: .65rem; right: .8rem; width: .82rem; height: .82rem; border-radius: 999px; background: var(--emerald); box-shadow: 0 0 16px rgba(127,247,196,.92); animation: pulse 2.3s ease-in-out infinite; }
+        .dash .meta { margin-top: .45rem; font-size: .68rem; color: var(--muted); font-weight: 700; }
+        .dash .score { margin-top: .55rem; display: grid; gap: .3rem; }
+        .dash .score strong { font-family: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif; font-size: 2.2rem; line-height: 1; }
+        .dash .subgrid { grid-template-columns: repeat(3, minmax(0,1fr)); }
+        .dash .box { padding: .9rem; border-radius: 1.1rem; border: 1px solid rgba(123,223,255,.08); background: rgba(255,255,255,.03); }
+        .dash .actions { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        .dash .metrics { display: grid; gap: 1rem; grid-template-columns: repeat(5, minmax(0,1fr)); margin-top: 1.2rem; }
+        .dash .metric .value { font-size: clamp(2rem, 3vw, 2.5rem); line-height: 1; }
+        .dash .grid { grid-template-columns: repeat(2, minmax(0,1fr)); margin-top: 1.2rem; }
+        .dash .item { padding: 1rem; border-radius: 1.2rem; border: 1px solid rgba(123,223,255,.09); background: rgba(255,255,255,.035); transition: transform .18s ease, border-color .18s ease; }
+        .dash .itemtop { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+        .dash .listcopy { margin-top: .4rem; font-size: .88rem; }
+        .dash .note { display: inline-flex; margin-top: .72rem; font-size: .63rem; color: #abc2e7; font-weight: 700; }
+        .dash .tag { color: #f1f7ff; background: rgba(255,255,255,.08); }
+        .dash .tag.cyan { background: rgba(123,223,255,.12); color: var(--cyan); }
+        .dash .tag.violet { background: rgba(157,167,255,.16); color: #cad0ff; }
+        .dash .tag.emerald { background: rgba(127,247,196,.12); color: var(--emerald); }
+        .dash .tag.amber { background: rgba(255,202,123,.14); color: var(--amber); }
+        .dash .tag.rose { background: rgba(255,143,157,.14); color: var(--rose); }
+        .dash .twins { grid-template-columns: repeat(2, minmax(0,1fr)); margin-top: 1rem; }
+
+        @keyframes fill { from { transform: scaleX(.25); opacity: .45; } to { transform: scaleX(1); opacity: 1; } }
+        @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+        @media (max-width: 1180px) {
+            .dash .hero, .dash .grid { grid-template-columns: 1fr; }
+            .dash .metrics, .dash .stats, .dash .subgrid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        }
+
+        @media (max-width: 760px) {
+            .dash { padding: .7rem 0 1rem; }
+            .dash .banner, .dash .top, .dash .itemtop { flex-direction: column; }
+            .dash h1 { max-width: none; font-size: clamp(2.3rem, 14vw, 3.2rem); }
+            .dash .stats, .dash .actions, .dash .metrics, .dash .subgrid, .dash .twins { grid-template-columns: 1fr; }
+            .dash .server { grid-template-columns: 1fr; }
+            .dash .radar { margin: 0 auto; }
+        }
+    </style>
+
+    <div class="dash">
+        <div class="orb a"></div>
+        <div class="orb b"></div>
+
         @unless ($hasBotTables)
-        <section class="panel">
-            <div class="panelhead">
+            <section class="banner" data-glow-card>
                 <div>
-                    <span class="panelkick">Fallback Mode</span>
-                    <h2>Tabel bot masih pakai data contoh</h2>
-                    <p class="panelcopy">Jalankan <code>php artisan migrate</code> di VPS supaya panel ini membaca data operasional asli dari Discord, webhook, alerts, dan report queue.</p>
+                    <span class="kicker">Fallback mode</span>
+                    <p class="copy" style="margin-top:.55rem;">Dashboard masih menampilkan data contoh. Jalankan <code>php artisan migrate</code> supaya modul membaca data bot yang asli.</p>
                 </div>
-                <span class="pill">Migration needed</span>
-            </div>
-        </section>
+                <a href="{{ route('discord.setup') }}" class="ghost">Buka setup</a>
+            </section>
         @endunless
-        <section class="hero">
-            <span class="kicker">Discord Control Surface</span>
-            <div class="heroGrid">
-                <div>
-                    <h2 class="title">Dasbor<span>operasional server</span></h2>
-                    <p class="copy">Panel ini sekarang difokuskan buat jadi control room utama tim: status bot, alert operasional, webhook Discord, VIP title setup, dan surface kerja per server yang jauh lebih rapi dibanding dashboard lama.</p>
-                    <div class="meta">
-                        @if ($activeGuild)
-                        <span class="chip">Server aktif: {{ $serverName }}</span>
-                        <span class="chip">Guild ID {{ $guildId }}</span>
-                        @else
-                        <span class="chip">Belum pilih server aktif</span>
-                        @endif
-                        <span class="chip">{{ count($stats) }} modul dipantau</span>
-                        <span class="chip">Laravel + Discord sync</span>
+
+        <section class="hero" data-glow-card>
+            <div>
+                <span class="kicker">Roblox Discord Ops</span>
+                <h1>Control room yang <span>lebih rapi dan lebih fokus.</span></h1>
+                <p class="lead">Halaman ini saya susun ulang supaya kondisi server aktif, quick action, alert, dan report lebih gampang dipindai. Blok besar yang terasa kosong sekarang dipecah jadi panel kerja yang punya prioritas jelas.</p>
+
+                <div class="row">
+                    <span class="chip">Server aktif: {{ $serverName }}</span>
+                    <span class="chip">Guild ID: {{ $guildId }}</span>
+                    <span class="chip">{{ count($stats) }} modul dipantau</span>
+                    <span class="chip">{{ $activeWebhookCount }} webhook aktif</span>
+                </div>
+
+                <div class="stats">
+                    @foreach ($statusCards as $card)
+                        <article class="mini" data-glow-card>
+                            <span class="label">{{ $card['label'] }}</span>
+                            <strong class="value">{{ $card['value'] }}</strong>
+                            <p class="copy">{{ $card['copy'] }}</p>
+                            <div class="bar" style="--fill: {{ $card['progress'] }}%;">
+                                <span></span>
+                            </div>
+                        </article>
+                    @endforeach
+                </div>
+            </div>
+
+            <aside class="stack">
+                <div class="panel" data-glow-card>
+                    <div class="top">
+                        <div>
+                            <span class="label" style="color:var(--cyan)">Server spotlight</span>
+                            <h2 style="margin-top:.35rem;">Interactive command deck</h2>
+                            <p class="copy">Panel kanan sekarang jadi pusat konteks dan aksi cepat, bukan kartu besar yang terasa kosong.</p>
+                        </div>
+                        <a href="{{ route('guilds.select') }}" class="ghost">Ganti server</a>
+                    </div>
+
+                    <div class="server" style="margin-top:1rem;">
+                        <div class="radar"><span class="dot"></span></div>
+                        <div>
+                            <h3 style="font-size:1.35rem;">{{ $serverName }}</h3>
+                            <div class="meta">Guild ID &middot; {{ $guildId }}</div>
+                            <div class="score">
+                                <span class="label">Workspace health</span>
+                                <strong>{{ $healthScore }}</strong>
+                                <p class="copy">Skor ini diringkas dari webhook aktif, alert terbuka, dan antrean report yang masih berjalan.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="subgrid" style="margin-top:1rem;">
+                        <div class="box">
+                            <span class="label">Scope</span>
+                            <strong style="display:block;margin-top:.4rem;">{{ $activeGuild ? 'Locked' : 'Unset' }}</strong>
+                        </div>
+                        <div class="box">
+                            <span class="label">Alerts</span>
+                            <strong style="display:block;margin-top:.4rem;">{{ $alertCount }}</strong>
+                        </div>
+                        <div class="box">
+                            <span class="label">Reports</span>
+                            <strong style="display:block;margin-top:.4rem;">{{ $reportCount }}</strong>
+                        </div>
                     </div>
                 </div>
-                <section class="spotlight">
-                    <div class="spothead">
-                        <div>
-                            <span class="panelkick">Server spotlight</span>
-                            <h3>Interactive ops deck</h3>
-                            <p class="ops-command-copy">Panel kanan sekarang dibuat jadi pusat aksi cepat buat pindah server, buka setup, dan lihat identitas guild aktif tanpa terasa datar atau gepeng.</p>
-                        </div>
-                        <a href="{{ route('guilds.select') }}" class="pill">Ganti server</a>
-                    </div>
-                    <div class="focus">
-                        <div class="focustop">
-                            <span class="badge emerald">{{ $activeGuild ? 'Scoped dashboard' : 'Global mode' }}</span>
-                            <span class="badge violet">Ready</span>
-                        </div>
-                        <div class="core">
-                            <div class="orbit"><span class="orbitdot"></span></div>
-                            <div>
-                                <div class="servername">{{ $serverName }}</div>
-                                <div class="serverid">Guild ID · {{ $guildId }}</div>
-                            </div>
-                        </div>
-                        <div class="serverstrip">
-                            <div class="serverstat"><span>Scope</span><strong>{{ $activeGuild ? 'Locked' : 'Unset' }}</strong></div>
-                            <div class="serverstat"><span>Modules</span><strong>{{ count($stats) }}</strong></div>
-                            <div class="serverstat"><span>Status</span><strong>Synced</strong></div>
-                        </div>
-                    </div>
-                    <div class="actions">
-                        @foreach ($quickLinks as $link)
-                        <a href="{{ $link['href'] }}" class="card"><strong>{{ $link['label'] }}</strong><p>{{ $link['copy'] }}</p></a>
-                        @endforeach
-                    </div>
-                </section>
-            </div>
-        </section>
-        <div class="grid">
-            <div class="left">
-                <section class="stats">
-                    @foreach ($stats as $stat)
-                    <article class="metric"><span class="statlabel">{{ $stat['label'] }}</span><div class="statvalue">{{ str_pad((string) $stat['value'], 2, '0', STR_PAD_LEFT) }}</div><p class="statcopy">{{ $stat['hint'] }}</p></article>
+
+                <div class="actions">
+                    @foreach ($quickLinks as $link)
+                        <a href="{{ $link['href'] }}" class="cta" data-glow-card>
+                            <span class="tag {{ $link['tone'] }}">Open</span>
+                            <h3 style="margin-top:.8rem;font-size:1.02rem;">{{ $link['label'] }}</h3>
+                            <p class="copy">{{ $link['copy'] }}</p>
+                        </a>
                     @endforeach
-                </section>
-                <section class="panel">
-                    <div class="panelhead">
-                        <div><span class="panelkick">Status Grid</span><h2>Operational heartbeat</h2><p class="panelcopy">Ringkasan cepat buat tahu kondisi bot, queue, dan beban kerja tim tanpa perlu lompat ke halaman lain.</p></div>
-                        <span class="pill">Live summary</span>
+                </div>
+            </aside>
+        </section>
+
+        <section class="metrics">
+            @foreach ($stats as $stat)
+                <article class="metric" data-glow-card>
+                    <span class="label">{{ $stat['label'] === 'Tracked games' ? 'Tracked experiences' : $stat['label'] }}</span>
+                    <strong class="value">{{ str_pad((string) $stat['value'], 2, '0', STR_PAD_LEFT) }}</strong>
+                    <p class="copy">{{ $stat['hint'] }}</p>
+                </article>
+            @endforeach
+        </section>
+
+        <div class="grid">
+            <section class="panel" data-glow-card>
+                <div class="top" style="margin-bottom:1rem;">
+                    <div>
+                        <span class="label" style="color:var(--cyan)">Ops alerts</span>
+                        <h2 style="margin-top:.35rem;">Stream insiden yang paling butuh perhatian</h2>
+                        <p class="copy">Severity, status, dan waktu kejadian sekarang dipadatkan supaya bisa dibaca dalam sekali scan.</p>
                     </div>
-                    <div class="status">
-                        @foreach ($statusCards as $card)
-                        <article class="statuscard">
-                            <div class="statusTop"><span class="statlabel">{{ $card['label'] }}</span><span class="badge {{ $card['tone'] }}">{{ $card['tone'] }}</span></div>
-                            <div class="statusvalue">{{ $card['value'] }}</div>
-                            <p class="statusdetail">{{ $card['detail'] }}</p>
-                            <div class="progress"><span style="width: {{ $card['progress'] }}%;"></span></div>
-                        </article>
-                        @endforeach
-                    </div>
-                </section>
-                <section class="panel">
-                    <div class="panelhead">
-                        <div><span class="panelkick">Race Desk</span><h2>Community race events</h2><p class="panelcopy">Event balap komunitas yang lagi aktif, draft, atau masih buka registrasi untuk server yang kamu pilih.</p></div>
-                        <span class="pill">Discord admin flow</span>
-                    </div>
-                    <div class="list">
-                        @foreach ($races as $race)
-                        <article class="listitem">
-                            <div class="listhead">
-                                <div><h3>#{{ $race->id }} {{ $race->title }}</h3><p>{{ $race->participants_count }}/{{ $race->max_players }} player · Entry {{ $race->entry_fee_robux }} R$</p></div>
-                                <span class="badge cyan">{{ str_replace('_', ' ', ucfirst($race->status)) }}</span>
+                    <span class="tag {{ $alertCount > 0 ? 'rose' : 'emerald' }}">{{ $alertCount > 0 ? 'Need review' : 'Stable' }}</span>
+                </div>
+
+                @if ($primaryAlert)
+                    <article class="mini" data-glow-card style="margin-bottom:1rem;">
+                        <div class="itemtop">
+                            <div>
+                                <span class="label" style="color:var(--cyan)">Primary incident</span>
+                                <h3 style="margin-top:.45rem;font-size:1.15rem;">{{ $primaryAlert->title }}</h3>
+                                <p class="copy">{{ $primaryAlert->message }}</p>
                             </div>
-                            <span class="listlabel">Race queue</span>
-                        </article>
-                        @endforeach
-                    </div>
-                </section>
-            </div>
-            <div class="right">
-                <section class="panel">
-                    <div class="panelhead">
-                        <div><span class="panelkick">Active Surface</span><h2>Server focus</h2><p class="panelcopy">Semua automation dan panel setup nanti mengacu ke server Discord yang dipilih di sini.</p></div>
-                        <a href="{{ route('guilds.select') }}" class="pill">Ganti server</a>
-                    </div>
-                    <div class="guildrows">
-                        <div class="guildrow"><span>Server</span><strong>{{ $serverName }}</strong></div>
-                        <div class="guildrow"><span>Guild ID</span><strong>{{ $guildId }}</strong></div>
-                        <div class="guildrow"><span>Status panel</span><strong>{{ $activeGuild ? 'Scoped' : 'Global' }}</strong></div>
-                    </div>
-                </section>
-                <section class="panel">
-                    <div class="panelhead">
-                        <div><span class="panelkick">Discord Delivery</span><h2>Webhook health</h2></div>
-                        <span class="pill">3 feeds</span>
-                    </div>
-                    <div class="list">
-                        @foreach ($webhooks as $webhook)
-                        <article class="listitem">
-                            <div class="listhead">
-                                <div><h3>{{ $webhook->name }}</h3><p>{{ $webhook->channel_name }}</p></div>
-                                <span class="badge {{ $webhook->is_active ? 'emerald' : 'zinc' }}">{{ $webhook->is_active ? 'Active' : 'Paused' }}</span>
+                            <span class="tag {{ $primaryAlert->severity === 'critical' ? 'rose' : ($primaryAlert->severity === 'warning' ? 'amber' : 'cyan') }}">{{ strtoupper($primaryAlert->severity) }}</span>
+                        </div>
+                        <div class="row" style="margin-top:.9rem;">
+                            <span class="chip">Source: {{ $primaryAlert->source }}</span>
+                            <span class="chip">Status: {{ ucfirst($primaryAlert->status) }}</span>
+                            <span class="chip">{{ optional($primaryAlert->occurred_at)->diffForHumans() }}</span>
+                        </div>
+                    </article>
+                @endif
+
+                <div class="stack">
+                    @forelse ($alerts as $alert)
+                        <article class="item" data-glow-card>
+                            <div class="itemtop">
+                                <div>
+                                    <h3 style="font-size:1rem;">{{ $alert->title }}</h3>
+                                    <p class="listcopy">{{ $alert->message }}</p>
+                                </div>
+                                <span class="tag {{ $alert->severity === 'critical' ? 'rose' : ($alert->severity === 'warning' ? 'amber' : 'cyan') }}">{{ ucfirst($alert->severity) }}</span>
                             </div>
-                            <span class="listlabel">Last delivery {{ optional($webhook->last_delivered_at)->diffForHumans() ?? 'belum pernah kirim' }}</span>
+                            <span class="note">{{ $alert->source }} &middot; {{ ucfirst($alert->status) }} &middot; {{ optional($alert->occurred_at)->diffForHumans() }}</span>
                         </article>
-                        @endforeach
+                    @empty
+                        <p class="copy">Belum ada alert aktif saat ini.</p>
+                    @endforelse
+                </div>
+            </section>
+
+            <section class="panel" data-glow-card>
+                <div class="top" style="margin-bottom:1rem;">
+                    <div>
+                        <span class="label" style="color:var(--emerald)">Reports desk</span>
+                        <h2 style="margin-top:.35rem;">Player and bug reports</h2>
+                        <p class="copy">Nama pelapor, target, prioritas, dan status kini lebih jelas tanpa blok yang saling bertabrakan.</p>
                     </div>
-                </section>
-                <section class="panel">
-                    <div class="panelhead">
-                        <div><span class="panelkick">Ops forecast</span><h2>Next action stack</h2><p class="panelcopy">Blok ini sengaja dibuat lebih tinggi dan berlapis supaya sisi kanan tidak terasa kosong dan gepeng.</p></div>
-                        <span class="pill">Queue view</span>
+                    <span class="tag {{ $reportCount > 0 ? 'amber' : 'emerald' }}">{{ $reportCount > 0 ? 'Active queue' : 'Clear queue' }}</span>
+                </div>
+
+                @if ($primaryReport)
+                    <article class="mini" data-glow-card style="margin-bottom:1rem;">
+                        <div class="itemtop">
+                            <div>
+                                <span class="label" style="color:var(--emerald)">Top priority</span>
+                                <h3 style="margin-top:.45rem;font-size:1.15rem;">{{ $primaryReport->reported_player_name }}</h3>
+                                <p class="copy">{{ $primaryReport->summary }}</p>
+                            </div>
+                            <span class="tag {{ $primaryReport->priority === 'high' ? 'rose' : ($primaryReport->priority === 'medium' ? 'amber' : 'cyan') }}">{{ strtoupper($primaryReport->priority) }}</span>
+                        </div>
+                        <div class="row" style="margin-top:.9rem;">
+                            <span class="chip">Reporter: {{ $primaryReport->reporter_name }}</span>
+                            <span class="chip">Category: {{ $primaryReport->category }}</span>
+                            <span class="chip">Status: {{ ucfirst($primaryReport->status) }}</span>
+                        </div>
+                    </article>
+                @endif
+
+                <div class="stack">
+                    @forelse ($reports as $report)
+                        <article class="item" data-glow-card>
+                            <div class="itemtop">
+                                <div>
+                                    <h3 style="font-size:1rem;">{{ $report->reported_player_name }}</h3>
+                                    <p class="listcopy">{{ $report->summary }}</p>
+                                </div>
+                                <span class="tag {{ $report->priority === 'high' ? 'rose' : ($report->priority === 'medium' ? 'amber' : 'cyan') }}">{{ ucfirst($report->priority) }}</span>
+                            </div>
+                            <span class="note">{{ $report->reporter_name }} &middot; {{ $report->category }} &middot; {{ ucfirst($report->status) }}</span>
+                        </article>
+                    @empty
+                        <p class="copy">Belum ada report yang masuk.</p>
+                    @endforelse
+                </div>
+            </section>
+        </div>
+
+        <div class="grid">
+            <section class="panel" data-glow-card>
+                <div class="top" style="margin-bottom:1rem;">
+                    <div>
+                        <span class="label" style="color:var(--violet)">Discord delivery</span>
+                        <h2 style="margin-top:.35rem;">Webhook dan pulse distribusi</h2>
+                        <p class="copy">Feed aktif, channel tujuan, dan last delivery sekarang tampil lebih ringkas dan rapih.</p>
                     </div>
-                    <div class="orbitgrid">
-                        <article class="mini"><span class="panelkick">VIP title tooling</span><h3>Setup map tanpa ribet</h3><p>Panel VIP Title sekarang jadi jalur utama untuk generate config map, API key, gamepass mapping, dan snippet Roblox siap tempel.</p></article>
-                        <article class="mini"><span class="panelkick">Next layer</span><h3>Dashboard server-aware</h3><p>Flow ini sudah siap dibawa ke level berikutnya: semua modul discope per guild biar user tinggal pilih server lalu manage semuanya dari satu tempat.</p></article>
+                    <span class="tag violet">{{ $activeWebhookCount }} active</span>
+                </div>
+
+                <div class="stack">
+                    @forelse ($webhooks as $webhook)
+                        <article class="item" data-glow-card>
+                            <div class="itemtop">
+                                <div>
+                                    <h3 style="font-size:1rem;">{{ $webhook->name }}</h3>
+                                    <p class="listcopy">{{ $webhook->channel_name }}</p>
+                                </div>
+                                <span class="tag {{ $webhook->is_active ? 'emerald' : 'violet' }}">{{ $webhook->is_active ? 'Active' : 'Paused' }}</span>
+                            </div>
+                            <span class="note">Last delivery &middot; {{ optional($webhook->last_delivered_at)->diffForHumans() ?? 'belum pernah kirim' }}</span>
+                        </article>
+                    @empty
+                        <p class="copy">Belum ada webhook yang tersimpan.</p>
+                    @endforelse
+                </div>
+            </section>
+
+            <section class="panel" data-glow-card>
+                <div class="top" style="margin-bottom:1rem;">
+                    <div>
+                        <span class="label" style="color:var(--amber)">Community flow</span>
+                        <h2 style="margin-top:.35rem;">Race desk dan langkah berikutnya</h2>
+                        <p class="copy">Bagian bawah kanan sekarang diisi event aktif dan next action supaya panel tidak terasa kosong.</p>
                     </div>
-                </section>
-            </div>
+                    <span class="tag amber">{{ $raceCount }} open</span>
+                </div>
+
+                <div class="stack">
+                    @forelse ($races as $race)
+                        <article class="item" data-glow-card>
+                            <div class="itemtop">
+                                <div>
+                                    <h3 style="font-size:1rem;">#{{ $race->id }} {{ $race->title }}</h3>
+                                    <p class="listcopy">{{ $race->participants_count }}/{{ $race->max_players }} player &middot; Entry {{ $race->entry_fee_robux }} R$</p>
+                                </div>
+                                <span class="tag {{ $race->status === 'registration_open' ? 'emerald' : 'violet' }}">{{ str_replace('_', ' ', ucfirst($race->status)) }}</span>
+                            </div>
+                            <span class="note">Race queue</span>
+                        </article>
+                    @empty
+                        <p class="copy">Belum ada race event yang aktif.</p>
+                    @endforelse
+                </div>
+
+                <div class="twins">
+                    <article class="mini" data-glow-card>
+                        <span class="label" style="color:var(--cyan)">Next move</span>
+                        <h3 style="margin-top:.45rem;font-size:1rem;">Buka setup yang relevan lebih cepat</h3>
+                        <p class="copy">Kartu aksi di atas sudah saya buat lebih seimbang supaya alur pindah dari dashboard ke setup terasa mulus.</p>
+                    </article>
+                    <article class="mini" data-glow-card>
+                        <span class="label" style="color:var(--emerald)">Server-aware</span>
+                        <h3 style="margin-top:.45rem;font-size:1rem;">Semua modul tetap nyambung ke guild aktif</h3>
+                        <p class="copy">Begitu server dipilih, konteks halaman ini tetap jelas dan tidak terasa seperti panel generik.</p>
+                    </article>
+                </div>
+            </section>
         </div>
     </div>
-</main>
-</div>
-</body>
-</html>
+
+    <script>
+        document.querySelectorAll('[data-glow-card]').forEach((card) => {
+            const reset = () => {
+                card.style.setProperty('--mx', '50%');
+                card.style.setProperty('--my', '50%');
+            };
+
+            reset();
+
+            card.addEventListener('pointermove', (event) => {
+                const rect = card.getBoundingClientRect();
+                const x = ((event.clientX - rect.left) / rect.width) * 100;
+                const y = ((event.clientY - rect.top) / rect.height) * 100;
+
+                card.style.setProperty('--mx', `${x}%`);
+                card.style.setProperty('--my', `${y}%`);
+            });
+
+            card.addEventListener('pointerleave', reset);
+        });
+    </script>
+</x-layouts::app>

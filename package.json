@@ -8,7 +8,8 @@
         "bot:register": "node ./bot/deploy-commands.js",
         "build": "vite build",
         "dev": "vite",
-        "dev:all": "concurrently -c \"#93c5fd,#fdba74,#34d399\" \"php artisan serve\" \"npm run dev\" \"npm run bot:dev\" --names=\"laravel,vite,bot\""
+        "dev:all": "concurrently -c \"#93c5fd,#fdba74,#34d399\" \"php artisan serve\" \"npm run dev\" \"npm run bot:dev\" --names=\"laravel,vite,bot\"",
+        "ship": "powershell -ExecutionPolicy Bypass -File ./scripts/git-push-main.ps1"
     },
     "dependencies": {
         "@discordjs/voice": "^0.18.0",
