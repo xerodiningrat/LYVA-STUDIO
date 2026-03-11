@@ -41,8 +41,8 @@ local CONFIG = {
 	VIP_GAMEPASS_ID = 1700114697,
 	VIP_TITLE_MAP_KEY = "mountxyra",
 	VIP_TITLE_BACKEND_URL = "https://lyvaindonesia.my.id",
-	VIP_TITLE_API_KEY = "CHANGE_THIS_TO_YOUR_INTERNAL_TOKEN",
-	VIP_TITLE_SLOT = 10,
+	VIP_TITLE_API_KEY = "lyva_9X2kPq71AbC_secure_token_2026",
+	VIP_TITLE_SLOT = 1,
 	VIP_TITLE_POLL_INTERVAL = 30,
 	VIP_TITLE_ALLOW_NONVIP_IN_STUDIO = true,
 	VIP_TITLE_ALLOWED_PLACE_IDS = {
@@ -304,6 +304,23 @@ local rawSave = Data.Save
 local pending, nextAt, saving = {}, {}, {}
 local loadedOk = {}
 
+local function loadProfileCompat(...)
+	local profile, ok = ...
+
+	if typeof(profile) == "table" then
+		if ok == false then
+			return profile, false
+		end
+		return profile, true
+	end
+
+	if typeof(ok) == "table" then
+		return ok, true
+	end
+
+	return nil, false
+end
+
 local function queueSave(uid:number, patch:table)
 	if typeof(patch) ~= "table" then return end
 	if loadedOk[uid] ~= true then
@@ -503,13 +520,23 @@ local function vipClaimRequest(pathSuffix: string, body: table)
 		})
 	end)
 
-	if not ok or not response or not response.Success then
+	if not ok or not response then
+		warn("[VIP CLAIM] RequestAsync gagal:", pathSuffix)
+		return nil
+	end
+
+	if not response.Success then
+		warn("[VIP CLAIM] HTTP request gagal:", pathSuffix, response.StatusCode, response.StatusMessage, response.Body)
 		return nil
 	end
 
 	local decodedOk, decoded = pcall(function()
 		return HttpService:JSONDecode(response.Body)
 	end)
+
+	if not decodedOk then
+		warn("[VIP CLAIM] JSON decode gagal:", pathSuffix, response.Body)
+	end
 
 	return decodedOk and decoded or nil
 end
@@ -527,6 +554,10 @@ local function playerOwnsVipForClaim(player: Player): boolean
 		return MarketplaceService:UserOwnsGamePassAsync(player.UserId, CONFIG.VIP_GAMEPASS_ID)
 	end)
 
+	if not ok then
+		warn("[VIP CLAIM] UserOwnsGamePassAsync gagal:", player.Name, player.UserId, CONFIG.VIP_GAMEPASS_ID)
+	end
+
 	return ok and owns == true
 end
 
@@ -539,12 +570,18 @@ local function isVipClaimPlaceAllowed(): boolean
 end
 
 local function applyVipClaimToPlayer(player: Player, claim: table): boolean
+	print("[VIP CLAIM] APPLY START", player.Name, claim and claim.title or "NO_TITLE", "slot", CONFIG.VIP_TITLE_SLOT)
+
 	if not playerOwnsVipForClaim(player) then
+		warn("[VIP CLAIM] APPLY FAIL: player tidak punya VIP", player.Name, player.UserId, CONFIG.VIP_GAMEPASS_ID)
 		return false
 	end
 
-	local profile, ok = Data:Load(player.UserId)
+	local profile, ok = loadProfileCompat(Data:Load(player.UserId))
+	print("[VIP CLAIM] DATA LOAD", player.Name, ok, profile ~= nil)
+
 	if not ok or not profile then
+		warn("[VIP CLAIM] APPLY FAIL: Data load gagal", player.Name, player.UserId)
 		return false
 	end
 
@@ -558,6 +595,8 @@ local function applyVipClaimToPlayer(player: Player, claim: table): boolean
 		color = { r = 255, g = 255, b = 255 },
 	}
 
+	print("[VIP CLAIM] TITLE WRITE", player.Name, CONFIG.VIP_TITLE_SLOT, profile.customTitles[CONFIG.VIP_TITLE_SLOT])
+
 	Data:Save(player.UserId, {
 		customTitles = profile.customTitles,
 		customTitleMeta = profile.customTitleMeta,
@@ -566,23 +605,30 @@ local function applyVipClaimToPlayer(player: Player, claim: table): boolean
 	applyCustomTitlesFromProfile(player, profile)
 	safeRefreshTitle(player)
 	notifyPlayer(player, ("VIP TITLE BERHASIL: %s"):format(profile.customTitles[CONFIG.VIP_TITLE_SLOT]))
+	print("[VIP CLAIM] APPLY DONE", player.Name, profile.customTitles[CONFIG.VIP_TITLE_SLOT])
 	return true
 end
 
 local function checkVipTitleClaim(player: Player)
+	print("[VIP CLAIM] CHECK START", player and player.Name or "NIL_PLAYER", CONFIG.VIP_TITLE_MAP_KEY, game.PlaceId)
+
 	if not player or not player:IsDescendantOf(Players) then
+		warn("[VIP CLAIM] CHECK STOP: player invalid")
 		return
 	end
 
 	if CONFIG.VIP_TITLE_BACKEND_URL == "" or CONFIG.VIP_TITLE_API_KEY == "" then
+		warn("[VIP CLAIM] CHECK STOP: backend/api key kosong")
 		return
 	end
 
 	if CONFIG.VIP_TITLE_MAP_KEY == "" then
+		warn("[VIP CLAIM] CHECK STOP: map key kosong")
 		return
 	end
 
 	if not isVipClaimPlaceAllowed() then
+		warn("[VIP CLAIM] CHECK STOP: place tidak diizinkan", game.PlaceId)
 		return
 	end
 
@@ -594,11 +640,20 @@ local function checkVipTitleClaim(player: Player)
 		universeId = tostring(game.GameId),
 	})
 
+	if payload then
+		print("[VIP CLAIM] CHECK RESPONSE OK", player.Name)
+	else
+		warn("[VIP CLAIM] CHECK RESPONSE NIL", player.Name)
+	end
+
 	if not payload or not payload.claim then
+		print("[VIP CLAIM] CHECK NO CLAIM", player.Name)
 		return
 	end
 
+	print("[VIP CLAIM] CLAIM FOUND", player.Name, payload.claim.claimId, payload.claim.title, payload.claim.mapKey)
 	local applied = applyVipClaimToPlayer(player, payload.claim)
+	print("[VIP CLAIM] APPLY RESULT", player.Name, applied)
 	vipClaimRequest("/api/roblox/vip-title-claims/consume", {
 		claimId = payload.claim.claimId,
 		status = applied and "applied" or "rejected",
@@ -607,6 +662,7 @@ local function checkVipTitleClaim(player: Player)
 		placeId = tostring(game.PlaceId),
 		universeId = tostring(game.GameId),
 	})
+	print("[VIP CLAIM] CONSUME SENT", player.Name, payload.claim.claimId, applied and "applied" or "rejected")
 end
 
 local function snapshotCustomTitles(player: Player)
@@ -668,7 +724,7 @@ AdminTitleEvent.OnServerEvent:Connect(function(sender:Player, targetUsername:any
 	preset = tostring(preset or "VIP")
 	if not VALID_PRESETS[preset] then preset = "VIP" end
 
-	local d, ok = Data:Load(targetUserId, true)
+	local d, ok = loadProfileCompat(Data:Load(targetUserId, true))
 	if not ok or not d then
 		notifyPlayer(sender, "DS LAG/ERROR. COBA LAGI.")
 		return
@@ -845,7 +901,7 @@ end
 local function setupPlayer(player:Player)
 	local displayCp, sum, runCp = ensureLeaderstats(player)
 
-	local d, ok = Data:Load(player.UserId)
+	local d, ok = loadProfileCompat(Data:Load(player.UserId))
 	if ok and d then
 		loadedOk[player.UserId] = true
 

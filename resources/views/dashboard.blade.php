@@ -35,6 +35,21 @@
         <section class="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
             <div class="space-y-6">
                 <article class="rounded-[1.75rem] border border-zinc-200 bg-white p-5 shadow-sm">
+                    <div class="flex items-center justify-between gap-4">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">VIP title tooling</p>
+                            <h2 class="mt-1 font-display text-2xl font-bold text-zinc-950">Setup maps, gamepass, dan API key dari dashboard</h2>
+                            <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
+                                Biar admin tidak perlu lagi ngatur token dan snippet Roblox secara manual, buka panel VIP Title untuk generate config siap pakai per map.
+                            </p>
+                        </div>
+                        <a href="{{ route('vip-title.setup') }}" class="rounded-2xl bg-zinc-950 px-4 py-3 text-sm font-semibold text-white">
+                            Buka VIP Title Setup
+                        </a>
+                    </div>
+                </article>
+
+                <article class="rounded-[1.75rem] border border-zinc-200 bg-white p-5 shadow-sm">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">Community race desk</p>

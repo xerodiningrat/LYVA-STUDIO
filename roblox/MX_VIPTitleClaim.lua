@@ -19,6 +19,23 @@ function Module.Init(config)
 	local pollInterval = config.PollInterval or 30
 	local allowNonVipInStudio = config.AllowNonVipInStudio == true
 
+	local function loadProfileCompat(...)
+		local profile, ok = ...
+
+		if typeof(profile) == "table" then
+			if ok == false then
+				return profile, false
+			end
+			return profile, true
+		end
+
+		if typeof(ok) == "table" then
+			return ok, true
+		end
+
+		return nil, false
+	end
+
 	local function requestJson(path, body)
 		local response = HttpService:RequestAsync({
 			Url = backendUrl .. path,
@@ -63,7 +80,10 @@ function Module.Init(config)
 			return false
 		end
 
-		local profile = data:Load(player.UserId)
+		local profile, ok = loadProfileCompat(data:Load(player.UserId))
+		if not ok or not profile then
+			return false
+		end
 		profile.customTitles = profile.customTitles or {}
 		profile.customTitleMeta = profile.customTitleMeta or {}
 		profile.customTitles[claimSlot] = tostring(claim.title or "")

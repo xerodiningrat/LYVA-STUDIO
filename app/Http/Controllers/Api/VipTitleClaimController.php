@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\VipTitleClaim;
+use App\Models\VipTitleMapSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -55,6 +56,17 @@ class VipTitleClaimController extends Controller
         ]);
 
         $mapKey = $this->normalizeMapKey($validated['map_key']);
+        $mapSetting = VipTitleMapSetting::query()
+            ->where('map_key', $mapKey)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $mapSetting) {
+            return response()->json([
+                'message' => sprintf('Map key "%s" belum aktif di dashboard VIP Title.', $mapKey),
+            ], 422);
+        }
+
         $title = $this->sanitizeTitle($validated['requested_title']);
         $reason = $this->validateTitle($title);
 
@@ -74,7 +86,7 @@ class VipTitleClaimController extends Controller
         if ($existingPending) {
             $existingPending->update([
                 'requested_title' => $title,
-                'gamepass_id' => $validated['gamepass_id'] ?? null,
+                'gamepass_id' => $mapSetting->gamepass_id,
                 'discord_user_id' => $validated['discord_user_id'] ?? null,
                 'discord_tag' => $validated['discord_tag'] ?? null,
                 'meta' => $validated['meta'] ?? null,
@@ -89,7 +101,7 @@ class VipTitleClaimController extends Controller
 
         $claim = VipTitleClaim::query()->create([
             'map_key' => $mapKey,
-            'gamepass_id' => $validated['gamepass_id'] ?? null,
+            'gamepass_id' => $mapSetting->gamepass_id,
             'roblox_user_id' => $validated['roblox_user_id'],
             'roblox_username' => $validated['roblox_username'],
             'requested_title' => $title,
@@ -194,10 +206,18 @@ class VipTitleClaimController extends Controller
     private function hasRobloxApiKey(Request $request): bool
     {
         $token = config('services.discord.internal_token');
+        $providedToken = (string) $request->header('X-Api-Key');
 
-        return is_string($token)
+        if (is_string($token)
             && $token !== ''
-            && hash_equals($token, (string) $request->header('X-Api-Key'));
+            && hash_equals($token, $providedToken)) {
+            return true;
+        }
+
+        return VipTitleMapSetting::query()
+            ->where('is_active', true)
+            ->get(['api_key'])
+            ->contains(fn (VipTitleMapSetting $setting) => is_string($setting->api_key) && $setting->api_key !== '' && hash_equals($setting->api_key, $providedToken));
     }
 
     private function normalizeMapKey(string $value): string
