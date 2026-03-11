@@ -12,6 +12,8 @@ function Module.Init(config)
 	local notifyPlayer = config.notifyPlayer
 	local backendUrl = config.BackendUrl
 	local apiKey = config.ApiKey
+	local mapKey = config.MapKey or ""
+	local allowedPlaceIds = config.AllowedPlaceIds or {}
 	local claimSlot = config.ClaimSlot or 10
 	local vipGamepassId = config.VIPGamepassId or 0
 	local pollInterval = config.PollInterval or 30
@@ -34,6 +36,13 @@ function Module.Init(config)
 			return HttpService:JSONDecode(response.Body)
 		end)
 		return ok and decoded or nil
+	end
+
+	local function isPlaceAllowed()
+		if typeof(allowedPlaceIds) ~= "table" or next(allowedPlaceIds) == nil then
+			return true
+		end
+		return allowedPlaceIds[game.PlaceId] == true
 	end
 
 	local function ownsVip(player)
@@ -78,16 +87,26 @@ function Module.Init(config)
 	end
 
 	local function checkPlayer(player)
-		local payload = requestJson("/roblox/claim/pull", {
+		if mapKey == "" or not isPlaceAllowed() then
+			return
+		end
+
+		local payload = requestJson("/api/roblox/vip-title-claims/pull", {
 			userId = player.UserId,
 			username = player.Name,
+			mapKey = mapKey,
+			placeId = tostring(game.PlaceId),
+			universeId = tostring(game.GameId),
 		})
 		if payload and payload.claim then
 			applyClaim(player, payload.claim)
-			requestJson("/roblox/claim/consume", {
+			requestJson("/api/roblox/vip-title-claims/consume", {
 				claimId = payload.claim.claimId,
 				status = "applied",
 				reason = "Applied in game",
+				mapKey = mapKey,
+				placeId = tostring(game.PlaceId),
+				universeId = tostring(game.GameId),
 			})
 		end
 	end

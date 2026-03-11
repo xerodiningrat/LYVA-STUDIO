@@ -19,6 +19,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
+local HttpService = game:GetService("HttpService")
 
 --========================
 -- CONFIG
@@ -38,6 +39,15 @@ local CONFIG = {
 	HRP_ONLY_TOUCH = false,
 
 	VIP_GAMEPASS_ID = 1700114697,
+	VIP_TITLE_MAP_KEY = "mountxyra",
+	VIP_TITLE_BACKEND_URL = "https://lyvaindonesia.my.id",
+	VIP_TITLE_API_KEY = "CHANGE_THIS_TO_YOUR_INTERNAL_TOKEN",
+	VIP_TITLE_SLOT = 10,
+	VIP_TITLE_POLL_INTERVAL = 30,
+	VIP_TITLE_ALLOW_NONVIP_IN_STUDIO = true,
+	VIP_TITLE_ALLOWED_PLACE_IDS = {
+		-- [1234567890] = true,
+	},
 
 	SPAWN_TO_CP_ON_RESPAWN = true,
 	SPAWN_TO_CP_DELAY = 0.25,
@@ -470,6 +480,135 @@ local function applyCustomTitlesFromProfile(player: Player, profile: table)
 	end
 end
 
+local function applyCustomTitlesFromData(player: Player)
+	local cached = Data:GetCached(player.UserId)
+	if cached then
+		applyCustomTitlesFromProfile(player, cached)
+	end
+end
+
+--========================
+-- VIP title claim polling
+--========================
+local function vipClaimRequest(pathSuffix: string, body: table)
+	local ok, response = pcall(function()
+		return HttpService:RequestAsync({
+			Url = CONFIG.VIP_TITLE_BACKEND_URL .. pathSuffix,
+			Method = "POST",
+			Headers = {
+				["Content-Type"] = "application/json",
+				["x-api-key"] = CONFIG.VIP_TITLE_API_KEY,
+			},
+			Body = HttpService:JSONEncode(body or {}),
+		})
+	end)
+
+	if not ok or not response or not response.Success then
+		return nil
+	end
+
+	local decodedOk, decoded = pcall(function()
+		return HttpService:JSONDecode(response.Body)
+	end)
+
+	return decodedOk and decoded or nil
+end
+
+local function playerOwnsVipForClaim(player: Player): boolean
+	if CONFIG.VIP_GAMEPASS_ID == 0 then
+		return true
+	end
+
+	if CONFIG.VIP_TITLE_ALLOW_NONVIP_IN_STUDIO and RunService:IsStudio() then
+		return true
+	end
+
+	local ok, owns = pcall(function()
+		return MarketplaceService:UserOwnsGamePassAsync(player.UserId, CONFIG.VIP_GAMEPASS_ID)
+	end)
+
+	return ok and owns == true
+end
+
+local function isVipClaimPlaceAllowed(): boolean
+	local allowed = CONFIG.VIP_TITLE_ALLOWED_PLACE_IDS
+	if typeof(allowed) ~= "table" or next(allowed) == nil then
+		return true
+	end
+	return allowed[game.PlaceId] == true
+end
+
+local function applyVipClaimToPlayer(player: Player, claim: table): boolean
+	if not playerOwnsVipForClaim(player) then
+		return false
+	end
+
+	local profile, ok = Data:Load(player.UserId)
+	if not ok or not profile then
+		return false
+	end
+
+	loadedOk[player.UserId] = true
+	profile.customTitles = profile.customTitles or {}
+	profile.customTitleMeta = profile.customTitleMeta or {}
+	profile.customTitles[CONFIG.VIP_TITLE_SLOT] = tostring(claim.title or "")
+	profile.customTitleMeta[CONFIG.VIP_TITLE_SLOT] = {
+		mode = "SOLID",
+		preset = "VIP",
+		color = { r = 255, g = 255, b = 255 },
+	}
+
+	Data:Save(player.UserId, {
+		customTitles = profile.customTitles,
+		customTitleMeta = profile.customTitleMeta,
+	})
+
+	applyCustomTitlesFromProfile(player, profile)
+	safeRefreshTitle(player)
+	notifyPlayer(player, ("VIP TITLE BERHASIL: %s"):format(profile.customTitles[CONFIG.VIP_TITLE_SLOT]))
+	return true
+end
+
+local function checkVipTitleClaim(player: Player)
+	if not player or not player:IsDescendantOf(Players) then
+		return
+	end
+
+	if CONFIG.VIP_TITLE_BACKEND_URL == "" or CONFIG.VIP_TITLE_API_KEY == "" then
+		return
+	end
+
+	if CONFIG.VIP_TITLE_MAP_KEY == "" then
+		return
+	end
+
+	if not isVipClaimPlaceAllowed() then
+		return
+	end
+
+	local payload = vipClaimRequest("/api/roblox/vip-title-claims/pull", {
+		userId = player.UserId,
+		username = player.Name,
+		mapKey = CONFIG.VIP_TITLE_MAP_KEY,
+		placeId = tostring(game.PlaceId),
+		universeId = tostring(game.GameId),
+	})
+
+	if not payload or not payload.claim then
+		return
+	end
+
+	local applied = applyVipClaimToPlayer(player, payload.claim)
+	vipClaimRequest("/api/roblox/vip-title-claims/consume", {
+		claimId = payload.claim.claimId,
+		status = applied and "applied" or "rejected",
+		reason = applied and "Applied in game" or "VIP ownership / data load failed",
+		mapKey = CONFIG.VIP_TITLE_MAP_KEY,
+		placeId = tostring(game.PlaceId),
+		universeId = tostring(game.GameId),
+	})
+end
+
 local function snapshotCustomTitles(player: Player)
 	local titles, meta = {}, {}
 	local folder = player:FindFirstChild("CustomTitles")
@@ -751,6 +890,11 @@ local function setupPlayer(player:Player)
 		end
 	end)
 
+	task.defer(function()
+		task.wait(5)
+		checkVipTitleClaim(player)
+	end)
+
 	player.CharacterAdded:Connect(function(char)
 		task.wait(CONFIG.SPAWN_TO_CP_DELAY)
 
@@ -785,6 +929,17 @@ bindCheckpoints()
 bindSummitPart()
 
 Players.PlayerAdded:Connect(setupPlayer)
+
+task.spawn(function()
+	while true do
+		task.wait(CONFIG.VIP_TITLE_POLL_INTERVAL)
+		for _, player in ipairs(Players:GetPlayers()) do
+			task.spawn(function()
+				checkVipTitleClaim(player)
+			end)
+		end
+	end
+end)
 
 Players.PlayerRemoving:Connect(function(player)
 	local uid = player.UserId

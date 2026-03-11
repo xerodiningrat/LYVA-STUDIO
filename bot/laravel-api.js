@@ -295,6 +295,55 @@ export async function updateLaravelRace(config, eventId, payload) {
   return response.json();
 }
 
+export async function createLaravelVipTitleClaim(config, payload) {
+  if (!config.internalToken) {
+    throw new Error('DISCORD_INTERNAL_TOKEN belum diisi.');
+  }
+
+  const response = await requestLaravel(`${config.botApiUrl}/api/bot/vip-title-claims`, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'X-Bot-Token': config.internalToken,
+    },
+    body: JSON.stringify(payload),
+  }, 'menyimpan VIP title claim');
+
+  if (!response.ok) {
+    const message = await readLaravelErrorMessage(response, 'Laravel VIP title claim gagal.');
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
+export async function fetchLaravelVipTitleClaims(config, params = {}) {
+  if (!config.internalToken) {
+    return null;
+  }
+
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      query.set(key, String(value));
+    }
+  }
+
+  const response = await requestLaravel(`${config.botApiUrl}/api/bot/vip-title-claims?${query.toString()}`, {
+    headers: {
+      'Accept': 'application/json',
+      'X-Bot-Token': config.internalToken,
+    },
+  }, 'mengambil daftar VIP title claim');
+
+  if (!response.ok) {
+    throw new Error(`Laravel VIP title claim request gagal dengan HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
 async function readLaravelErrorMessage(response, fallback) {
   const raw = await response.text();
 

@@ -12,6 +12,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from 'discord.js';
+import { createLaravelVipTitleClaim, fetchLaravelVipTitleClaims } from './laravel-api.js';
 
 const TITLE_PANEL_BUTTON_ID = 'title_claim_open';
 const TITLE_SCRIPT_BUTTON_ID = 'title_claim_script';
@@ -154,8 +155,8 @@ function buildTitlePanelEmbed() {
       [
         'Panel claim custom title untuk member VIP.',
         '',
-        'Klik `Claim Title` untuk isi username Roblox dan custom title.',
-        'Bot akan cek dulu apakah username itu sudah beli VIP gamepass.',
+        'Klik `Claim Title` untuk isi username Roblox, custom title, dan map key target.',
+        'Bot akan cek VIP gamepass berdasarkan map key yang kamu pilih.',
         'Klik `Script Roblox` kalau admin butuh file yang harus ditaruh di game.',
       ].join('\n'),
     )
@@ -254,13 +255,14 @@ function buildScriptEmbed() {
     );
 }
 
-function buildClaimSuccessEmbed(username, title) {
+function buildClaimSuccessEmbed(username, title, mapKey) {
   return new EmbedBuilder()
     .setColor(0x16a34a)
     .setTitle('Claim Title Tersimpan')
     .setDescription(`Claim untuk **@${username}** berhasil masuk antrean.`)
     .addFields(
       { name: 'Custom Title', value: title, inline: true },
+      { name: 'Map Key', value: mapKey, inline: true },
       { name: 'Status', value: 'Pending review / apply', inline: true },
     )
     .setFooter({ text: 'Admin bisa cek daftar claim dengan /titile list' });
@@ -273,6 +275,19 @@ function getRobloxAttachmentPaths() {
     path.join(PROJECT_ROOT, 'roblox', 'MX_Main_FINAL_SAFE.lua'),
     path.join(PROJECT_ROOT, 'roblox', 'VIP_TITLE_CLAIM_SETUP.md'),
   ];
+}
+
+function normalizeMapKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '');
+}
+
+function resolveMapConfig(config, rawMapKey) {
+  const mapKey = normalizeMapKey(rawMapKey);
+  const maps = config?.vipTitleMaps || {};
+  return maps[mapKey] || null;
 }
 
 export async function handleTitileCommand(interaction, config) {
@@ -310,11 +325,10 @@ export async function handleTitileCommand(interaction, config) {
       return;
     }
 
-    const store = await readClaimsStore();
-    const rows = store.claims
-      .slice(-10)
+    const response = await fetchLaravelVipTitleClaims(config, { limit: 10 }).catch(() => null);
+    const rows = (response?.items || [])
       .reverse()
-      .map((claim, index) => `${index + 1}. @${claim.robloxUsername} -> ${claim.title} [${claim.status}]`);
+      .map((claim, index) => `${index + 1}. [${claim.map_key}] @${claim.roblox_username} -> ${claim.requested_title} [${claim.status}]`);
 
     await interaction.reply({ content: rows.join('\n') || 'Belum ada claim title tersimpan.', ephemeral: true });
   }
@@ -344,9 +358,18 @@ export async function handleTitileButton(interaction, config) {
       .setMaxLength(28)
       .setPlaceholder('Masukkan custom title');
 
+    const mapKeyInput = new TextInputBuilder()
+      .setCustomId('map_key')
+      .setLabel('Map Key')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setMaxLength(32)
+      .setPlaceholder('Contoh: mountxyra');
+
     modal.addComponents(
       new ActionRowBuilder().addComponents(usernameInput),
       new ActionRowBuilder().addComponents(titleInput),
+      new ActionRowBuilder().addComponents(mapKeyInput),
     );
 
     await interaction.showModal(modal);
@@ -393,9 +416,23 @@ export async function handleTitileModal(interaction, config) {
 
   const robloxUsername = String(interaction.fields.getTextInputValue('roblox_username') || '').trim();
   const titleCheck = validateTitle(interaction.fields.getTextInputValue('custom_title'));
+  const mapKey = normalizeMapKey(interaction.fields.getTextInputValue('map_key'));
 
   if (!robloxUsername) {
     await interaction.editReply({ content: 'Username Roblox wajib diisi.' });
+    return true;
+  }
+
+  if (!mapKey) {
+    await interaction.editReply({ content: 'Map key wajib diisi.' });
+    return true;
+  }
+
+  const mapConfig = resolveMapConfig(config, mapKey);
+  if (!mapConfig) {
+    await interaction.editReply({
+      content: `Map key \`${mapKey}\` belum terdaftar. Minta admin isi \`VIP_TITLE_MAPS\` dulu.`,
+    });
     return true;
   }
 
@@ -422,10 +459,10 @@ export async function handleTitileModal(interaction, config) {
   }
 
   try {
-    const hasVip = await checkVipOwnership(config, robloxUser.userId);
+    const hasVip = await checkVipOwnership({ vipTitleGamepassId: mapConfig.gamepassId }, robloxUser.userId);
     if (!hasVip) {
       await interaction.editReply({
-        content: `@${robloxUser.username} belum terdeteksi punya VIP gamepass, jadi belum bisa request title.`,
+        content: `@${robloxUser.username} belum terdeteksi punya VIP gamepass untuk map \`${mapKey}\`, jadi belum bisa request title.`,
       });
       return true;
     }
@@ -436,21 +473,28 @@ export async function handleTitileModal(interaction, config) {
     return true;
   }
 
-  const store = await readClaimsStore();
-  store.claims.push({
-    id: `${Date.now()}`,
-    robloxUserId: robloxUser.userId,
-    robloxUsername: robloxUser.username,
-    title: titleCheck.title,
-    discordUserId: interaction.user.id,
-    discordTag: interaction.user.tag,
-    createdAt: new Date().toISOString(),
-    status: 'pending',
-  });
-  await writeClaimsStore(store);
+  try {
+    await createLaravelVipTitleClaim(config, {
+      map_key: mapKey,
+      gamepass_id: mapConfig.gamepassId,
+      roblox_user_id: robloxUser.userId,
+      roblox_username: robloxUser.username,
+      requested_title: titleCheck.title,
+      discord_user_id: interaction.user.id,
+      discord_tag: interaction.user.tag,
+      meta: {
+        source: 'discord-bot',
+      },
+    });
+  } catch (error) {
+    await interaction.editReply({
+      content: `Gagal simpan claim title: ${error.message}`,
+    });
+    return true;
+  }
 
   await interaction.editReply({
-    embeds: [buildClaimSuccessEmbed(robloxUser.username, titleCheck.title)],
+    embeds: [buildClaimSuccessEmbed(robloxUser.username, titleCheck.title, mapKey)],
   });
 
   return true;

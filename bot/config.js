@@ -34,6 +34,28 @@ function normalizeUrl(rawUrl) {
   }
 }
 
+function parseVipTitleMaps(rawValue) {
+  const entries = String(rawValue || '')
+    .split(/[,\n]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const maps = {};
+  for (const entry of entries) {
+    const [mapKeyRaw, gamepassIdRaw] = entry.split(':').map((part) => part.trim());
+    if (!mapKeyRaw) {
+      continue;
+    }
+
+    maps[mapKeyRaw.toLowerCase()] = {
+      mapKey: mapKeyRaw.toLowerCase(),
+      gamepassId: Number(gamepassIdRaw || 0),
+    };
+  }
+
+  return maps;
+}
+
 export function loadBotConfig() {
   const appUrl = normalizeUrl(process.env.APP_URL || 'http://127.0.0.1:8000');
   const botApiUrl = normalizeUrl(process.env.BOT_API_URL || appUrl);
@@ -49,6 +71,7 @@ export function loadBotConfig() {
     guildId: process.env.DISCORD_GUILD_ID || '',
     guildIds,
     vipTitleGamepassId: Number(process.env.ROBLOX_VIP_GAMEPASS_ID || '1700114697'),
+    vipTitleMaps: parseVipTitleMaps(process.env.VIP_TITLE_MAPS || ''),
     appUrl,
     botApiUrl,
     internalToken: process.env.DISCORD_INTERNAL_TOKEN || '',
