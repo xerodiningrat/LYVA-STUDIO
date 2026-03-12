@@ -114,6 +114,24 @@ function Module.Init(config)
 		return hasRgb
 	end
 
+	local function hydratePlayerTitle(player)
+		if not player or not player:IsDescendantOf(Players) then
+			return
+		end
+
+		applyCustomTitlesFromData(player)
+		applyRgbMetaToPlayer(player)
+		safeRefreshTitle(player)
+	end
+
+	local function scheduleTitleHydration(player)
+		for _, delaySeconds in ipairs({ 0.1, 0.5, 1.5, 3 }) do
+			task.delay(delaySeconds, function()
+				hydratePlayerTitle(player)
+			end)
+		end
+	end
+
 	local function applyClaim(player, claim)
 		if not ownsVip(player, claim and claim.gamepassId) then
 			return false
@@ -187,6 +205,12 @@ function Module.Init(config)
 	end
 
 	Players.PlayerAdded:Connect(function(player)
+		scheduleTitleHydration(player)
+
+		player.CharacterAdded:Connect(function()
+			scheduleTitleHydration(player)
+		end)
+
 		task.delay(5, function()
 			checkPlayer(player)
 		end)

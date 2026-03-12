@@ -504,6 +504,32 @@ local function applyCustomTitlesFromData(player: Player)
 	end
 end
 
+local function hydratePlayerTitle(player: Player, profile: table?)
+	if not player or not player:IsDescendantOf(Players) then
+		return
+	end
+
+	local activeProfile = profile
+	if typeof(activeProfile) ~= "table" then
+		activeProfile = Data:GetCached(player.UserId)
+	end
+
+	if typeof(activeProfile) == "table" then
+		applyCustomTitlesFromProfile(player, activeProfile)
+	end
+
+	applyRgbMetaToPlayer(player)
+	safeRefreshTitle(player)
+end
+
+local function scheduleTitleHydration(player: Player, profile: table?)
+	for _, delaySeconds in ipairs({ 0.1, 0.5, 1.5, 3 }) do
+		task.delay(delaySeconds, function()
+			hydratePlayerTitle(player, profile)
+		end)
+	end
+end
+
 --========================
 -- VIP title claim polling
 --========================
@@ -988,6 +1014,7 @@ local function setupPlayer(player:Player)
 
 		player:SetAttribute("BestTimeMS", tonumber(d.bestTime) or 0)
 		applyCustomTitlesFromProfile(player, d)
+		scheduleTitleHydration(player, d)
 	else
 		loadedOk[player.UserId] = nil
 		warn("[MX] DS LOAD FAILED:", player.Name, player.UserId)
@@ -1008,7 +1035,7 @@ local function setupPlayer(player:Player)
 
 	task.defer(function()
 		if player.Character then
-			safeRefreshTitle(player)
+			scheduleTitleHydration(player, d)
 		end
 	end)
 
@@ -1032,7 +1059,7 @@ local function setupPlayer(player:Player)
 			end
 		end
 
-		safeRefreshTitle(player)
+		scheduleTitleHydration(player, cached)
 
 		if player:GetAttribute(SPAWN_SUMMIT_ATTR) ~= true and runCp.Value > 0 then
 			task.delay(0.25, function()
