@@ -71,8 +71,11 @@
             .portfolio-shell-body{max-width:1800px;min-height:100vh;margin:0 auto;padding:0 0 18px}
             .portfolio-shell-header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:20px 24px;border-bottom:1px solid var(--line)}
             .portfolio-shell-left,.portfolio-shell-right{display:flex;align-items:center;gap:.75rem}.portfolio-shell-left{flex:1 1 auto;min-width:0}
-            .portfolio-shell-mark{width:28px;height:3px;border-radius:999px;background:linear-gradient(90deg,#3b82f6,#0ea5e9);position:relative;display:inline-block;flex-shrink:0}.portfolio-shell-mark:before,.portfolio-shell-mark:after{content:"";position:absolute;left:50%;transform:translateX(-50%);width:14px;height:3px;border-radius:999px;background:currentColor;color:var(--text)}.portfolio-shell-mark:before{top:-7px}.portfolio-shell-mark:after{bottom:-7px}
-            .portfolio-shell-name{margin:0 .8rem 0 .2rem;font:700 1.2rem/1 "Space Grotesk",sans-serif;color:var(--text);flex-shrink:0}
+            .portfolio-shell-brand{display:flex;align-items:center;gap:.85rem;min-width:0;flex-shrink:0;margin-right:.65rem}
+            .portfolio-shell-logo{width:54px;height:54px;border-radius:16px;object-fit:cover;object-position:center;display:block;border:1px solid rgba(121,231,255,.28);box-shadow:0 10px 24px rgba(14,165,233,.18),0 0 0 1px rgba(255,255,255,.04) inset;background:rgba(255,255,255,.05)}
+            .portfolio-shell-brand-copy{display:grid;gap:.14rem;min-width:0}
+            .portfolio-shell-name{margin:0;font:700 1.15rem/1 "Space Grotesk",sans-serif;color:var(--text);letter-spacing:.04em;white-space:nowrap}
+            .portfolio-shell-page{margin:0;color:var(--muted);font-size:.74rem;line-height:1.1;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
             .portfolio-shell-search{display:flex;align-items:center;gap:.7rem;height:46px;max-width:520px;width:100%;padding:0 14px 0 18px;border-radius:999px;background:var(--panel);border:1px solid var(--line);box-shadow:0 10px 28px rgba(15,23,42,.18)}
             .portfolio-shell-search input{flex:1;border:0;outline:0;background:transparent;color:var(--text);font:inherit}.portfolio-shell-search input::placeholder{color:var(--muted)}
             .portfolio-shell-icon,.portfolio-shell-action{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border:0;border-radius:50%;background:var(--soft);color:var(--text);text-decoration:none;transition:transform .18s ease}
@@ -93,8 +96,8 @@
             .portfolio-page-content .studio-glow-a,.portfolio-page-content .studio-glow-b,.portfolio-page-content .studio-glow-c,.portfolio-page-content .studio-topbar{display:none}
             .portfolio-page-content .studio-hero{margin-top:0}
             .portfolio-shell-mobile-trigger{display:none}
-            @media (max-width:720px){.portfolio-shell-header{padding:16px;flex-wrap:wrap}.portfolio-shell-left,.portfolio-shell-right{width:100%}.portfolio-shell-name,.portfolio-shell-profile span{display:none}.portfolio-shell-search{max-width:none}.portfolio-shell-right{justify-content:flex-end}}
-            @media (max-width:520px){.portfolio-shell-content{padding:12px;height:auto;min-height:calc(100vh - 91px)}.portfolio-shell-sidebar,.portfolio-shell-mark{display:none}.portfolio-shell-main{padding:16px;border-radius:24px}.portfolio-shell-body{padding-bottom:12px}}
+            @media (max-width:720px){.portfolio-shell-header{padding:16px;flex-wrap:wrap}.portfolio-shell-left,.portfolio-shell-right{width:100%}.portfolio-shell-page,.portfolio-shell-profile span{display:none}.portfolio-shell-search{max-width:none}.portfolio-shell-right{justify-content:flex-end}}
+            @media (max-width:520px){.portfolio-shell-content{padding:12px;height:auto;min-height:calc(100vh - 91px)}.portfolio-shell-sidebar{display:none}.portfolio-shell-main{padding:16px;border-radius:24px}.portfolio-shell-body{padding-bottom:12px}.portfolio-shell-logo{width:46px;height:46px;border-radius:14px}.portfolio-shell-name{font-size:1rem}}
         </style>
     </head>
     <body>
@@ -102,8 +105,13 @@
             <div class="portfolio-shell-body">
                 <div class="portfolio-shell-header">
                     <div class="portfolio-shell-left">
-                        <span class="portfolio-shell-mark"></span>
-                        <p class="portfolio-shell-name">{{ $title }}</p>
+                        <a href="{{ route('dashboard') }}" wire:navigate class="portfolio-shell-brand" style="text-decoration:none;color:inherit;">
+                            <img src="{{ asset('lyva-studio-logo.gif') }}" alt="LYVA STUDIO" class="portfolio-shell-logo">
+                            <span class="portfolio-shell-brand-copy">
+                                <span class="portfolio-shell-name">LYVA STUDIO</span>
+                                <span class="portfolio-shell-page">{{ $title }}</span>
+                            </span>
+                        </a>
                         <div class="portfolio-shell-search">
                             <input type="text" placeholder="{{ $searchPlaceholder }}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>
