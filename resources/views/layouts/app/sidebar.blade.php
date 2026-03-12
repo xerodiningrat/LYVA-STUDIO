@@ -7,6 +7,7 @@
         @php
             $managedGuild = session('managed_guild');
             $currentUser = auth()->user();
+            $hideWorkspaceSidebar = request()->routeIs('dashboard');
         @endphp
 
         <style>
@@ -342,118 +343,120 @@
             }
         </style>
 
-        <flux:sidebar sticky collapsible="mobile" class="ops-sidebar-shell border-e border-[rgba(104,240,255,0.1)]">
-            <div class="ops-sidebar-topbar">
-                <flux:sidebar.collapse class="lg:hidden" />
-            </div>
-
-            <flux:sidebar.nav class="ops-sidebar-primary-nav">
-                <div class="ops-sidebar-panel w-full rounded-[1.6rem] p-3">
-                    <p class="ops-sidebar-block-title">Platform</p>
-                    <flux:sidebar.group class="grid gap-1">
-                        <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
-                            {{ __('Dashboard') }}
-                            <span class="ops-sidebar-link-note">Control room utama</span>
-                        </flux:sidebar.item>
-                        <flux:sidebar.item icon="server-stack" :href="route('guilds.select')" :current="request()->routeIs('guilds.select*')" wire:navigate>
-                            {{ __('Pilih Server') }}
-                            <span class="ops-sidebar-link-note">Pilih workspace server aktif</span>
-                        </flux:sidebar.item>
-                        <flux:sidebar.item icon="cog-6-tooth" :href="route('discord.setup')" :current="request()->routeIs('discord.setup')" wire:navigate>
-                            {{ __('Discord Setup') }}
-                            <span class="ops-sidebar-link-note">Webhook, OAuth, dan command</span>
-                        </flux:sidebar.item>
-                        <flux:sidebar.item icon="sparkles" :href="route('vip-title.setup')" :current="request()->routeIs('vip-title.setup*')" wire:navigate>
-                            {{ __('VIP Title Setup') }}
-                            <span class="ops-sidebar-link-note">Kunci map, API, dan gamepass</span>
-                        </flux:sidebar.item>
-                        <flux:sidebar.item icon="code-bracket-square" :href="route('roblox.scripts.index')" :current="request()->routeIs('roblox.scripts.*')" wire:navigate>
-                            {{ __('Roblox Scripts') }}
-                            <span class="ops-sidebar-link-note">Snippet siap pakai di game</span>
-                        </flux:sidebar.item>
-                    </flux:sidebar.group>
+        @unless ($hideWorkspaceSidebar)
+            <flux:sidebar sticky collapsible="mobile" class="ops-sidebar-shell border-e border-[rgba(104,240,255,0.1)]">
+                <div class="ops-sidebar-topbar">
+                    <flux:sidebar.collapse class="lg:hidden" />
                 </div>
-            </flux:sidebar.nav>
 
-            <flux:spacer class="hidden lg:block" />
+                <flux:sidebar.nav class="ops-sidebar-primary-nav">
+                    <div class="ops-sidebar-panel w-full rounded-[1.6rem] p-3">
+                        <p class="ops-sidebar-block-title">Platform</p>
+                        <flux:sidebar.group class="grid gap-1">
+                            <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
+                                {{ __('Dashboard') }}
+                                <span class="ops-sidebar-link-note">Control room utama</span>
+                            </flux:sidebar.item>
+                            <flux:sidebar.item icon="server-stack" :href="route('guilds.select')" :current="request()->routeIs('guilds.select*')" wire:navigate>
+                                {{ __('Pilih Server') }}
+                                <span class="ops-sidebar-link-note">Pilih workspace server aktif</span>
+                            </flux:sidebar.item>
+                            <flux:sidebar.item icon="cog-6-tooth" :href="route('discord.setup')" :current="request()->routeIs('discord.setup')" wire:navigate>
+                                {{ __('Discord Setup') }}
+                                <span class="ops-sidebar-link-note">Webhook, OAuth, dan command</span>
+                            </flux:sidebar.item>
+                            <flux:sidebar.item icon="sparkles" :href="route('vip-title.setup')" :current="request()->routeIs('vip-title.setup*')" wire:navigate>
+                                {{ __('VIP Title Setup') }}
+                                <span class="ops-sidebar-link-note">Kunci map, API, dan gamepass</span>
+                            </flux:sidebar.item>
+                            <flux:sidebar.item icon="code-bracket-square" :href="route('roblox.scripts.index')" :current="request()->routeIs('roblox.scripts.*')" wire:navigate>
+                                {{ __('Roblox Scripts') }}
+                                <span class="ops-sidebar-link-note">Snippet siap pakai di game</span>
+                            </flux:sidebar.item>
+                        </flux:sidebar.group>
+                    </div>
+                </flux:sidebar.nav>
 
-            <flux:sidebar.nav class="ops-sidebar-secondary-nav">
-                <div class="ops-sidebar-footer w-full rounded-[1.5rem] p-3">
-                    <p class="ops-sidebar-block-title">Shortcuts</p>
-                    <flux:sidebar.item icon="home" :href="route('home')">
-                        {{ __('Landing Page') }}
-                        <span class="ops-sidebar-link-note">Balik ke halaman utama</span>
-                    </flux:sidebar.item>
-                    <flux:sidebar.item icon="book-open-text" href="https://create.roblox.com/docs" target="_blank">
-                        {{ __('Roblox Docs') }}
-                        <span class="ops-sidebar-link-note">Dokumentasi resmi Roblox</span>
-                    </flux:sidebar.item>
+                <flux:spacer class="hidden lg:block" />
+
+                <flux:sidebar.nav class="ops-sidebar-secondary-nav">
+                    <div class="ops-sidebar-footer w-full rounded-[1.5rem] p-3">
+                        <p class="ops-sidebar-block-title">Shortcuts</p>
+                        <flux:sidebar.item icon="home" :href="route('home')">
+                            {{ __('Landing Page') }}
+                            <span class="ops-sidebar-link-note">Balik ke halaman utama</span>
+                        </flux:sidebar.item>
+                        <flux:sidebar.item icon="book-open-text" href="https://create.roblox.com/docs" target="_blank">
+                            {{ __('Roblox Docs') }}
+                            <span class="ops-sidebar-link-note">Dokumentasi resmi Roblox</span>
+                        </flux:sidebar.item>
+                    </div>
+                </flux:sidebar.nav>
+
+                <div class="ops-sidebar-account">
+                    <x-desktop-user-menu class="hidden lg:block" :name="$currentUser->name" />
                 </div>
-            </flux:sidebar.nav>
+            </flux:sidebar>
 
-            <div class="ops-sidebar-account">
-                <x-desktop-user-menu class="hidden lg:block" :name="$currentUser->name" />
-            </div>
-        </flux:sidebar>
+            <flux:header class="lg:hidden">
+                <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
-        <flux:header class="lg:hidden">
-            <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
+                <flux:spacer />
 
-            <flux:spacer />
+                <flux:dropdown position="top" align="end">
+                    <flux:profile
+                        :initials="$currentUser->initials()"
+                        icon-trailing="chevron-down"
+                    />
 
-            <flux:dropdown position="top" align="end">
-                <flux:profile
-                    :initials="$currentUser->initials()"
-                    icon-trailing="chevron-down"
-                />
+                    <flux:menu>
+                        <flux:menu.radio.group>
+                            <div class="p-0 text-sm font-normal">
+                                <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
+                                    <flux:avatar
+                                        :name="$currentUser->name"
+                                        :initials="$currentUser->initials()"
+                                    />
 
-                <flux:menu>
-                    <flux:menu.radio.group>
-                        <div class="p-0 text-sm font-normal">
-                            <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
-                                <flux:avatar
-                                    :name="$currentUser->name"
-                                    :initials="$currentUser->initials()"
-                                />
-
-                                <div class="grid flex-1 text-start text-sm leading-tight">
-                                    <flux:heading class="truncate">{{ $currentUser->name }}</flux:heading>
-                                    <flux:text class="truncate">{{ $currentUser->email }}</flux:text>
-                                    @if ($managedGuild)
-                                        <flux:text class="truncate text-[11px] uppercase tracking-[0.18em] text-cyan-300">
-                                            {{ $managedGuild['name'] }}
-                                        </flux:text>
-                                    @endif
+                                    <div class="grid flex-1 text-start text-sm leading-tight">
+                                        <flux:heading class="truncate">{{ $currentUser->name }}</flux:heading>
+                                        <flux:text class="truncate">{{ $currentUser->email }}</flux:text>
+                                        @if ($managedGuild)
+                                            <flux:text class="truncate text-[11px] uppercase tracking-[0.18em] text-cyan-300">
+                                                {{ $managedGuild['name'] }}
+                                            </flux:text>
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </flux:menu.radio.group>
+                        </flux:menu.radio.group>
 
-                    <flux:menu.separator />
+                        <flux:menu.separator />
 
-                    <flux:menu.radio.group>
-                        <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
-                            {{ __('Settings') }}
-                        </flux:menu.item>
-                    </flux:menu.radio.group>
+                        <flux:menu.radio.group>
+                            <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
+                                {{ __('Settings') }}
+                            </flux:menu.item>
+                        </flux:menu.radio.group>
 
-                    <flux:menu.separator />
+                        <flux:menu.separator />
 
-                    <form method="POST" action="{{ route('logout') }}" class="w-full">
-                        @csrf
-                        <flux:menu.item
-                            as="button"
-                            type="submit"
-                            icon="arrow-right-start-on-rectangle"
-                            class="w-full cursor-pointer"
-                            data-test="logout-button"
-                        >
-                            {{ __('Log out') }}
-                        </flux:menu.item>
-                    </form>
-                </flux:menu>
-            </flux:dropdown>
-        </flux:header>
+                        <form method="POST" action="{{ route('logout') }}" class="w-full">
+                            @csrf
+                            <flux:menu.item
+                                as="button"
+                                type="submit"
+                                icon="arrow-right-start-on-rectangle"
+                                class="w-full cursor-pointer"
+                                data-test="logout-button"
+                            >
+                                {{ __('Log out') }}
+                            </flux:menu.item>
+                        </form>
+                    </flux:menu>
+                </flux:dropdown>
+            </flux:header>
+        @endunless
 
         {{ $slot }}
 
