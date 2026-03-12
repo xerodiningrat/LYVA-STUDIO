@@ -78,7 +78,7 @@ class VipTitleClaimController extends Controller
 
         $validated = $request->validate([
             'map_key' => ['required', 'string', 'max:64'],
-            'roblox_user_id' => ['required', 'integer', 'min:1'],
+            'roblox_user_id' => ['required', 'integer', 'min:0'],
             'roblox_username' => ['required', 'string', 'max:255'],
             'requested_title' => ['required', 'string', 'min:3', 'max:28'],
             'discord_user_id' => ['nullable', 'string', 'max:255'],
@@ -234,7 +234,13 @@ class VipTitleClaimController extends Controller
 
         $existingPending = VipTitleClaim::query()
             ->where('map_key', $mapKey)
-            ->where('roblox_user_id', $validated['roblox_user_id'])
+            ->where(function ($query) use ($validated) {
+                $query->where('roblox_user_id', $validated['roblox_user_id']);
+
+                if ((int) $validated['roblox_user_id'] === 0) {
+                    $query->orWhereRaw('LOWER(roblox_username) = ?', [strtolower($validated['roblox_username'])]);
+                }
+            })
             ->where('status', 'pending')
             ->latest('requested_at')
             ->first();
@@ -287,9 +293,19 @@ class VipTitleClaimController extends Controller
         ]);
 
         $claim = VipTitleClaim::query()
-            ->where('roblox_user_id', $validated['userId'])
             ->where('map_key', $this->normalizeMapKey($validated['mapKey']))
             ->where('status', 'pending')
+            ->where(function ($query) use ($validated) {
+                $query->where('roblox_user_id', $validated['userId']);
+
+                if (! empty($validated['username'])) {
+                    $query->orWhere(function ($usernameQuery) use ($validated) {
+                        $usernameQuery
+                            ->where('roblox_user_id', 0)
+                            ->whereRaw('LOWER(roblox_username) = ?', [strtolower((string) $validated['username'])]);
+                    });
+                }
+            })
             ->oldest('requested_at')
             ->first();
 

@@ -969,17 +969,33 @@ export async function handleTitileModal(interaction, config) {
   try {
     robloxUser = await resolveRobloxUser(robloxUsername);
   } catch (error) {
-    await interaction.editReply({
-      content: truncateDiscordContent(`Gagal cek username Roblox: ${error.message}`),
-    });
-    return true;
+    if (isBuyModal) {
+      robloxUser = {
+        userId: 0,
+        username: robloxUsername,
+        displayName: robloxUsername,
+      };
+    } else {
+      await interaction.editReply({
+        content: truncateDiscordContent(`Gagal cek username Roblox: ${error.message}`),
+      });
+      return true;
+    }
   }
 
   if (!robloxUser) {
-    await interaction.editReply({
-      content: 'Username Roblox tidak ditemukan.',
-    });
-    return true;
+    if (isBuyModal) {
+      robloxUser = {
+        userId: 0,
+        username: robloxUsername,
+        displayName: robloxUsername,
+      };
+    } else {
+      await interaction.editReply({
+        content: 'Username Roblox tidak ditemukan.',
+      });
+      return true;
+    }
   }
 
   if (isBuyModal) {
@@ -989,6 +1005,9 @@ export async function handleTitileModal(interaction, config) {
       });
       return true;
     }
+    const lookupWarning = robloxUser.userId === 0
+      ? 'Lookup Roblox sedang timeout dari server, jadi checkout lanjut pakai username yang kamu isi. Pastikan username Roblox benar.'
+      : null;
 
     try {
       const checkout = await createLaravelVipTitleCheckout(config, {
@@ -1009,6 +1028,7 @@ export async function handleTitileModal(interaction, config) {
       }
 
       await interaction.editReply({
+        content: lookupWarning ?? undefined,
         embeds: [buildPaymentCheckoutEmbed(robloxUser.username, titleCheck.title, mapConfig, checkout.payment)],
         components: [
           new ActionRowBuilder().addComponents(
