@@ -475,17 +475,17 @@ class VipTitleClaimController extends Controller
             ], 422);
         }
 
-        $existingPending = $this->findPendingClaimForUser($mapKey, $robloxUserId, $robloxUsername, ['pending', 'awaiting_payment']);
-        if ($existingPending) {
-            return response()->json([
-                'message' => 'Masih ada request title yang belum selesai diproses. Tunggu title sebelumnya masuk dulu sebelum ubah lagi.',
-            ], 422);
-        }
-
         $latestAppliedClaim = $selectedActiveClaim ?? $this->findLatestAppliedClaimForUser($mapKey, $robloxUserId, $robloxUsername);
         if (! $latestAppliedClaim) {
             return response()->json([
                 'message' => 'User ini belum punya VIP title yang aktif di map ini, jadi belum bisa pakai fitur ubah title.',
+            ], 422);
+        }
+
+        $existingPending = $this->findBlockingPendingClaimForUser($mapKey, $robloxUserId, $robloxUsername, $latestAppliedClaim);
+        if ($existingPending) {
+            return response()->json([
+                'message' => 'Masih ada request title yang belum selesai diproses. Tunggu title sebelumnya masuk dulu sebelum ubah lagi.',
             ], 422);
         }
 
@@ -667,6 +667,37 @@ class VipTitleClaimController extends Controller
             ->where(fn ($query) => $this->applyUserMatchQuery($query, $robloxUserId, $robloxUsername))
             ->orderByDesc('consumed_at')
             ->orderByDesc('requested_at')
+            ->first();
+    }
+
+    private function findBlockingPendingClaimForUser(string $mapKey, int $robloxUserId, string $robloxUsername, ?VipTitleClaim $latestAppliedClaim = null): ?VipTitleClaim
+    {
+        $query = VipTitleClaim::query()
+            ->where('map_key', $mapKey)
+            ->whereIn('status', ['pending', 'awaiting_payment'])
+            ->where(fn ($builder) => $this->applyUserMatchQuery($builder, $robloxUserId, $robloxUsername));
+
+        if ($latestAppliedClaim) {
+            $latestAppliedAt = $latestAppliedClaim->consumed_at
+                ?? $latestAppliedClaim->requested_at
+                ?? $latestAppliedClaim->created_at;
+
+            if ($latestAppliedAt) {
+                $query->where(function ($timeQuery) use ($latestAppliedAt) {
+                    $timeQuery
+                        ->where('requested_at', '>', $latestAppliedAt)
+                        ->orWhere(function ($nullRequestedAtQuery) use ($latestAppliedAt) {
+                            $nullRequestedAtQuery
+                                ->whereNull('requested_at')
+                                ->where('created_at', '>', $latestAppliedAt);
+                        });
+                });
+            }
+        }
+
+        return $query
+            ->latest('requested_at')
+            ->latest('id')
             ->first();
     }
 

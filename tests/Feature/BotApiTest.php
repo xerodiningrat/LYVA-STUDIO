@@ -571,6 +571,64 @@ test('bot vip title change enforces 12 hour cooldown', function () {
     expect((string) $response->json('message'))->toContain('baru bisa diubah lagi');
 });
 
+test('bot vip title change ignores stale pending request older than applied title', function () {
+    config()->set('services.discord.internal_token', 'shared-secret');
+
+    VipTitleMapSetting::query()->create([
+        'name' => 'Mount Xyra Hybrid',
+        'map_key' => 'mountxyra-hybrid',
+        'gamepass_id' => 1700114697,
+        'claim_mode' => 'duitku',
+        'api_key' => 'lyva_hybrid_secret',
+        'title_slot' => 10,
+        'title_price_idr' => 15000,
+        'payment_expiry_minutes' => 60,
+        'button_label' => 'Beli Title',
+        'place_ids' => ['76880221507840'],
+        'script_access_role_ids' => [],
+        'is_active' => true,
+    ]);
+
+    VipTitleClaim::query()->create([
+        'map_key' => 'mountxyra-hybrid',
+        'gamepass_id' => 0,
+        'roblox_user_id' => 99123,
+        'roblox_username' => 'RobloxBuyer',
+        'requested_title' => 'Title Lama Pending',
+        'discord_user_id' => '777',
+        'discord_tag' => 'Buyer#1234',
+        'status' => 'awaiting_payment',
+        'requested_at' => now()->subDays(2),
+    ]);
+
+    $activeClaim = VipTitleClaim::query()->create([
+        'map_key' => 'mountxyra-hybrid',
+        'gamepass_id' => 0,
+        'roblox_user_id' => 99123,
+        'roblox_username' => 'RobloxBuyer',
+        'requested_title' => 'Sky King',
+        'discord_user_id' => '777',
+        'discord_tag' => 'Buyer#1234',
+        'status' => 'applied',
+        'requested_at' => now()->subHours(20),
+        'consumed_at' => now()->subHours(19),
+        'meta' => ['claim_mode' => 'duitku'],
+    ]);
+
+    $response = $this->withHeaders([
+        'X-Bot-Token' => 'shared-secret',
+    ])->postJson(route('api.bot.vip-title-changes.store'), [
+        'active_claim_id' => $activeClaim->id,
+        'requested_title' => 'Sky Emperor',
+        'discord_user_id' => '777',
+        'discord_tag' => 'Buyer#1234',
+    ]);
+
+    $response
+        ->assertCreated()
+        ->assertJsonPath('claim.requested_title', 'Sky Emperor');
+});
+
 test('bot vip title change requires same discord owner', function () {
     config()->set('services.discord.internal_token', 'shared-secret');
 
