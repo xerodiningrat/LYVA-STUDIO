@@ -15,15 +15,17 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from 'discord.js';
-import { createLaravelVipTitleChange, createLaravelVipTitleCheckout, createLaravelVipTitleClaim, fetchLaravelVipTitleClaims, fetchLaravelVipTitleMaps, fetchLaravelVipTitlePaymentMethods, fetchLaravelVipTitlePaymentStatus } from './laravel-api.js';
+import { createLaravelVipTitleChange, createLaravelVipTitleCheckout, createLaravelVipTitleClaim, fetchLaravelVipTitleActiveTitles, fetchLaravelVipTitleClaims, fetchLaravelVipTitleMaps, fetchLaravelVipTitlePaymentMethods, fetchLaravelVipTitlePaymentStatus } from './laravel-api.js';
 
 const TITLE_PANEL_BUTTON_PREFIX = 'title_claim_open:';
 const TITLE_BUY_BUTTON_PREFIX = 'title_buy_open:';
 const TITLE_UPDATE_BUTTON_PREFIX = 'title_update_open:';
+const TITLE_VIEW_ACTIVE_BUTTON_PREFIX = 'title_active_view:';
 const TITLE_SCRIPT_BUTTON_PREFIX = 'title_claim_script:';
 const TITLE_CLAIM_MODAL_PREFIX = 'title_claim_modal:';
 const TITLE_BUY_MODAL_PREFIX = 'title_buy_modal:';
 const TITLE_UPDATE_MODAL_PREFIX = 'title_update_modal:';
+const TITLE_ACTIVE_SELECT_PREFIX = 'title_active_select:';
 const TITLE_SETUP_SELECT_PREFIX = 'title_setup_map_select:';
 const TITLE_PAYMENT_SELECT_PREFIX = 'title_payment_select:';
 const TITLE_PAYMENT_REFRESH_PREFIX = 'title_payment_refresh:';
@@ -207,6 +209,121 @@ function formatTitleStyle(style) {
   return `${normalizedStyle.label || 'White'} (${r}, ${g}, ${b})`;
 }
 
+function normalizeActiveTitleItem(item = {}) {
+  const activeClaimId = Number(item.activeClaimId ?? item.active_claim_id ?? 0);
+  if (!Number.isFinite(activeClaimId) || activeClaimId <= 0) {
+    return null;
+  }
+
+  return {
+    activeClaimId,
+    mapKey: normalizeMapKey(item.mapKey ?? item.map_key ?? ''),
+    mapName: String(item.mapName ?? item.map_name ?? item.mapKey ?? item.map_key ?? 'Unknown Map').trim() || 'Unknown Map',
+    titleSlot: Number(item.titleSlot ?? item.title_slot ?? 10) || 10,
+    robloxUsername: String(item.robloxUsername ?? item.roblox_username ?? '-').trim() || '-',
+    currentTitle: String(item.currentTitle ?? item.current_title ?? '-').trim() || '-',
+    titleStyle: cloneTitleStyle(item.titleStyle ?? item.title_style ?? null),
+    appliedAt: item.appliedAt ?? item.applied_at ?? null,
+    canChangeAt: item.canChangeAt ?? item.can_change_at ?? null,
+    canChangeNow: item.canChangeNow ?? item.can_change_now ?? false,
+    cooldownHours: Number(item.cooldownHours ?? item.cooldown_hours ?? 12) || 12,
+  };
+}
+
+function sortActiveTitles(items, preferredMapKey = '') {
+  const normalizedPreferredMapKey = normalizeMapKey(preferredMapKey);
+
+  return [...items].sort((left, right) => {
+    const leftPreferred = left.mapKey === normalizedPreferredMapKey ? 1 : 0;
+    const rightPreferred = right.mapKey === normalizedPreferredMapKey ? 1 : 0;
+    if (leftPreferred !== rightPreferred) {
+      return rightPreferred - leftPreferred;
+    }
+
+    if (left.canChangeNow !== right.canChangeNow) {
+      return left.canChangeNow ? -1 : 1;
+    }
+
+    return `${left.mapName}:${left.titleSlot}:${left.robloxUsername}`.localeCompare(
+      `${right.mapName}:${right.titleSlot}:${right.robloxUsername}`,
+      'id',
+    );
+  });
+}
+
+function buildActiveTitleListEmbed(items, preferredMapKey = '') {
+  const normalizedPreferredMapKey = normalizeMapKey(preferredMapKey);
+  const lines = items.slice(0, 10).map((item, index) => {
+    const preferredMarker = item.mapKey === normalizedPreferredMapKey ? ' [panel ini]' : '';
+    const changeInfo = item.canChangeNow
+      ? 'siap diubah'
+      : `bisa diubah ${item.canChangeAt ? `<t:${Math.floor(new Date(item.canChangeAt).getTime() / 1000)}:R>` : `dalam ${item.cooldownHours} jam`}`;
+
+    return `${index + 1}. **${item.mapName}** | Slot ${item.titleSlot} | @${item.robloxUsername}${preferredMarker}\n${item.currentTitle} | ${formatTitleStyle(item.titleStyle)} | ${changeInfo}`;
+  });
+
+  return new EmbedBuilder()
+    .setColor(0x14b8a6)
+    .setTitle('Title Aktif Kamu')
+    .setDescription(lines.join('\n\n') || 'Belum ada VIP title aktif yang terhubung ke akun Discord ini.')
+    .setFooter({ text: 'Pilih title dari dropdown untuk mengubah title yang benar.' });
+}
+
+function buildTitleUpdateModal(activeClaimId) {
+  const modal = new ModalBuilder()
+    .setCustomId(buildTitleUpdateModalId(activeClaimId))
+    .setTitle('Ubah VIP Title');
+
+  const titleInput = new TextInputBuilder()
+    .setCustomId('custom_title')
+    .setLabel('Custom Title Baru')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMaxLength(28)
+    .setPlaceholder('Masukkan custom title baru');
+
+  const colorPresetInput = new TextInputBuilder()
+    .setCustomId('title_color_preset')
+    .setLabel('Warna Preset / rgb (opsional)')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setMaxLength(20)
+    .setPlaceholder('gold, blue, pink, rgb');
+
+  const colorRgbInput = new TextInputBuilder()
+    .setCustomId('title_color_rgb')
+    .setLabel('RGB Custom (opsional)')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setMaxLength(20)
+    .setPlaceholder('255,215,0');
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(titleInput),
+    new ActionRowBuilder().addComponents(colorPresetInput),
+    new ActionRowBuilder().addComponents(colorRgbInput),
+  );
+
+  return modal;
+}
+
+function buildActiveTitleSelectRow(items, preferredMapKey = '') {
+  const normalizedPreferredMapKey = normalizeMapKey(preferredMapKey);
+  const select = new StringSelectMenuBuilder()
+    .setCustomId(buildTitleActiveSelectId(normalizedPreferredMapKey))
+    .setPlaceholder('Pilih title aktif yang mau diubah')
+    .addOptions(
+      items.slice(0, 25).map((item) =>
+        new StringSelectMenuOptionBuilder()
+          .setLabel(truncateForComponent(`${item.mapName} | Slot ${item.titleSlot} | @${item.robloxUsername}`))
+          .setDescription(truncateForComponent(`${item.currentTitle} | ${item.canChangeNow ? 'Siap ubah' : 'Masih cooldown'}`))
+          .setValue(String(item.activeClaimId)),
+      ),
+    );
+
+  return new ActionRowBuilder().addComponents(select);
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -312,6 +429,10 @@ function buildTitleUpdateButtonId(mapKey) {
   return `${TITLE_UPDATE_BUTTON_PREFIX}${normalizeMapKey(mapKey)}`;
 }
 
+function buildTitleViewActiveButtonId(mapKey) {
+  return `${TITLE_VIEW_ACTIVE_BUTTON_PREFIX}${normalizeMapKey(mapKey)}`;
+}
+
 function parseTitlePanelButtonId(customId) {
   if (!String(customId || '').startsWith(TITLE_PANEL_BUTTON_PREFIX)) {
     return '';
@@ -344,6 +465,14 @@ function parseTitleUpdateButtonId(customId) {
   return normalizeMapKey(customId.slice(TITLE_UPDATE_BUTTON_PREFIX.length));
 }
 
+function parseTitleViewActiveButtonId(customId) {
+  if (!String(customId || '').startsWith(TITLE_VIEW_ACTIVE_BUTTON_PREFIX)) {
+    return '';
+  }
+
+  return normalizeMapKey(customId.slice(TITLE_VIEW_ACTIVE_BUTTON_PREFIX.length));
+}
+
 function buildTitleClaimModalId(mapKey) {
   return `${TITLE_CLAIM_MODAL_PREFIX}${normalizeMapKey(mapKey)}`;
 }
@@ -353,7 +482,7 @@ function buildTitleBuyModalId(mapKey) {
 }
 
 function buildTitleUpdateModalId(mapKey) {
-  return `${TITLE_UPDATE_MODAL_PREFIX}${normalizeMapKey(mapKey)}`;
+  return `${TITLE_UPDATE_MODAL_PREFIX}${String(mapKey || '').trim()}`;
 }
 
 function parseTitleClaimModalId(customId) {
@@ -377,7 +506,19 @@ function parseTitleUpdateModalId(customId) {
     return '';
   }
 
-  return normalizeMapKey(customId.slice(TITLE_UPDATE_MODAL_PREFIX.length));
+  return String(customId).slice(TITLE_UPDATE_MODAL_PREFIX.length).trim();
+}
+
+function buildTitleActiveSelectId(mapKey = '') {
+  return `${TITLE_ACTIVE_SELECT_PREFIX}${normalizeMapKey(mapKey)}`;
+}
+
+function parseTitleActiveSelectId(customId) {
+  if (!String(customId || '').startsWith(TITLE_ACTIVE_SELECT_PREFIX)) {
+    return '';
+  }
+
+  return normalizeMapKey(customId.slice(TITLE_ACTIVE_SELECT_PREFIX.length));
 }
 
 function buildTitleSetupSelectId(channelId) {
@@ -471,6 +612,18 @@ async function resolveMapConfig(config, rawMapKey) {
   return maps.find((item) => item.mapKey === mapKey) || null;
 }
 
+async function fetchOwnedActiveTitles(config, discordUserId, preferredMapKey = '') {
+  const response = await fetchLaravelVipTitleActiveTitles(config, {
+    discord_user_id: discordUserId,
+  }).catch(() => null);
+
+  const items = Array.isArray(response?.items)
+    ? response.items.map((item) => normalizeActiveTitleItem(item)).filter(Boolean)
+    : [];
+
+  return sortActiveTitles(items, preferredMapKey);
+}
+
 function buildTitlePanelEmbed(mapConfig) {
   const hasPaidOption = mapConfig.titlePriceIdr > 0;
 
@@ -487,6 +640,7 @@ function buildTitlePanelEmbed(mapConfig) {
           ? `Klik \`Beli Title\` kalau user mau bayar pakai IDR. Harga saat ini **${formatIdr(mapConfig.titlePriceIdr)}**.`
           : 'Kalau harga IDR belum diisi, panel ini hanya pakai flow claim gamepass.',
         `Kalau title sudah pernah berhasil dipakai, user bisa klik \`Ubah Title\` untuk ganti title aktif di slot **${Number(mapConfig.titleSlot || 10)}** tiap 12 jam sekali.`,
+        'Klik `Lihat Title Aktif` kalau user punya beberapa VIP title dan mau pilih title yang benar dari daftar.',
         `Warna title bisa dipilih dengan preset atau RGB custom. Preset: \`${getTitleColorPresetSummary()}\`.`,
         'Klik `Script Roblox` kalau admin butuh file yang harus ditaruh di game.',
       ].join('\n'),
@@ -496,6 +650,7 @@ function buildTitlePanelEmbed(mapConfig) {
       { name: 'Claim VIP', value: 'Aktif', inline: true },
       { name: 'Beli IDR', value: hasPaidOption ? formatIdr(mapConfig.titlePriceIdr) : 'Nonaktif', inline: true },
       { name: 'Ubah Title', value: 'Setiap 12 jam', inline: true },
+      { name: 'Lihat Aktif', value: 'Pilih dari daftar title', inline: true },
       { name: 'Filter', value: 'Reserved title + profanity diblok', inline: true },
       { name: 'Warna', value: 'Preset + RGB custom', inline: true },
     )
@@ -918,6 +1073,7 @@ async function publishTitlePanel(channel, mapConfig) {
   const components = [
     new ButtonBuilder().setCustomId(buildTitlePanelButtonId(mapConfig.mapKey)).setLabel('Claim Title').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId(buildTitleUpdateButtonId(mapConfig.mapKey)).setLabel('Ubah Title').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(buildTitleViewActiveButtonId(mapConfig.mapKey)).setLabel('Lihat Title Aktif').setStyle(ButtonStyle.Secondary),
   ];
 
   if ((mapConfig.titlePriceIdr || 0) > 0) {
@@ -1078,6 +1234,21 @@ export async function handleTitileComponent(interaction, config) {
       embeds: [],
       components: [],
     });
+    return true;
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId.startsWith(TITLE_ACTIVE_SELECT_PREFIX)) {
+    const activeClaimId = Number(interaction.values?.[0] || 0);
+    if (!Number.isFinite(activeClaimId) || activeClaimId <= 0) {
+      await interaction.update({
+        content: 'Title aktif yang dipilih tidak valid. Coba pilih lagi.',
+        embeds: [],
+        components: [],
+      });
+      return true;
+    }
+
+    await interaction.showModal(buildTitleUpdateModal(activeClaimId));
     return true;
   }
 
@@ -1297,50 +1468,44 @@ export async function handleTitileComponent(interaction, config) {
 
   const updateMapKey = parseTitleUpdateButtonId(interaction.customId);
   if (updateMapKey) {
-    const modal = new ModalBuilder()
-      .setCustomId(buildTitleUpdateModalId(updateMapKey))
-      .setTitle('Ubah VIP Title');
+    const activeTitles = await fetchOwnedActiveTitles(config, interaction.user.id, updateMapKey);
+    if (activeTitles.length === 0) {
+      await interaction.reply({
+        content: 'Belum ada VIP title aktif yang terhubung ke akun Discord ini. Claim atau beli title dulu sampai statusnya berhasil dipakai di Roblox.',
+        ephemeral: true,
+      });
+      return true;
+    }
 
-    const usernameInput = new TextInputBuilder()
-      .setCustomId('roblox_username')
-      .setLabel('Roblox Username')
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true)
-      .setMaxLength(20)
-      .setPlaceholder('Masukkan username Roblox');
+    if (activeTitles.length === 1) {
+      await interaction.showModal(buildTitleUpdateModal(activeTitles[0].activeClaimId));
+      return true;
+    }
 
-    const titleInput = new TextInputBuilder()
-      .setCustomId('custom_title')
-      .setLabel('Custom Title Baru')
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true)
-      .setMaxLength(28)
-      .setPlaceholder('Masukkan custom title baru');
+    await interaction.reply({
+      embeds: [buildActiveTitleListEmbed(activeTitles, updateMapKey)],
+      components: [buildActiveTitleSelectRow(activeTitles, updateMapKey)],
+      ephemeral: true,
+    });
+    return true;
+  }
 
-    const colorPresetInput = new TextInputBuilder()
-      .setCustomId('title_color_preset')
-      .setLabel('Warna Preset / rgb (opsional)')
-      .setStyle(TextInputStyle.Short)
-      .setRequired(false)
-      .setMaxLength(20)
-      .setPlaceholder('gold, blue, pink, rgb');
+  const activeViewMapKey = parseTitleViewActiveButtonId(interaction.customId);
+  if (activeViewMapKey) {
+    const activeTitles = await fetchOwnedActiveTitles(config, interaction.user.id, activeViewMapKey);
+    if (activeTitles.length === 0) {
+      await interaction.reply({
+        content: 'Belum ada VIP title aktif yang terhubung ke akun Discord ini.',
+        ephemeral: true,
+      });
+      return true;
+    }
 
-    const colorRgbInput = new TextInputBuilder()
-      .setCustomId('title_color_rgb')
-      .setLabel('RGB Custom (opsional)')
-      .setStyle(TextInputStyle.Short)
-      .setRequired(false)
-      .setMaxLength(20)
-      .setPlaceholder('255,215,0');
-
-    modal.addComponents(
-      new ActionRowBuilder().addComponents(usernameInput),
-      new ActionRowBuilder().addComponents(titleInput),
-      new ActionRowBuilder().addComponents(colorPresetInput),
-      new ActionRowBuilder().addComponents(colorRgbInput),
-    );
-
-    await interaction.showModal(modal);
+    await interaction.reply({
+      embeds: [buildActiveTitleListEmbed(activeTitles, activeViewMapKey)],
+      components: [buildActiveTitleSelectRow(activeTitles, activeViewMapKey)],
+      ephemeral: true,
+    });
     return true;
   }
 
@@ -1394,7 +1559,10 @@ export async function handleTitileModal(interaction, config) {
 
   await interaction.deferReply({ ephemeral: true });
 
-  const robloxUsername = String(interaction.fields.getTextInputValue('roblox_username') || '').trim();
+  const updateActiveClaimId = isUpdateModal ? Number(parseTitleUpdateModalId(interaction.customId) || 0) : 0;
+  const robloxUsername = isUpdateModal
+    ? ''
+    : String(interaction.fields.getTextInputValue('roblox_username') || '').trim();
   const titleCheck = validateTitle(interaction.fields.getTextInputValue('custom_title'));
   const titleStyleCheck = resolveTitleStyle(
     interaction.fields.getTextInputValue('title_color_preset'),
@@ -1406,17 +1574,34 @@ export async function handleTitileModal(interaction, config) {
       ? parseTitleUpdateModalId(interaction.customId)
       : parseTitleClaimModalId(interaction.customId);
 
-  if (!robloxUsername) {
+  if (!isUpdateModal && !robloxUsername) {
     await interaction.editReply({ content: 'Username Roblox wajib diisi.' });
     return true;
   }
 
-  if (!mapKey) {
+  if (isUpdateModal && (!Number.isFinite(updateActiveClaimId) || updateActiveClaimId <= 0)) {
+    await interaction.editReply({ content: 'Title aktif yang dipilih tidak valid. Coba pilih lagi dari panel.' });
+    return true;
+  }
+
+  if (!isUpdateModal && !mapKey) {
     await interaction.editReply({ content: 'Panel claim ini belum punya map yang valid. Minta admin kirim panel baru dari dashboard.' });
     return true;
   }
 
-  const mapConfig = await resolveMapConfig(config, mapKey);
+  let selectedActiveTitle = null;
+  if (isUpdateModal) {
+    const activeTitles = await fetchOwnedActiveTitles(config, interaction.user.id);
+    selectedActiveTitle = activeTitles.find((item) => item.activeClaimId === updateActiveClaimId) || null;
+    if (!selectedActiveTitle) {
+      await interaction.editReply({
+        content: 'Title aktif yang dipilih tidak ditemukan untuk akun Discord ini.',
+      });
+      return true;
+    }
+  }
+
+  const mapConfig = await resolveMapConfig(config, isUpdateModal ? selectedActiveTitle?.mapKey : mapKey);
   if (!mapConfig) {
     await interaction.editReply({
       content: `Map untuk panel ini sudah tidak aktif atau belum terdaftar di dashboard VIP Title.`,
@@ -1437,35 +1622,43 @@ export async function handleTitileModal(interaction, config) {
   const titleStyle = titleStyleCheck.style;
 
   let robloxUser = null;
-  try {
-    robloxUser = await resolveRobloxUser(robloxUsername);
-  } catch (error) {
-    if (isBuyModal || isUpdateModal) {
-      robloxUser = {
-        userId: 0,
-        username: robloxUsername,
-        displayName: robloxUsername,
-      };
-    } else {
-      await interaction.editReply({
-        content: truncateDiscordContent(`Gagal cek username Roblox: ${error.message}`),
-      });
-      return true;
+  if (isUpdateModal) {
+    robloxUser = {
+      userId: 0,
+      username: selectedActiveTitle.robloxUsername,
+      displayName: selectedActiveTitle.robloxUsername,
+    };
+  } else {
+    try {
+      robloxUser = await resolveRobloxUser(robloxUsername);
+    } catch (error) {
+      if (isBuyModal) {
+        robloxUser = {
+          userId: 0,
+          username: robloxUsername,
+          displayName: robloxUsername,
+        };
+      } else {
+        await interaction.editReply({
+          content: truncateDiscordContent(`Gagal cek username Roblox: ${error.message}`),
+        });
+        return true;
+      }
     }
-  }
 
-  if (!robloxUser) {
-    if (isBuyModal || isUpdateModal) {
-      robloxUser = {
-        userId: 0,
-        username: robloxUsername,
-        displayName: robloxUsername,
-      };
-    } else {
-      await interaction.editReply({
-        content: 'Username Roblox tidak ditemukan.',
-      });
-      return true;
+    if (!robloxUser) {
+      if (isBuyModal) {
+        robloxUser = {
+          userId: 0,
+          username: robloxUsername,
+          displayName: robloxUsername,
+        };
+      } else {
+        await interaction.editReply({
+          content: 'Username Roblox tidak ditemukan.',
+        });
+        return true;
+      }
     }
   }
 
@@ -1542,9 +1735,7 @@ export async function handleTitileModal(interaction, config) {
   if (isUpdateModal) {
     try {
       const updateResponse = await createLaravelVipTitleChange(config, {
-        map_key: mapKey,
-        roblox_user_id: robloxUser.userId,
-        roblox_username: robloxUser.username,
+        active_claim_id: updateActiveClaimId,
         requested_title: titleCheck.title,
         discord_user_id: interaction.user.id,
         discord_tag: interaction.user.tag,
@@ -1559,7 +1750,7 @@ export async function handleTitileModal(interaction, config) {
           ? 'Lookup Roblox sedang timeout dari server, jadi perubahan title disimpan pakai username yang kamu isi. Pastikan username Roblox benar.'
           : undefined,
         embeds: [buildTitleChangeSuccessEmbed(
-          robloxUser.username,
+          selectedActiveTitle.robloxUsername,
           titleCheck.title,
           mapConfig,
           titleStyle,

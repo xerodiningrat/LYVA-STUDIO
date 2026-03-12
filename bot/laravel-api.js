@@ -411,6 +411,33 @@ export async function fetchLaravelVipTitlePaymentStatus(config, merchantOrderId)
   return response.json();
 }
 
+export async function fetchLaravelVipTitleActiveTitles(config, params = {}) {
+  if (!config.internalToken) {
+    return null;
+  }
+
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      query.set(key, String(value));
+    }
+  }
+
+  const response = await requestLaravel(`${config.botApiUrl}/api/bot/vip-title-active?${query.toString()}`, {
+    headers: {
+      'Accept': 'application/json',
+      'X-Bot-Token': config.internalToken,
+    },
+  }, 'mengambil title aktif VIP');
+
+  if (!response.ok) {
+    const message = await readLaravelErrorMessage(response, 'Laravel title aktif VIP gagal.');
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
 export async function fetchLaravelVipTitleMaps(config) {
   if (!config.internalToken) {
     return null;

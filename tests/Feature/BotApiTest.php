@@ -314,6 +314,97 @@ test('bot can still create vip title claim when map also has idr price', functio
         ->assertJsonPath('claim.meta.title_style.mode', 'RGB');
 });
 
+test('bot can list active vip titles for a discord user', function () {
+    config()->set('services.discord.internal_token', 'shared-secret');
+
+    VipTitleMapSetting::query()->create([
+        'name' => 'Mount Xyra',
+        'map_key' => 'mountxyra',
+        'gamepass_id' => 1700114697,
+        'claim_mode' => 'vip_gamepass',
+        'api_key' => 'lyva_mount_secret',
+        'title_slot' => 10,
+        'title_price_idr' => 100000,
+        'payment_expiry_minutes' => 60,
+        'button_label' => 'Beli Title',
+        'place_ids' => ['76880221507840'],
+        'script_access_role_ids' => [],
+        'is_active' => true,
+    ]);
+
+    VipTitleMapSetting::query()->create([
+        'name' => 'Sky Summit',
+        'map_key' => 'skysummit',
+        'gamepass_id' => 1700114698,
+        'claim_mode' => 'vip_gamepass',
+        'api_key' => 'lyva_sky_secret',
+        'title_slot' => 9,
+        'title_price_idr' => 50000,
+        'payment_expiry_minutes' => 60,
+        'button_label' => 'Beli Title',
+        'place_ids' => ['555555'],
+        'script_access_role_ids' => [],
+        'is_active' => true,
+    ]);
+
+    VipTitleClaim::query()->create([
+        'map_key' => 'mountxyra',
+        'gamepass_id' => 0,
+        'roblox_user_id' => 99123,
+        'roblox_username' => 'RobloxBuyer',
+        'requested_title' => 'Title Lama',
+        'discord_user_id' => '777',
+        'status' => 'applied',
+        'requested_at' => now()->subDays(2),
+        'consumed_at' => now()->subDays(2),
+    ]);
+
+    VipTitleClaim::query()->create([
+        'map_key' => 'mountxyra',
+        'gamepass_id' => 0,
+        'roblox_user_id' => 99123,
+        'roblox_username' => 'RobloxBuyer',
+        'requested_title' => 'Title Baru',
+        'discord_user_id' => '777',
+        'status' => 'applied',
+        'requested_at' => now()->subHours(20),
+        'consumed_at' => now()->subHours(19),
+        'meta' => [
+            'title_style' => [
+                'mode' => 'SOLID',
+                'preset' => 'BLUE',
+                'color' => ['r' => 59, 'g' => 130, 'b' => 246],
+                'label' => 'Blue',
+            ],
+        ],
+    ]);
+
+    VipTitleClaim::query()->create([
+        'map_key' => 'skysummit',
+        'gamepass_id' => 0,
+        'roblox_user_id' => 99123,
+        'roblox_username' => 'RobloxBuyer',
+        'requested_title' => 'Summit King',
+        'discord_user_id' => '777',
+        'status' => 'applied',
+        'requested_at' => now()->subHours(16),
+        'consumed_at' => now()->subHours(15),
+    ]);
+
+    $response = $this->withHeaders([
+        'X-Bot-Token' => 'shared-secret',
+    ])->getJson(route('api.bot.vip-title-active.index', [
+        'discord_user_id' => '777',
+    ]));
+
+    $response
+        ->assertOk()
+        ->assertJsonCount(2, 'items')
+        ->assertJsonPath('items.0.mapName', 'Mount Xyra')
+        ->assertJsonPath('items.0.currentTitle', 'Title Baru')
+        ->assertJsonPath('items.0.titleSlot', 10);
+});
+
 test('bot can request vip title change after cooldown', function () {
     config()->set('services.discord.internal_token', 'shared-secret');
 
@@ -371,6 +462,62 @@ test('bot can request vip title change after cooldown', function () {
         ->assertJsonPath('claim.meta.change_type', 'self_service_update')
         ->assertJsonPath('claim.meta.title_style.label', 'Blue')
         ->assertJsonPath('cooldownHours', 12)
+        ->assertJsonPath('previousTitle', 'Sky King')
+        ->assertJsonPath('titleSlot', 10);
+});
+
+test('bot can request vip title change by selected active claim id', function () {
+    config()->set('services.discord.internal_token', 'shared-secret');
+
+    VipTitleMapSetting::query()->create([
+        'name' => 'Mount Xyra Hybrid',
+        'map_key' => 'mountxyra-hybrid',
+        'gamepass_id' => 1700114697,
+        'claim_mode' => 'duitku',
+        'api_key' => 'lyva_hybrid_secret',
+        'title_slot' => 10,
+        'title_price_idr' => 15000,
+        'payment_expiry_minutes' => 60,
+        'button_label' => 'Beli Title',
+        'place_ids' => ['76880221507840'],
+        'script_access_role_ids' => [],
+        'is_active' => true,
+    ]);
+
+    $activeClaim = VipTitleClaim::query()->create([
+        'map_key' => 'mountxyra-hybrid',
+        'gamepass_id' => 0,
+        'roblox_user_id' => 99123,
+        'roblox_username' => 'RobloxBuyer',
+        'requested_title' => 'Sky King',
+        'discord_user_id' => '777',
+        'discord_tag' => 'Buyer#1234',
+        'status' => 'applied',
+        'requested_at' => now()->subHours(20),
+        'consumed_at' => now()->subHours(19),
+        'meta' => ['claim_mode' => 'duitku'],
+    ]);
+
+    $response = $this->withHeaders([
+        'X-Bot-Token' => 'shared-secret',
+    ])->postJson(route('api.bot.vip-title-changes.store'), [
+        'active_claim_id' => $activeClaim->id,
+        'requested_title' => 'Sky Emperor',
+        'discord_user_id' => '777',
+        'discord_tag' => 'Buyer#1234',
+        'meta' => [
+            'title_style' => [
+                'mode' => 'SOLID',
+                'preset' => 'GOLD',
+                'color' => ['r' => 255, 'g' => 215, 'b' => 0],
+                'label' => 'Gold',
+            ],
+        ],
+    ]);
+
+    $response
+        ->assertCreated()
+        ->assertJsonPath('claim.requested_title', 'Sky Emperor')
         ->assertJsonPath('previousTitle', 'Sky King')
         ->assertJsonPath('titleSlot', 10);
 });

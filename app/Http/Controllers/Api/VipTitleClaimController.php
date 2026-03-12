@@ -106,6 +106,71 @@ class VipTitleClaimController extends Controller
         ]);
     }
 
+    public function activeTitles(Request $request): JsonResponse
+    {
+        abort_unless($this->hasBotToken($request), 401);
+
+        $validated = $request->validate([
+            'discord_user_id' => ['required', 'string', 'max:255'],
+        ]);
+
+        $claims = VipTitleClaim::query()
+            ->where('discord_user_id', $validated['discord_user_id'])
+            ->where('status', 'applied')
+            ->orderByDesc('consumed_at')
+            ->orderByDesc('requested_at')
+            ->get();
+
+        $mapSettings = VipTitleMapSetting::query()
+            ->whereIn('map_key', $claims->pluck('map_key')->filter()->unique()->values())
+            ->get()
+            ->keyBy('map_key');
+
+        $items = $claims
+            ->unique(function (VipTitleClaim $claim) use ($mapSettings) {
+                $slot = (int) ($mapSettings->get($claim->map_key)?->title_slot ?? 10);
+                $userKey = $claim->roblox_user_id > 0
+                    ? 'uid:'.$claim->roblox_user_id
+                    : 'uname:'.strtolower((string) $claim->roblox_username);
+
+                return implode('|', [$claim->map_key, $slot, $userKey]);
+            })
+            ->values()
+            ->map(function (VipTitleClaim $claim) use ($mapSettings) {
+                $mapSetting = $mapSettings->get($claim->map_key);
+                $titleSlot = (int) ($mapSetting?->title_slot ?? 10);
+                $cooldownSource = $claim->consumed_at ?? $claim->requested_at ?? $claim->created_at;
+                $canChangeAt = $cooldownSource?->copy()->addHours(self::TITLE_CHANGE_COOLDOWN_HOURS);
+
+                return [
+                    'activeClaimId' => $claim->id,
+                    'mapKey' => $claim->map_key,
+                    'mapName' => $mapSetting?->name ?? $claim->map_key,
+                    'titleSlot' => $titleSlot,
+                    'robloxUserId' => $claim->roblox_user_id,
+                    'robloxUsername' => $claim->roblox_username,
+                    'currentTitle' => $claim->requested_title,
+                    'titleStyle' => $this->normalizeTitleStyle($claim->meta['title_style'] ?? null),
+                    'appliedAt' => $claim->consumed_at ?? $claim->requested_at,
+                    'canChangeAt' => $canChangeAt,
+                    'canChangeNow' => ! $canChangeAt || now()->gte($canChangeAt),
+                    'cooldownHours' => self::TITLE_CHANGE_COOLDOWN_HOURS,
+                ];
+            })
+            ->sortBy([
+                ['canChangeNow', 'desc'],
+                ['mapName', 'asc'],
+                ['titleSlot', 'asc'],
+                ['robloxUsername', 'asc'],
+            ])
+            ->values()
+            ->all();
+
+        return response()->json([
+            'items' => $items,
+        ]);
+    }
+
     public function checkout(Request $request, DuitkuService $duitku): JsonResponse
     {
         abort_unless($this->hasBotToken($request), 401);
@@ -357,16 +422,29 @@ class VipTitleClaimController extends Controller
         abort_unless($this->hasBotToken($request), 401);
 
         $validated = $request->validate([
-            'map_key' => ['required', 'string', 'max:64'],
-            'roblox_user_id' => ['required', 'integer', 'min:0'],
-            'roblox_username' => ['required', 'string', 'max:255'],
+            'active_claim_id' => ['nullable', 'integer', 'min:1'],
+            'map_key' => ['nullable', 'string', 'max:64'],
+            'roblox_user_id' => ['nullable', 'integer', 'min:0'],
+            'roblox_username' => ['nullable', 'string', 'max:255'],
             'requested_title' => ['required', 'string', 'min:3', 'max:28'],
             'discord_user_id' => ['nullable', 'string', 'max:255'],
             'discord_tag' => ['nullable', 'string', 'max:255'],
             'meta' => ['nullable', 'array'],
         ]);
 
-        $mapKey = $this->normalizeMapKey($validated['map_key']);
+        $selectedActiveClaim = ! empty($validated['active_claim_id'])
+            ? VipTitleClaim::query()->where('status', 'applied')->find($validated['active_claim_id'])
+            : null;
+
+        if (! empty($validated['active_claim_id']) && ! $selectedActiveClaim) {
+            return response()->json([
+                'message' => 'Title aktif yang dipilih tidak ditemukan atau sudah tidak aktif.',
+            ], 422);
+        }
+
+        $mapKey = $selectedActiveClaim
+            ? $this->normalizeMapKey($selectedActiveClaim->map_key)
+            : $this->normalizeMapKey((string) ($validated['map_key'] ?? ''));
         $mapSetting = $this->resolveActiveMapSetting($mapKey);
 
         if (! $mapSetting) {
@@ -384,14 +462,27 @@ class VipTitleClaimController extends Controller
             ], 422);
         }
 
-        $existingPending = $this->findPendingClaimForUser($mapKey, (int) $validated['roblox_user_id'], (string) $validated['roblox_username'], ['pending', 'awaiting_payment']);
+        $robloxUserId = $selectedActiveClaim
+            ? (int) $selectedActiveClaim->roblox_user_id
+            : (int) ($validated['roblox_user_id'] ?? 0);
+        $robloxUsername = $selectedActiveClaim
+            ? (string) $selectedActiveClaim->roblox_username
+            : (string) ($validated['roblox_username'] ?? '');
+
+        if ($mapKey === '' || $robloxUsername === '') {
+            return response()->json([
+                'message' => 'Map key dan username Roblox wajib ada untuk mengubah title.',
+            ], 422);
+        }
+
+        $existingPending = $this->findPendingClaimForUser($mapKey, $robloxUserId, $robloxUsername, ['pending', 'awaiting_payment']);
         if ($existingPending) {
             return response()->json([
                 'message' => 'Masih ada request title yang belum selesai diproses. Tunggu title sebelumnya masuk dulu sebelum ubah lagi.',
             ], 422);
         }
 
-        $latestAppliedClaim = $this->findLatestAppliedClaimForUser($mapKey, (int) $validated['roblox_user_id'], (string) $validated['roblox_username']);
+        $latestAppliedClaim = $selectedActiveClaim ?? $this->findLatestAppliedClaimForUser($mapKey, $robloxUserId, $robloxUsername);
         if (! $latestAppliedClaim) {
             return response()->json([
                 'message' => 'User ini belum punya VIP title yang aktif di map ini, jadi belum bisa pakai fitur ubah title.',
@@ -423,8 +514,8 @@ class VipTitleClaimController extends Controller
         $claim = VipTitleClaim::query()->create([
             'map_key' => $mapKey,
             'gamepass_id' => $latestAppliedClaim->gamepass_id ?? $mapSetting->gamepass_id,
-            'roblox_user_id' => (int) $validated['roblox_user_id'],
-            'roblox_username' => $validated['roblox_username'],
+            'roblox_user_id' => $robloxUserId,
+            'roblox_username' => $robloxUsername,
             'requested_title' => $title,
             'discord_user_id' => $validated['discord_user_id'] ?? $latestAppliedClaim->discord_user_id,
             'discord_tag' => $validated['discord_tag'] ?? $latestAppliedClaim->discord_tag,
