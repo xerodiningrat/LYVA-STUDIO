@@ -21,20 +21,8 @@
                 color: #eef4ff;
             }
 
-            .ops-sidebar-shell [data-flux-sidebar-header] {
-                display: flex !important;
-                align-items: center;
-                justify-content: flex-end;
-                min-height: 0 !important;
-                margin-bottom: 0.35rem;
-            }
-
             .ops-sidebar-shell [data-flux-sidebar-nav] {
                 gap: 1rem;
-            }
-
-            .ops-sidebar-shell [data-flux-sidebar-header] + [data-flux-sidebar-nav] {
-                margin-top: 0 !important;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-nav] + [data-flux-sidebar-nav] {
@@ -97,6 +85,12 @@
                 position: relative;
                 width: 100%;
                 padding-top: 0;
+            }
+
+            .ops-sidebar-topbar {
+                display: flex;
+                justify-content: flex-end;
+                margin-bottom: 0.45rem;
             }
 
             .ops-sidebar-block-title {
@@ -283,16 +277,8 @@
                     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
                 }
 
-                .ops-sidebar-shell [data-flux-sidebar-header] {
-                    margin-bottom: 0.75rem;
-                }
-
                 .ops-sidebar-shell [data-flux-sidebar-nav] {
                     gap: 0.9rem;
-                }
-
-                .ops-sidebar-shell [data-flux-sidebar-header] + [data-flux-sidebar-nav] {
-                    margin-top: 0 !important;
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-nav] + [data-flux-sidebar-nav] {
@@ -335,8 +321,8 @@
                     padding-top: 1rem;
                 }
 
-                .ops-sidebar-header {
-                    padding-top: 0;
+                .ops-sidebar-topbar {
+                    margin-bottom: 0.8rem;
                 }
             }
 
@@ -344,10 +330,6 @@
                 .ops-sidebar-shell {
                     padding-top: 1rem !important;
                     padding-bottom: 1.1rem !important;
-                }
-
-                .ops-sidebar-shell [data-flux-sidebar-header] {
-                    margin-bottom: 0.55rem;
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-nav] + [data-flux-sidebar-nav] {
@@ -361,10 +343,9 @@
         </style>
 
         <flux:sidebar sticky collapsible="mobile" class="ops-sidebar-shell border-e border-[rgba(104,240,255,0.1)]">
-            <flux:sidebar.header>
-                <div class="ops-sidebar-header"></div>
+            <div class="ops-sidebar-topbar">
                 <flux:sidebar.collapse class="lg:hidden" />
-            </flux:sidebar.header>
+            </div>
 
             <flux:sidebar.nav class="ops-sidebar-primary-nav">
                 <div class="ops-sidebar-panel w-full rounded-[1.6rem] p-3">
