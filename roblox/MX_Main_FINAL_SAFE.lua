@@ -396,12 +396,14 @@ local titleDebounce = {}
 
 local function safeRefreshTitle(plr: Player)
 	if not plr or not plr:IsDescendantOf(Players) then return end
-	if not plr.Character then return end
+	local char = plr.Character
+	if not char then return end
+	if not char:FindFirstChild("Head") then return end
 	local uid = plr.UserId
 	local now = os.clock()
 	if titleDebounce[uid] and (now - titleDebounce[uid]) < 0.15 then return end
 	titleDebounce[uid] = now
-	Title:ApplyRetry(plr, plr.Character, ROLES, CONFIG.LYVA_COMMUNITY_USERIDS)
+	Title:ApplyRetry(plr, char, ROLES, CONFIG.LYVA_COMMUNITY_USERIDS)
 end
 
 refresh.Event:Connect(function(targetPlayer: Player)
@@ -504,6 +506,41 @@ local function applyCustomTitlesFromData(player: Player)
 	end
 end
 
+local rgbRefreshCooldown = {}
+local applyRgbMetaToPlayer
+
+applyRgbMetaToPlayer = function(player: Player): boolean
+	local metaFolder = player:FindFirstChild("CustomTitleMeta")
+	if not metaFolder then
+		return false
+	end
+
+	local hasRgb = false
+	for slotIndex = 1,10 do
+		local slot = metaFolder:FindFirstChild(string.format("Slot%02d", slotIndex))
+		if slot and slot:IsA("Folder") then
+			local mode = slot:FindFirstChild("Mode")
+			local col  = slot:FindFirstChild("Color")
+			if mode and mode:IsA("StringValue") and string.upper(tostring(mode.Value)) == "RGB" and col and col:IsA("Color3Value") then
+				hasRgb = true
+				local hue = (os.clock() * 0.18 + (slotIndex * 0.07)) % 1
+				col.Value = Color3.fromHSV(hue, 1, 1)
+			end
+		end
+	end
+
+	if hasRgb then
+		local nowClock = os.clock()
+		local prev = rgbRefreshCooldown[player.UserId] or 0
+		if (nowClock - prev) >= 0.75 then
+			rgbRefreshCooldown[player.UserId] = nowClock
+			safeRefreshTitle(player)
+		end
+	end
+
+	return hasRgb
+end
+
 local function hydratePlayerTitle(player: Player, profile: table?)
 	if not player or not player:IsDescendantOf(Players) then
 		return
@@ -591,38 +628,6 @@ end
 local function resolveVipClaimSlot(claim: table?): number
 	local slot = tonumber(claim and claim.titleSlot) or tonumber(CONFIG.VIP_TITLE_SLOT) or 10
 	return math.clamp(slot, 1, 10)
-end
-
-local function applyRgbMetaToPlayer(player: Player): boolean
-	local metaFolder = player:FindFirstChild("CustomTitleMeta")
-	if not metaFolder then
-		return false
-	end
-
-	local hasRgb = false
-	for slotIndex = 1,10 do
-		local slot = metaFolder:FindFirstChild(string.format("Slot%02d", slotIndex))
-		if slot and slot:IsA("Folder") then
-			local mode = slot:FindFirstChild("Mode")
-			local col  = slot:FindFirstChild("Color")
-			if mode and mode:IsA("StringValue") and string.upper(tostring(mode.Value)) == "RGB" and col and col:IsA("Color3Value") then
-				hasRgb = true
-				local hue = (os.clock() * 0.18 + (slotIndex * 0.07)) % 1
-				col.Value = Color3.fromHSV(hue, 1, 1)
-			end
-		end
-	end
-
-	if hasRgb then
-		local nowClock = os.clock()
-		local prev = rgbRefreshCooldown[player.UserId] or 0
-		if (nowClock - prev) >= 0.75 then
-			rgbRefreshCooldown[player.UserId] = nowClock
-			safeRefreshTitle(player)
-		end
-	end
-
-	return hasRgb
 end
 
 local function isVipClaimPlaceAllowed(): boolean
@@ -842,7 +847,6 @@ end)
 -- Runtime state
 --========================
 local touchDebounce, lastPopupForCp = {}, {}
-local rgbRefreshCooldown = {}
 local mustStartFromOne, runLocked, validRun = {}, {}, {}
 local lastFinishAt = {}
 
