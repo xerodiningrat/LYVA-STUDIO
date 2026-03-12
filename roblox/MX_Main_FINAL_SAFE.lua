@@ -245,8 +245,11 @@ local function teleportToSavedCheckpointOrSummit(player:Player, character:Model)
 		return
 	end
 
-	local _, _, runCp = ensureLeaderstats(player)
+	local displayCp, _, runCp = ensureLeaderstats(player)
 	local cpIndex = tonumber(runCp.Value) or 0
+	if cpIndex <= 0 then
+		cpIndex = displayCp.Value
+	end
 	if cpIndex<=0 then return end
 
 	local part = getCheckpointPart(cpIndex)
@@ -1049,7 +1052,11 @@ local function setupPlayer(player:Player)
 	end)
 
 	player.CharacterAdded:Connect(function(char)
+		char:WaitForChild("Head")
+		char:WaitForChild("HumanoidRootPart")
+
 		task.wait(CONFIG.SPAWN_TO_CP_DELAY)
+		RunService.Heartbeat:Wait()
 
 		if CONFIG.SPAWN_TO_CP_ON_RESPAWN then
 			teleportToSavedCheckpointOrSummit(player, char)
