@@ -325,6 +325,14 @@
                 border-top: 1px solid rgba(114, 143, 255, 0.12);
             }
 
+            .ops-sidebar-primary-nav {
+                margin-top: 1.15rem;
+            }
+
+            .ops-sidebar-secondary-nav {
+                margin-top: 1.35rem;
+            }
+
             .ops-sidebar-account::before {
                 content: "";
                 display: block;
@@ -358,6 +366,14 @@
 
                 .ops-sidebar-shell [data-flux-sidebar-nav] + [data-flux-sidebar-nav] {
                     margin-top: 1.35rem;
+                }
+
+                .ops-sidebar-primary-nav {
+                    margin-top: 1.25rem;
+                }
+
+                .ops-sidebar-secondary-nav {
+                    margin-top: 1.45rem;
                 }
 
                 .ops-sidebar-panel,
@@ -414,6 +430,10 @@
                 .ops-sidebar-shell [data-flux-sidebar-nav] + [data-flux-sidebar-nav] {
                     margin-top: 1.3rem;
                 }
+
+                .ops-sidebar-primary-nav {
+                    margin-top: 1.1rem;
+                }
             }
         </style>
 
@@ -433,7 +453,7 @@
                 <flux:sidebar.collapse class="lg:hidden" />
             </flux:sidebar.header>
 
-            <flux:sidebar.nav>
+            <flux:sidebar.nav class="ops-sidebar-primary-nav">
                 <div class="ops-sidebar-panel w-full rounded-[1.6rem] p-3">
                     <p class="ops-sidebar-block-title">Platform</p>
                     <flux:sidebar.group class="grid gap-1">
@@ -463,7 +483,7 @@
 
             <flux:spacer class="hidden lg:block" />
 
-            <flux:sidebar.nav>
+            <flux:sidebar.nav class="ops-sidebar-secondary-nav">
                 <div class="ops-sidebar-footer w-full rounded-[1.5rem] p-3">
                     <p class="ops-sidebar-block-title">Shortcuts</p>
                     <flux:sidebar.item icon="home" :href="route('home')">

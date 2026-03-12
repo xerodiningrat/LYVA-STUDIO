@@ -21,7 +21,7 @@
         ? max(52, min(98, 92 - ($alertCount * 6) - ($reportCount * 3) + ($activeWebhookCount * 2)))
         : null;
 
-    $displayMetric = fn ($value) => ($value === null || (is_numeric($value) && (int) $value === 0)) ? 'Kosong' : str_pad((string) $value, 2, '0', STR_PAD_LEFT);
+    $displayMetric = fn ($value) => ($value === null) ? '0' : str_pad((string) $value, 2, '0', STR_PAD_LEFT);
 
     $quickLinks = [
         ['label' => 'Pilih Server', 'href' => route('guilds.select'), 'copy' => 'Pindah guild aktif dan scope modul.', 'tone' => 'cyan'],
@@ -31,9 +31,9 @@
     ];
 
     $statusCards = [
-        ['label' => 'Bot routing', 'value' => $webhookCount > 0 ? 'Online' : 'Kosong', 'copy' => $webhookCount > 0 ? $webhookCount.' webhook siap kirim event.' : 'Belum ada webhook aktif.', 'progress' => $webhookCount > 0 ? min(100, max(20, ($webhookCount * 18) + 28)) : 0],
-        ['label' => 'Alert pressure', 'value' => $alertCount > 0 ? 'Monitor' : 'Kosong', 'copy' => $alertCount > 0 ? $alertCount.' alert aktif perlu perhatian.' : 'Belum ada alert aktif.', 'progress' => $alertCount > 0 ? min(100, max(24, ($alertCount * 22) + 16)) : 0],
-        ['label' => 'Reports desk', 'value' => $reportCount > 0 ? 'Active' : 'Kosong', 'copy' => $reportCount > 0 ? $reportCount.' report menunggu triage.' : 'Belum ada report aktif.', 'progress' => $reportCount > 0 ? min(100, max(18, ($reportCount * 20) + 14)) : 0],
+        ['label' => 'Bot routing', 'value' => $webhookCount > 0 ? 'Online' : 'Idle', 'copy' => $webhookCount.' webhook siap kirim event.', 'progress' => $webhookCount > 0 ? min(100, max(20, ($webhookCount * 18) + 28)) : 0],
+        ['label' => 'Alert pressure', 'value' => $alertCount > 0 ? 'Monitor' : 'Stable', 'copy' => $alertCount.' alert aktif perlu perhatian.', 'progress' => $alertCount > 0 ? min(100, max(24, ($alertCount * 22) + 16)) : 0],
+        ['label' => 'Reports desk', 'value' => $reportCount > 0 ? 'Active' : 'Quiet', 'copy' => $reportCount.' report menunggu triage.', 'progress' => $reportCount > 0 ? min(100, max(18, ($reportCount * 20) + 14)) : 0],
     ];
 
     $primaryAlert = collect($alerts)->first();
@@ -307,16 +307,6 @@
         <div class="orb c"></div>
         <div class="particlefield" id="dashParticles" aria-hidden="true"></div>
 
-        @unless ($hasLiveDashboardData)
-            <section class="banner" data-glow-card>
-                <div>
-                    <span class="kicker">Dashboard kosong</span>
-                    <p class="copy" style="margin-top:.55rem;">Belum ada data live yang masuk ke dashboard ini. Begitu webhook, alert, report, atau event mulai tercatat, panel di bawah akan otomatis menampilkan data asli.</p>
-                </div>
-                <a href="{{ route('discord.setup') }}" class="ghost">Buka setup</a>
-            </section>
-        @endunless
-
         <section class="hero" data-glow-card>
             <div>
                 <div class="hero-copy">
@@ -342,8 +332,8 @@
                 <div class="row">
                     <span class="chip">Server aktif: {{ $serverName }}</span>
                     <span class="chip">Guild ID: {{ $guildId }}</span>
-                    <span class="chip">Tracked game: {{ $trackedGamesCount > 0 ? $trackedGamesCount : 'Kosong' }}</span>
-                    <span class="chip">Webhook aktif: {{ $activeWebhookCount > 0 ? $activeWebhookCount : 'Kosong' }}</span>
+                    <span class="chip">Tracked game: {{ $trackedGamesCount ?? 0 }}</span>
+                    <span class="chip">Webhook aktif: {{ $activeWebhookCount }}</span>
                 </div>
 
                 <div class="stats">
@@ -383,7 +373,7 @@
                             <div class="meta">Guild ID &middot; {{ $guildId }}</div>
                             <div class="score">
                                 <span class="label">Workspace health</span>
-                                <strong>{{ $healthScore ?? 'Kosong' }}</strong>
+                                <strong>{{ $healthScore ?? '0' }}</strong>
                                 <p class="copy">
                                     @if ($healthScore)
                                         Skor ini diringkas dari webhook aktif, alert terbuka, dan antrean report yang masih berjalan.
@@ -402,11 +392,11 @@
                         </div>
                         <div class="box">
                             <span class="label">Alerts</span>
-                            <strong style="display:block;margin-top:.4rem;">{{ $alertCount > 0 ? $alertCount : 'Kosong' }}</strong>
+                            <strong style="display:block;margin-top:.4rem;">{{ $alertCount }}</strong>
                         </div>
                         <div class="box">
                             <span class="label">Reports</span>
-                            <strong style="display:block;margin-top:.4rem;">{{ $reportCount > 0 ? $reportCount : 'Kosong' }}</strong>
+                            <strong style="display:block;margin-top:.4rem;">{{ $reportCount }}</strong>
                         </div>
                     </div>
                 </div>
@@ -441,7 +431,7 @@
                         <h2 style="margin-top:.35rem;">Stream insiden yang paling butuh perhatian</h2>
                         <p class="copy">Severity, status, dan waktu kejadian sekarang dipadatkan supaya bisa dibaca dalam sekali scan.</p>
                     </div>
-                    <span class="tag {{ $alertCount > 0 ? 'rose' : 'violet' }}">{{ $alertCount > 0 ? 'Need review' : 'Kosong' }}</span>
+                    <span class="tag {{ $alertCount > 0 ? 'rose' : 'violet' }}">{{ $alertCount > 0 ? 'Need review' : '0 open' }}</span>
                 </div>
 
                 @if ($primaryAlert)
@@ -487,7 +477,7 @@
                         <h2 style="margin-top:.35rem;">Player and bug reports</h2>
                         <p class="copy">Nama pelapor, target, prioritas, dan status kini lebih jelas tanpa blok yang saling bertabrakan.</p>
                     </div>
-                    <span class="tag {{ $reportCount > 0 ? 'amber' : 'violet' }}">{{ $reportCount > 0 ? 'Active queue' : 'Kosong' }}</span>
+                    <span class="tag {{ $reportCount > 0 ? 'amber' : 'violet' }}">{{ $reportCount > 0 ? 'Active queue' : '0 queue' }}</span>
                 </div>
 
                 @if ($primaryReport)
@@ -535,7 +525,7 @@
                         <h2 style="margin-top:.35rem;">Webhook dan pulse distribusi</h2>
                         <p class="copy">Feed aktif, channel tujuan, dan last delivery sekarang tampil lebih ringkas dan rapih.</p>
                     </div>
-                    <span class="tag violet">{{ $activeWebhookCount > 0 ? $activeWebhookCount.' active' : 'Kosong' }}</span>
+                    <span class="tag violet">{{ $activeWebhookCount.' active' }}</span>
                 </div>
 
                 <div class="stack">
@@ -563,7 +553,7 @@
                         <h2 style="margin-top:.35rem;">Race desk dan langkah berikutnya</h2>
                         <p class="copy">Bagian bawah kanan sekarang diisi event aktif dan next action supaya panel tidak terasa kosong.</p>
                     </div>
-                    <span class="tag amber">{{ $raceCount > 0 ? $raceCount.' open' : 'Kosong' }}</span>
+                    <span class="tag amber">{{ $raceCount.' open' }}</span>
                 </div>
 
                 <div class="stack">
