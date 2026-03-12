@@ -113,6 +113,7 @@ test('bot vip title maps api returns active dashboard maps', function () {
         'api_key' => 'lyva_active_secret',
         'title_slot' => 10,
         'place_ids' => ['76880221507840'],
+        'script_access_role_ids' => ['123456789012345678'],
         'is_active' => true,
     ]);
 
@@ -123,6 +124,7 @@ test('bot vip title maps api returns active dashboard maps', function () {
         'api_key' => 'lyva_inactive_secret',
         'title_slot' => 8,
         'place_ids' => [],
+        'script_access_role_ids' => [],
         'is_active' => false,
     ]);
 
@@ -136,7 +138,9 @@ test('bot vip title maps api returns active dashboard maps', function () {
         ->assertJsonPath('items.0.name', 'Mount Xyra')
         ->assertJsonPath('items.0.map_key', 'mountxyra')
         ->assertJsonPath('items.0.gamepass_id', 1700114697)
-        ->assertJsonMissing(['api_key' => 'lyva_active_secret']);
+        ->assertJsonPath('items.0.api_key', 'lyva_active_secret')
+        ->assertJsonPath('items.0.place_ids.0', '76880221507840')
+        ->assertJsonPath('items.0.script_access_role_ids.0', '123456789012345678');
 });
 
 test('roblox sales event api stores incoming sales event', function () {

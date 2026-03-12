@@ -17,7 +17,7 @@ import {
 import { createLaravelVipTitleClaim, fetchLaravelVipTitleClaims, fetchLaravelVipTitleMaps } from './laravel-api.js';
 
 const TITLE_PANEL_BUTTON_PREFIX = 'title_claim_open:';
-const TITLE_SCRIPT_BUTTON_ID = 'title_claim_script';
+const TITLE_SCRIPT_BUTTON_PREFIX = 'title_claim_script:';
 const TITLE_CLAIM_MODAL_PREFIX = 'title_claim_modal:';
 const TITLE_SETUP_SELECT_PREFIX = 'title_setup_map_select:';
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -163,12 +163,24 @@ function buildTitlePanelButtonId(mapKey) {
   return `${TITLE_PANEL_BUTTON_PREFIX}${normalizeMapKey(mapKey)}`;
 }
 
+function buildTitleScriptButtonId(mapKey) {
+  return `${TITLE_SCRIPT_BUTTON_PREFIX}${normalizeMapKey(mapKey)}`;
+}
+
 function parseTitlePanelButtonId(customId) {
   if (!String(customId || '').startsWith(TITLE_PANEL_BUTTON_PREFIX)) {
     return '';
   }
 
   return normalizeMapKey(customId.slice(TITLE_PANEL_BUTTON_PREFIX.length));
+}
+
+function parseTitleScriptButtonId(customId) {
+  if (!String(customId || '').startsWith(TITLE_SCRIPT_BUTTON_PREFIX)) {
+    return '';
+  }
+
+  return normalizeMapKey(customId.slice(TITLE_SCRIPT_BUTTON_PREFIX.length));
 }
 
 function buildTitleClaimModalId(mapKey) {
@@ -206,7 +218,14 @@ function normalizeMapConfig(rawMap = {}) {
     mapKey,
     name: String(rawMap.name || mapKey).trim() || mapKey,
     gamepassId: Number(rawMap.gamepass_id ?? rawMap.gamepassId ?? 0),
+    apiKey: String(rawMap.api_key ?? rawMap.apiKey ?? '').trim(),
     titleSlot: Number(rawMap.title_slot ?? rawMap.titleSlot ?? 0),
+    placeIds: Array.isArray(rawMap.place_ids ?? rawMap.placeIds)
+      ? (rawMap.place_ids ?? rawMap.placeIds).map((item) => String(item).trim()).filter(Boolean)
+      : [],
+    scriptAccessRoleIds: Array.isArray(rawMap.script_access_role_ids ?? rawMap.scriptAccessRoleIds)
+      ? (rawMap.script_access_role_ids ?? rawMap.scriptAccessRoleIds).map((item) => String(item).trim()).filter(Boolean)
+      : [],
     isActive: rawMap.is_active ?? rawMap.isActive ?? true,
   };
 }
@@ -255,6 +274,24 @@ function buildTitlePanelEmbed(mapConfig) {
       { name: 'Filter', value: 'Reserved title + profanity diblok', inline: true },
     )
     .setFooter({ text: 'ProjectBotDC | VIP Title Panel' });
+}
+
+function canAccessRobloxScript(interaction, mapConfig) {
+  if (canManage(interaction)) {
+    return true;
+  }
+
+  const allowedRoleIds = mapConfig?.scriptAccessRoleIds || [];
+  if (allowedRoleIds.length === 0) {
+    return false;
+  }
+
+  const memberRoles = interaction.member?.roles?.cache;
+  if (!memberRoles) {
+    return false;
+  }
+
+  return allowedRoleIds.some((roleId) => memberRoles.has(roleId));
 }
 
 async function resolveRobloxUser(username) {
@@ -328,19 +365,28 @@ async function checkVipOwnership(config, userId) {
   return hasVip;
 }
 
-function buildScriptEmbed() {
+function buildScriptEmbed(mapConfig) {
+  const roleInfo = mapConfig.scriptAccessRoleIds?.length
+    ? mapConfig.scriptAccessRoleIds.map((roleId) => `<@&${roleId}>`).join(', ')
+    : 'Admin only';
+
   return new EmbedBuilder()
     .setColor(0x60a5fa)
     .setTitle('Roblox Files Ready')
     .setDescription(
       [
-        'File lampiran ini tinggal kamu taruh ke project Roblox.',
+        `File lampiran untuk map **${mapConfig.name}** sudah terisi otomatis.`,
         '',
         '1. `MX_VIPTitleClaim.lua` -> folder `MX_Modules`',
         '2. `MX_Main_VIPClaim_PATCH.lua` -> patch tempel ke `MX_Main`',
         '3. `MX_Main_FINAL_SAFE.lua` -> versi full script Roblox',
         '4. `VIP_TITLE_CLAIM_SETUP.md` -> panduan singkat setup',
       ].join('\n'),
+    )
+    .addFields(
+      { name: 'Map Key', value: mapConfig.mapKey, inline: true },
+      { name: 'Gamepass', value: String(mapConfig.gamepassId || 0), inline: true },
+      { name: 'Akses Script', value: roleInfo, inline: false },
     );
 }
 
@@ -357,12 +403,156 @@ function buildClaimSuccessEmbed(username, title, mapConfig) {
     .setFooter({ text: 'Admin bisa cek daftar claim dengan /titile list' });
 }
 
-function getRobloxAttachmentPaths() {
+function getRobloxTemplatePaths() {
+  return {
+    module: path.join(PROJECT_ROOT, 'roblox', 'MX_VIPTitleClaim.lua'),
+    full: path.join(PROJECT_ROOT, 'roblox', 'MX_Main_FINAL_SAFE.lua'),
+  };
+}
+
+function escapeLuaString(value) {
+  return String(value || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"');
+}
+
+function buildLuaAllowedPlaceIds(placeIds) {
+  if (!Array.isArray(placeIds) || placeIds.length === 0) {
+    return '\t-- kosong, semua place di map ini diizinkan';
+  }
+
+  return placeIds
+    .map((placeId) => {
+      const numericPlaceId = String(placeId).replace(/[^\d]/g, '');
+      return numericPlaceId ? `\t[${numericPlaceId}] = true,` : null;
+    })
+    .filter(Boolean)
+    .join('\n');
+}
+
+function buildRobloxConfigSnippet(mapConfig, appUrl) {
   return [
-    path.join(PROJECT_ROOT, 'roblox', 'MX_VIPTitleClaim.lua'),
-    path.join(PROJECT_ROOT, 'roblox', 'MX_Main_VIPClaim_PATCH.lua'),
-    path.join(PROJECT_ROOT, 'roblox', 'MX_Main_FINAL_SAFE.lua'),
-    path.join(PROJECT_ROOT, 'roblox', 'VIP_TITLE_CLAIM_SETUP.md'),
+    `VIP_GAMEPASS_ID = ${Number(mapConfig.gamepassId || 0)}`,
+    `VIP_TITLE_MAP_KEY = "${escapeLuaString(mapConfig.mapKey)}"`,
+    `VIP_TITLE_BACKEND_URL = "${escapeLuaString(appUrl)}"`,
+    `VIP_TITLE_API_KEY = "${escapeLuaString(mapConfig.apiKey || '')}"`,
+    `VIP_TITLE_SLOT = ${Number(mapConfig.titleSlot || 10)}`,
+    'VIP_TITLE_POLL_INTERVAL = 30',
+    'VIP_TITLE_ALLOW_NONVIP_IN_STUDIO = true',
+    'VIP_TITLE_ALLOWED_PLACE_IDS = {',
+    buildLuaAllowedPlaceIds(mapConfig.placeIds),
+    '}',
+  ].join('\n');
+}
+
+function buildRobloxPatchContent(mapConfig, appUrl) {
+  return [
+    'local VIPClaimModule = require(ModFolder:WaitForChild("MX_VIPTitleClaim"))',
+    '',
+    `CONFIG.VIP_GAMEPASS_ID = ${Number(mapConfig.gamepassId || 0)}`,
+    `CONFIG.VIP_TITLE_MAP_KEY = "${escapeLuaString(mapConfig.mapKey)}"`,
+    `CONFIG.VIP_TITLE_BACKEND_URL = "${escapeLuaString(appUrl)}"`,
+    `CONFIG.VIP_TITLE_API_KEY = "${escapeLuaString(mapConfig.apiKey || '')}"`,
+    `CONFIG.VIP_TITLE_SLOT = ${Number(mapConfig.titleSlot || 10)}`,
+    'CONFIG.VIP_TITLE_POLL_INTERVAL = 30',
+    'CONFIG.VIP_TITLE_ALLOW_NONVIP_IN_STUDIO = true',
+    'CONFIG.VIP_TITLE_ALLOWED_PLACE_IDS = {',
+    buildLuaAllowedPlaceIds(mapConfig.placeIds),
+    '}',
+    '',
+    'local VIPClaim = VIPClaimModule.Init({',
+    '\tData = Data,',
+    '\tsafeRefreshTitle = safeRefreshTitle,',
+    '\tapplyCustomTitlesFromData = applyCustomTitlesFromData,',
+    '\tnotifyPlayer = notifyPlayer,',
+    '\tVIPGamepassId = CONFIG.VIP_GAMEPASS_ID,',
+    '\tBackendUrl = CONFIG.VIP_TITLE_BACKEND_URL,',
+    '\tApiKey = CONFIG.VIP_TITLE_API_KEY,',
+    '\tMapKey = CONFIG.VIP_TITLE_MAP_KEY,',
+    '\tAllowedPlaceIds = CONFIG.VIP_TITLE_ALLOWED_PLACE_IDS,',
+    '\tClaimSlot = CONFIG.VIP_TITLE_SLOT,',
+    '\tPollInterval = CONFIG.VIP_TITLE_POLL_INTERVAL,',
+    '\tAllowNonVipInStudio = CONFIG.VIP_TITLE_ALLOW_NONVIP_IN_STUDIO,',
+    '})',
+    '',
+    'task.defer(function()',
+    '\tVIPClaim.CheckPlayer(player)',
+    'end)',
+    '',
+  ].join('\n');
+}
+
+function injectRobloxConfigIntoFullScript(content, mapConfig, appUrl) {
+  return String(content)
+    .replace(/VIP_GAMEPASS_ID = .*?,/, `VIP_GAMEPASS_ID = ${Number(mapConfig.gamepassId || 0)},`)
+    .replace(/VIP_TITLE_MAP_KEY = ".*?",/, `VIP_TITLE_MAP_KEY = "${escapeLuaString(mapConfig.mapKey)}",`)
+    .replace(/VIP_TITLE_BACKEND_URL = ".*?",/, `VIP_TITLE_BACKEND_URL = "${escapeLuaString(appUrl)}",`)
+    .replace(/VIP_TITLE_API_KEY = ".*?",/, `VIP_TITLE_API_KEY = "${escapeLuaString(mapConfig.apiKey || '')}",`)
+    .replace(/VIP_TITLE_SLOT = .*?,/, `VIP_TITLE_SLOT = ${Number(mapConfig.titleSlot || 10)},`)
+    .replace(/VIP_TITLE_POLL_INTERVAL = .*?,/, 'VIP_TITLE_POLL_INTERVAL = 30,')
+    .replace(/VIP_TITLE_ALLOW_NONVIP_IN_STUDIO = .*?,/, 'VIP_TITLE_ALLOW_NONVIP_IN_STUDIO = true,')
+    .replace(/VIP_TITLE_ALLOWED_PLACE_IDS = \{[\s\S]*?\n\t\},/, `VIP_TITLE_ALLOWED_PLACE_IDS = {\n${buildLuaAllowedPlaceIds(mapConfig.placeIds)}\n\t},`);
+}
+
+function buildRobloxSetupGuide(mapConfig, appUrl) {
+  const roleInfo = mapConfig.scriptAccessRoleIds?.length
+    ? mapConfig.scriptAccessRoleIds.map((roleId) => `- <@&${roleId}>`).join('\n')
+    : '- Admin server Discord';
+  const configSnippet = buildRobloxConfigSnippet(mapConfig, appUrl);
+
+  return [
+    '# VIP Title Claim Setup',
+    '',
+    `Map: ${mapConfig.name}`,
+    `Map key: ${mapConfig.mapKey}`,
+    `Backend URL: ${appUrl}`,
+    `Gamepass ID: ${Number(mapConfig.gamepassId || 0)}`,
+    `Title slot: ${Number(mapConfig.titleSlot || 10)}`,
+    `Allowed Place IDs: ${mapConfig.placeIds?.length ? mapConfig.placeIds.join(', ') : 'Semua place diizinkan'}`,
+    '',
+    '## Langkah setup',
+    '1. Taruh `MX_VIPTitleClaim.lua` ke folder `MX_Modules`.',
+    '2. Tempel isi `MX_Main_VIPClaim_PATCH.lua` ke script `MX_Main`.',
+    '3. Atau pakai `MX_Main_FINAL_SAFE.lua` kalau mau versi full yang sudah terisi config.',
+    '4. Aktifkan `Allow HTTP Requests` di Roblox Studio.',
+    '5. Jalankan panel Discord dengan `/titile setup` dan pilih map yang benar.',
+    '',
+    '## Config yang sudah terisi',
+    '```lua',
+    configSnippet,
+    '```',
+    '',
+    '## Role yang boleh ambil script di Discord',
+    roleInfo,
+    '',
+  ].join('\n');
+}
+
+async function buildRobloxAttachments(mapConfig, config) {
+  const templatePaths = getRobloxTemplatePaths();
+  const appUrl = String(config?.appUrl || '').trim();
+  if (!appUrl) {
+    throw new Error('APP_URL bot belum diisi, jadi script Roblox belum bisa dibuat otomatis.');
+  }
+  if (!mapConfig?.apiKey) {
+    throw new Error('API key map belum tersedia dari dashboard, jadi script belum bisa diisi otomatis.');
+  }
+
+  const [moduleContent, fullScriptContent] = await Promise.all([
+    readFile(templatePaths.module, 'utf8'),
+    readFile(templatePaths.full, 'utf8'),
+  ]);
+
+  const hydratedMapConfig = {
+    ...mapConfig,
+    apiKey: mapConfig.apiKey || '',
+  };
+
+  return [
+    new AttachmentBuilder(Buffer.from(moduleContent, 'utf8'), { name: 'MX_VIPTitleClaim.lua' }),
+    new AttachmentBuilder(Buffer.from(buildRobloxPatchContent(hydratedMapConfig, appUrl), 'utf8'), { name: 'MX_Main_VIPClaim_PATCH.lua' }),
+    new AttachmentBuilder(Buffer.from(injectRobloxConfigIntoFullScript(fullScriptContent, hydratedMapConfig, appUrl), 'utf8'), { name: 'MX_Main_FINAL_SAFE.lua' }),
+    new AttachmentBuilder(Buffer.from(buildRobloxSetupGuide(hydratedMapConfig, appUrl), 'utf8'), { name: 'VIP_TITLE_CLAIM_SETUP.md' }),
   ];
 }
 
@@ -392,7 +582,7 @@ async function publishTitlePanel(channel, mapConfig) {
     components: [
       new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(buildTitlePanelButtonId(mapConfig.mapKey)).setLabel('Claim Title').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId(TITLE_SCRIPT_BUTTON_ID).setLabel('Script Roblox').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(buildTitleScriptButtonId(mapConfig.mapKey)).setLabel('Script Roblox').setStyle(ButtonStyle.Secondary),
       ),
     ],
   });
@@ -574,31 +764,39 @@ export async function handleTitileComponent(interaction, config) {
     return true;
   }
 
-  if (interaction.customId === TITLE_SCRIPT_BUTTON_ID) {
-    if (!canManage(interaction)) {
-      await interaction.reply({ content: 'Tombol ini hanya bisa dipakai admin.', ephemeral: true });
+  const scriptMapKey = parseTitleScriptButtonId(interaction.customId);
+  if (scriptMapKey) {
+    const mapConfig = await resolveMapConfig(config, scriptMapKey);
+    if (!mapConfig) {
+      await interaction.reply({
+        content: 'Map untuk tombol script ini sudah tidak aktif atau tidak ditemukan di dashboard.',
+        ephemeral: true,
+      });
       return true;
     }
 
-    const attachments = [];
-    const missingFiles = [];
-    for (const filePath of getRobloxAttachmentPaths()) {
-      try {
-        const content = await readFile(filePath);
-        attachments.push(new AttachmentBuilder(content, { name: path.basename(filePath) }));
-      } catch {
-        missingFiles.push(path.basename(filePath));
-      }
+    if (!canAccessRobloxScript(interaction, mapConfig)) {
+      await interaction.reply({
+        content: 'Kamu belum punya role yang diizinkan untuk ambil script Roblox map ini.',
+        ephemeral: true,
+      });
+      return true;
     }
 
-    await interaction.reply({
-      embeds: [buildScriptEmbed()],
-      files: attachments,
-      content: attachments.length === 0
-        ? `File Roblox tidak ketemu di server. Cek folder \`roblox/\`. Missing: ${missingFiles.join(', ') || 'semua file'}`
-        : undefined,
-      ephemeral: true,
-    });
+    try {
+      const attachments = await buildRobloxAttachments(mapConfig, config);
+      await interaction.reply({
+        embeds: [buildScriptEmbed(mapConfig)],
+        files: attachments,
+        ephemeral: true,
+      });
+    } catch (error) {
+      await interaction.reply({
+        content: truncateDiscordContent(`Gagal buat script Roblox otomatis: ${error.message}`),
+        ephemeral: true,
+      });
+    }
+
     return true;
   }
 

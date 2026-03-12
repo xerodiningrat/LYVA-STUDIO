@@ -35,6 +35,7 @@ class VipTitleSetupController extends Controller
             'api_key' => $this->generateApiKey(),
             'title_slot' => $validated['title_slot'],
             'place_ids' => $this->parsePlaceIds($validated['place_ids'] ?? ''),
+            'script_access_role_ids' => $this->parseRoleIds($validated['script_access_role_ids'] ?? ''),
             'is_active' => $request->boolean('is_active', true),
             'notes' => $validated['notes'] ?? null,
         ]);
@@ -52,6 +53,7 @@ class VipTitleSetupController extends Controller
             'gamepass_id' => $validated['gamepass_id'],
             'title_slot' => $validated['title_slot'],
             'place_ids' => $this->parsePlaceIds($validated['place_ids'] ?? ''),
+            'script_access_role_ids' => $this->parseRoleIds($validated['script_access_role_ids'] ?? ''),
             'is_active' => $request->boolean('is_active', false),
             'notes' => $validated['notes'] ?? null,
         ]);
@@ -90,6 +92,7 @@ class VipTitleSetupController extends Controller
             'gamepass_id' => ['required', 'integer', 'min:0'],
             'title_slot' => ['required', 'integer', 'min:1', 'max:10'],
             'place_ids' => ['nullable', 'string', 'max:2000'],
+            'script_access_role_ids' => ['nullable', 'string', 'max:2000'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
     }
@@ -99,6 +102,17 @@ class VipTitleSetupController extends Controller
         return collect(preg_split('/[\s,]+/', trim($raw)) ?: [])
             ->filter()
             ->map(fn (string $value) => trim($value))
+            ->values()
+            ->all();
+    }
+
+    private function parseRoleIds(string $raw): array
+    {
+        return collect(preg_split('/[\s,]+/', trim($raw)) ?: [])
+            ->filter()
+            ->map(fn (string $value) => trim($value))
+            ->filter(fn (string $value) => preg_match('/^\d+$/', $value) === 1)
+            ->unique()
             ->values()
             ->all();
     }

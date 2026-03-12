@@ -25,7 +25,10 @@ class VipTitleClaimController extends Controller
                 'name',
                 'map_key',
                 'gamepass_id',
+                'api_key',
                 'title_slot',
+                'place_ids',
+                'script_access_role_ids',
                 'is_active',
                 'notes',
             ]);

@@ -176,6 +176,11 @@
                             <textarea name="place_ids" rows="3" placeholder="76880221507840, 1234567890"></textarea>
                         </div>
                         <div>
+                            <label>Role akses script Discord</label>
+                            <textarea name="script_access_role_ids" rows="3" placeholder="123456789012345678, 987654321098765432"></textarea>
+                            <div class="muted" style="margin-top:.45rem; font-size:.82rem;">Role ID Discord yang boleh klik tombol <code>Script Roblox</code>. Pisahkan dengan koma. Admin tetap bisa akses.</div>
+                        </div>
+                        <div>
                             <label>Catatan</label>
                             <textarea name="notes" rows="3" placeholder="Map utama public release"></textarea>
                         </div>
@@ -237,6 +242,10 @@
                                         <textarea name="place_ids" rows="2">{{ implode(', ', $setting->place_ids ?? []) }}</textarea>
                                     </div>
                                     <div>
+                                        <label>Role akses script Discord</label>
+                                        <textarea name="script_access_role_ids" rows="2">{{ implode(', ', $setting->script_access_role_ids ?? []) }}</textarea>
+                                    </div>
+                                    <div>
                                         <label>Catatan</label>
                                         <textarea name="notes" rows="2">{{ $setting->notes }}</textarea>
                                     </div>
@@ -252,7 +261,8 @@
 VIP_TITLE_MAP_KEY = "{{ $setting->map_key }}"
 VIP_TITLE_BACKEND_URL = "{{ $appUrl }}"
 VIP_TITLE_API_KEY = "{{ $setting->api_key }}"
-VIP_TITLE_SLOT = {{ $setting->title_slot }}</div>
+VIP_TITLE_SLOT = {{ $setting->title_slot }}
+VIP_TITLE_ALLOWED_PLACE_IDS = [{{ implode(', ', $setting->place_ids ?? []) }}]</div>
                                     <div class="actions">
                                         <button class="btn-primary">Simpan perubahan</button>
                                     </div>
