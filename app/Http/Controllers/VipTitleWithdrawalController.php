@@ -29,9 +29,15 @@ class VipTitleWithdrawalController extends Controller
                 'min:'.(VipTitleWalletService::WITHDRAWAL_FEE_IDR + 1),
                 'max:'.$summary['availableBalance'],
             ],
+            'bank_name' => ['required', 'string', 'max:120'],
+            'account_number' => ['required', 'string', 'max:64'],
+            'account_holder_name' => ['required', 'string', 'max:120'],
         ], [
             'amount.max' => 'Jumlah penarikan melebihi saldo yang sudah siap ditarik.',
             'amount.min' => 'Jumlah penarikan harus lebih besar dari biaya tarik Rp2.500.',
+            'bank_name.required' => 'Nama bank wajib diisi sebelum mengajukan penarikan.',
+            'account_number.required' => 'Nomor rekening wajib diisi sebelum mengajukan penarikan.',
+            'account_holder_name.required' => 'Atas nama rekening wajib diisi sebelum mengajukan penarikan.',
         ]);
 
         $grossAmount = (int) $validated['amount'];
@@ -44,6 +50,9 @@ class VipTitleWithdrawalController extends Controller
             'user_id' => $request->user()->id,
             'requester_discord_user_id' => $request->user()?->discord_user_id,
             'requester_name' => $request->user()?->name,
+            'bank_name' => $validated['bank_name'],
+            'account_number' => $validated['account_number'],
+            'account_holder_name' => $validated['account_holder_name'],
             'gross_amount' => $grossAmount,
             'withdrawal_fee_amount' => $withdrawalFee,
             'net_amount' => $netAmount,
@@ -56,9 +65,11 @@ class VipTitleWithdrawalController extends Controller
         ]);
 
         return back()->with('wallet_status', sprintf(
-            'Request penarikan Rp%s untuk server %s sudah dibuat. Dana akan masuk status siap tarik setelah 1 hari proses.',
+            'Request penarikan Rp%s untuk server %s sudah dibuat ke rekening %s (%s). Dana akan masuk status siap tarik setelah 1 hari proses.',
             number_format($grossAmount, 0, ',', '.'),
             $managedGuild['name'] ?? $guildId,
+            $validated['account_number'],
+            $validated['bank_name'],
         ));
     }
 }

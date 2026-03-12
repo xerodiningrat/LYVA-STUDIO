@@ -34,6 +34,18 @@
             'icon' => '<path d="M7 14a5 5 0 1 1 0-10h7" /><path d="M14 10a5 5 0 1 1 0 10H7" /><path d="M8 12h8" />',
         ],
         [
+            'key' => 'earnings',
+            'href' => route('dashboard.wallet.earnings'),
+            'label' => 'Penghasilan',
+            'icon' => '<path d="M3 3v18h18" /><path d="M7 14l4-4 3 3 5-7" />',
+        ],
+        [
+            'key' => 'withdrawals',
+            'href' => route('dashboard.wallet.withdrawals.index'),
+            'label' => 'Penarikan',
+            'icon' => '<path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" />',
+        ],
+        [
             'key' => 'scripts',
             'href' => route('roblox.scripts.index'),
             'label' => 'Roblox Scripts',

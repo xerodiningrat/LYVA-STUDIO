@@ -91,6 +91,9 @@ class VipTitleWalletService
                 ->take(6)
                 ->map(fn (VipTitleWithdrawal $withdrawal) => [
                     'id' => $withdrawal->id,
+                    'bankName' => $withdrawal->bank_name,
+                    'accountNumber' => $withdrawal->account_number,
+                    'accountHolderName' => $withdrawal->account_holder_name,
                     'grossAmount' => (int) $withdrawal->gross_amount,
                     'withdrawalFeeAmount' => (int) $withdrawal->withdrawal_fee_amount,
                     'netAmount' => (int) $withdrawal->net_amount,

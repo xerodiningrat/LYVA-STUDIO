@@ -40,6 +40,8 @@
         ['label' => 'Pilih Server', 'href' => route('guilds.select')],
         ['label' => 'Discord Setup', 'href' => route('discord.setup')],
         ['label' => 'VIP Title Setup', 'href' => route('vip-title.setup')],
+        ['label' => 'Penghasilan', 'href' => route('dashboard.wallet.earnings')],
+        ['label' => 'Penarikan', 'href' => route('dashboard.wallet.withdrawals.index')],
         ['label' => 'Roblox Scripts', 'href' => route('roblox.scripts.index')],
     ];
 @endphp
@@ -247,7 +249,7 @@
                         <div class="dashboard-card-footer">
                             <span>{{ $card['footer'] }}</span>
                             @if ($card['title'] === 'VIP Title Wallet')
-                                <a href="#wallet-card" class="studio-button-ghost">Request Penarikan</a>
+                                <a href="{{ route('dashboard.wallet.earnings') }}" wire:navigate class="studio-button-ghost">Lihat Penghasilan</a>
                             @endif
                         </div>
                     </article>
@@ -259,23 +261,11 @@
                     <p class="studio-copy" style="margin-top:.55rem;">Total jual {{ $grossSalesAmount }}, saldo siap tarik {{ $availableBalanceAmount }}, biaya tarik {{ $formatIdr($wallet['withdrawalFee'] ?? 0) }}.</p>
                     <span class="dashboard-card-value">{{ $availableBalanceAmount }}</span>
                     <div class="dashboard-progress"><span style="width: {{ min(100, max(8, (int) round((($wallet['availableBalance'] ?? 0) / max(1, ($wallet['maturedBalance'] ?? 1))) * 100))) }}%"></span></div>
-                    @if (session('wallet_status'))
-                        <div class="studio-notice">{{ session('wallet_status') }}</div>
-                    @endif
-                    @if ($errors->has('amount'))
-                        <div class="studio-notice" style="background: color-mix(in srgb, var(--studio-danger) 14%, transparent);">{{ $errors->first('amount') }}</div>
-                    @endif
-                    <form method="POST" action="{{ route('dashboard.wallet.withdrawals.store') }}" class="studio-stack">
-                        @csrf
-                        <div class="studio-field">
-                            <label for="amount">Nominal penarikan</label>
-                            <input id="amount" class="studio-input" type="number" name="amount" min="{{ $minimumWithdrawalAmount }}" max="{{ $maximumWithdrawalAmount }}" step="1" value="{{ old('amount', max(0, (int) ($wallet['availableBalance'] ?? 0))) }}" placeholder="Contoh 50000">
-                        </div>
-                        <div class="studio-actions">
-                            <button type="submit" class="studio-button" @disabled(($wallet['availableBalance'] ?? 0) <= ($wallet['withdrawalFee'] ?? 0))>Ajukan penarikan</button>
-                        </div>
-                        <p class="studio-help">VIP Title Wallet akan diproses 1 hari, lalu statusnya masuk siap ditarik manual.</p>
-                    </form>
+                    <div class="dashboard-inline-actions" style="margin-top:1rem;">
+                        <a href="{{ route('dashboard.wallet.earnings') }}" wire:navigate class="studio-button-ghost">Halaman Penghasilan</a>
+                        <a href="{{ route('dashboard.wallet.withdrawals.index') }}" wire:navigate class="studio-button">Halaman Penarikan</a>
+                    </div>
+                    <p class="studio-help" style="margin-top:1rem;">Pengajuan penarikan sekarang punya halaman sendiri dan wajib isi nama bank, nomor rekening, dan atas nama.</p>
                 </article>
             </div>
         </section>

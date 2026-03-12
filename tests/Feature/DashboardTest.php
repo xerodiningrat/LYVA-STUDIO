@@ -136,6 +136,9 @@ test('dashboard wallet withdrawal request is stored for selected guild', functio
         ])
         ->post(route('dashboard.wallet.withdrawals.store'), [
             'amount' => 50000,
+            'bank_name' => 'BCA',
+            'account_number' => '1234567890',
+            'account_holder_name' => 'Tester Wallet',
         ]);
 
     $response
@@ -150,6 +153,55 @@ test('dashboard wallet withdrawal request is stored for selected guild', functio
     expect($withdrawal?->withdrawal_fee_amount)->toBe(2500);
     expect($withdrawal?->net_amount)->toBe(47500);
     expect($withdrawal?->status)->toBe('processing');
+    expect($withdrawal?->bank_name)->toBe('BCA');
+    expect($withdrawal?->account_number)->toBe('1234567890');
+    expect($withdrawal?->account_holder_name)->toBe('Tester Wallet');
+});
+
+test('authenticated users can visit the wallet earnings page', function () {
+    $user = User::factory()->create([
+        'discord_user_id' => '9001',
+        'selected_guild_id' => 'guild-1',
+    ]);
+
+    $this->actingAs($user);
+
+    $response = $this
+        ->withSession([
+            'managed_guild' => [
+                'id' => 'guild-1',
+                'name' => 'Lyva Community',
+            ],
+        ])
+        ->get(route('dashboard.wallet.earnings'));
+
+    $response
+        ->assertOk()
+        ->assertSee('VIP Title Earnings')
+        ->assertSee('Transaksi penghasilan terbaru');
+});
+
+test('authenticated users can visit the wallet withdrawals page', function () {
+    $user = User::factory()->create([
+        'discord_user_id' => '9001',
+        'selected_guild_id' => 'guild-1',
+    ]);
+
+    $this->actingAs($user);
+
+    $response = $this
+        ->withSession([
+            'managed_guild' => [
+                'id' => 'guild-1',
+                'name' => 'Lyva Community',
+            ],
+        ])
+        ->get(route('dashboard.wallet.withdrawals.index'));
+
+    $response
+        ->assertOk()
+        ->assertSee('VIP Title Withdrawals')
+        ->assertSee('Ajukan penarikan baru');
 });
 
 test('authenticated users can visit the discord setup page', function () {
