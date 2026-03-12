@@ -15,13 +15,15 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from 'discord.js';
-import { createLaravelVipTitleCheckout, createLaravelVipTitleClaim, fetchLaravelVipTitleClaims, fetchLaravelVipTitleMaps, fetchLaravelVipTitlePaymentMethods, fetchLaravelVipTitlePaymentStatus } from './laravel-api.js';
+import { createLaravelVipTitleChange, createLaravelVipTitleCheckout, createLaravelVipTitleClaim, fetchLaravelVipTitleClaims, fetchLaravelVipTitleMaps, fetchLaravelVipTitlePaymentMethods, fetchLaravelVipTitlePaymentStatus } from './laravel-api.js';
 
 const TITLE_PANEL_BUTTON_PREFIX = 'title_claim_open:';
 const TITLE_BUY_BUTTON_PREFIX = 'title_buy_open:';
+const TITLE_UPDATE_BUTTON_PREFIX = 'title_update_open:';
 const TITLE_SCRIPT_BUTTON_PREFIX = 'title_claim_script:';
 const TITLE_CLAIM_MODAL_PREFIX = 'title_claim_modal:';
 const TITLE_BUY_MODAL_PREFIX = 'title_buy_modal:';
+const TITLE_UPDATE_MODAL_PREFIX = 'title_update_modal:';
 const TITLE_SETUP_SELECT_PREFIX = 'title_setup_map_select:';
 const TITLE_PAYMENT_SELECT_PREFIX = 'title_payment_select:';
 const TITLE_PAYMENT_REFRESH_PREFIX = 'title_payment_refresh:';
@@ -306,6 +308,10 @@ function buildTitleBuyButtonId(mapKey) {
   return `${TITLE_BUY_BUTTON_PREFIX}${normalizeMapKey(mapKey)}`;
 }
 
+function buildTitleUpdateButtonId(mapKey) {
+  return `${TITLE_UPDATE_BUTTON_PREFIX}${normalizeMapKey(mapKey)}`;
+}
+
 function parseTitlePanelButtonId(customId) {
   if (!String(customId || '').startsWith(TITLE_PANEL_BUTTON_PREFIX)) {
     return '';
@@ -330,12 +336,24 @@ function parseTitleBuyButtonId(customId) {
   return normalizeMapKey(customId.slice(TITLE_BUY_BUTTON_PREFIX.length));
 }
 
+function parseTitleUpdateButtonId(customId) {
+  if (!String(customId || '').startsWith(TITLE_UPDATE_BUTTON_PREFIX)) {
+    return '';
+  }
+
+  return normalizeMapKey(customId.slice(TITLE_UPDATE_BUTTON_PREFIX.length));
+}
+
 function buildTitleClaimModalId(mapKey) {
   return `${TITLE_CLAIM_MODAL_PREFIX}${normalizeMapKey(mapKey)}`;
 }
 
 function buildTitleBuyModalId(mapKey) {
   return `${TITLE_BUY_MODAL_PREFIX}${normalizeMapKey(mapKey)}`;
+}
+
+function buildTitleUpdateModalId(mapKey) {
+  return `${TITLE_UPDATE_MODAL_PREFIX}${normalizeMapKey(mapKey)}`;
 }
 
 function parseTitleClaimModalId(customId) {
@@ -352,6 +370,14 @@ function parseTitleBuyModalId(customId) {
   }
 
   return normalizeMapKey(customId.slice(TITLE_BUY_MODAL_PREFIX.length));
+}
+
+function parseTitleUpdateModalId(customId) {
+  if (!String(customId || '').startsWith(TITLE_UPDATE_MODAL_PREFIX)) {
+    return '';
+  }
+
+  return normalizeMapKey(customId.slice(TITLE_UPDATE_MODAL_PREFIX.length));
 }
 
 function buildTitleSetupSelectId(channelId) {
@@ -460,6 +486,7 @@ function buildTitlePanelEmbed(mapConfig) {
         hasPaidOption
           ? `Klik \`Beli Title\` kalau user mau bayar pakai IDR. Harga saat ini **${formatIdr(mapConfig.titlePriceIdr)}**.`
           : 'Kalau harga IDR belum diisi, panel ini hanya pakai flow claim gamepass.',
+        'Kalau title sudah pernah berhasil dipakai, user bisa klik `Ubah Title` untuk ganti title tiap 12 jam sekali.',
         `Warna title bisa dipilih dengan preset atau RGB custom. Preset: \`${getTitleColorPresetSummary()}\`.`,
         'Klik `Script Roblox` kalau admin butuh file yang harus ditaruh di game.',
       ].join('\n'),
@@ -468,6 +495,7 @@ function buildTitlePanelEmbed(mapConfig) {
       { name: 'Map', value: mapConfig.name, inline: true },
       { name: 'Claim VIP', value: 'Aktif', inline: true },
       { name: 'Beli IDR', value: hasPaidOption ? formatIdr(mapConfig.titlePriceIdr) : 'Nonaktif', inline: true },
+      { name: 'Ubah Title', value: 'Setiap 12 jam', inline: true },
       { name: 'Filter', value: 'Reserved title + profanity diblok', inline: true },
       { name: 'Warna', value: 'Preset + RGB custom', inline: true },
     )
@@ -618,6 +646,21 @@ function buildClaimSuccessEmbed(username, title, mapConfig, titleStyle) {
       { name: 'Status', value: 'Pending review / apply', inline: true },
     )
     .setFooter({ text: 'Admin bisa cek daftar claim dengan /titile list' });
+}
+
+function buildTitleChangeSuccessEmbed(username, title, mapConfig, titleStyle, nextChangeAt = null) {
+  return new EmbedBuilder()
+    .setColor(0x0891b2)
+    .setTitle('Perubahan Title Tersimpan')
+    .setDescription(`Perubahan title untuk **@${username}** sudah masuk antrean update.`)
+    .addFields(
+      { name: 'Custom Title', value: title, inline: true },
+      { name: 'Warna', value: formatTitleStyle(titleStyle), inline: true },
+      { name: 'Map', value: mapConfig.name, inline: true },
+      { name: 'Cooldown', value: nextChangeAt ? `<t:${Math.floor(new Date(nextChangeAt).getTime() / 1000)}:R>` : '12 jam', inline: true },
+      { name: 'Status', value: 'Menunggu apply di Roblox', inline: true },
+    )
+    .setFooter({ text: 'User bisa ubah title lagi setelah cooldown 12 jam selesai.' });
 }
 
 function buildPaymentCheckoutEmbed(username, title, mapConfig, payment, titleStyle = null) {
@@ -868,6 +911,7 @@ function truncateDiscordContent(value, maxLength = 1800) {
 async function publishTitlePanel(channel, mapConfig) {
   const components = [
     new ButtonBuilder().setCustomId(buildTitlePanelButtonId(mapConfig.mapKey)).setLabel('Claim Title').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(buildTitleUpdateButtonId(mapConfig.mapKey)).setLabel('Ubah Title').setStyle(ButtonStyle.Secondary),
   ];
 
   if ((mapConfig.titlePriceIdr || 0) > 0) {
@@ -1245,6 +1289,55 @@ export async function handleTitileComponent(interaction, config) {
     return true;
   }
 
+  const updateMapKey = parseTitleUpdateButtonId(interaction.customId);
+  if (updateMapKey) {
+    const modal = new ModalBuilder()
+      .setCustomId(buildTitleUpdateModalId(updateMapKey))
+      .setTitle('Ubah VIP Title');
+
+    const usernameInput = new TextInputBuilder()
+      .setCustomId('roblox_username')
+      .setLabel('Roblox Username')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setMaxLength(20)
+      .setPlaceholder('Masukkan username Roblox');
+
+    const titleInput = new TextInputBuilder()
+      .setCustomId('custom_title')
+      .setLabel('Custom Title Baru')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setMaxLength(28)
+      .setPlaceholder('Masukkan custom title baru');
+
+    const colorPresetInput = new TextInputBuilder()
+      .setCustomId('title_color_preset')
+      .setLabel('Warna Preset / rgb (opsional)')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false)
+      .setMaxLength(20)
+      .setPlaceholder('gold, blue, pink, rgb');
+
+    const colorRgbInput = new TextInputBuilder()
+      .setCustomId('title_color_rgb')
+      .setLabel('RGB Custom (opsional)')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false)
+      .setMaxLength(20)
+      .setPlaceholder('255,215,0');
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(usernameInput),
+      new ActionRowBuilder().addComponents(titleInput),
+      new ActionRowBuilder().addComponents(colorPresetInput),
+      new ActionRowBuilder().addComponents(colorRgbInput),
+    );
+
+    await interaction.showModal(modal);
+    return true;
+  }
+
   const scriptMapKey = parseTitleScriptButtonId(interaction.customId);
   if (scriptMapKey) {
     const mapConfig = await resolveMapConfig(config, scriptMapKey);
@@ -1287,8 +1380,9 @@ export async function handleTitileComponent(interaction, config) {
 export async function handleTitileModal(interaction, config) {
   const isClaimModal = interaction.isModalSubmit() && interaction.customId.startsWith(TITLE_CLAIM_MODAL_PREFIX);
   const isBuyModal = interaction.isModalSubmit() && interaction.customId.startsWith(TITLE_BUY_MODAL_PREFIX);
+  const isUpdateModal = interaction.isModalSubmit() && interaction.customId.startsWith(TITLE_UPDATE_MODAL_PREFIX);
 
-  if (!isClaimModal && !isBuyModal) {
+  if (!isClaimModal && !isBuyModal && !isUpdateModal) {
     return false;
   }
 
@@ -1302,7 +1396,9 @@ export async function handleTitileModal(interaction, config) {
   );
   const mapKey = isBuyModal
     ? parseTitleBuyModalId(interaction.customId)
-    : parseTitleClaimModalId(interaction.customId);
+    : isUpdateModal
+      ? parseTitleUpdateModalId(interaction.customId)
+      : parseTitleClaimModalId(interaction.customId);
 
   if (!robloxUsername) {
     await interaction.editReply({ content: 'Username Roblox wajib diisi.' });
@@ -1338,7 +1434,7 @@ export async function handleTitileModal(interaction, config) {
   try {
     robloxUser = await resolveRobloxUser(robloxUsername);
   } catch (error) {
-    if (isBuyModal) {
+    if (isBuyModal || isUpdateModal) {
       robloxUser = {
         userId: 0,
         username: robloxUsername,
@@ -1353,7 +1449,7 @@ export async function handleTitileModal(interaction, config) {
   }
 
   if (!robloxUser) {
-    if (isBuyModal) {
+    if (isBuyModal || isUpdateModal) {
       robloxUser = {
         userId: 0,
         username: robloxUsername,
@@ -1431,6 +1527,42 @@ export async function handleTitileModal(interaction, config) {
     } catch (error) {
       await interaction.editReply({
         content: truncateDiscordContent(`Gagal buat checkout pembayaran: ${error.message}`),
+      });
+    }
+
+    return true;
+  }
+
+  if (isUpdateModal) {
+    try {
+      const updateResponse = await createLaravelVipTitleChange(config, {
+        map_key: mapKey,
+        roblox_user_id: robloxUser.userId,
+        roblox_username: robloxUser.username,
+        requested_title: titleCheck.title,
+        discord_user_id: interaction.user.id,
+        discord_tag: interaction.user.tag,
+        meta: {
+          source: 'discord-bot',
+          title_style: titleStyle,
+        },
+      });
+
+      await interaction.editReply({
+        content: robloxUser.userId === 0
+          ? 'Lookup Roblox sedang timeout dari server, jadi perubahan title disimpan pakai username yang kamu isi. Pastikan username Roblox benar.'
+          : undefined,
+        embeds: [buildTitleChangeSuccessEmbed(
+          robloxUser.username,
+          titleCheck.title,
+          mapConfig,
+          titleStyle,
+          updateResponse?.nextChangeAt || null,
+        )],
+      });
+    } catch (error) {
+      await interaction.editReply({
+        content: truncateDiscordContent(`Gagal ubah title: ${error.message}`),
       });
     }
 

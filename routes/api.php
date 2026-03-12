@@ -32,6 +32,7 @@ Route::get('/bot/vip-title-claims', [VipTitleClaimController::class, 'index'])->
 Route::get('/bot/vip-title-payment-methods', [VipTitleClaimController::class, 'paymentMethods'])->name('api.bot.vip-title-payment-methods.index');
 Route::get('/bot/vip-title-payments/{merchantOrderId}', [VipTitleClaimController::class, 'paymentStatus'])->name('api.bot.vip-title-payments.show');
 Route::post('/bot/vip-title-claims', [VipTitleClaimController::class, 'store'])->name('api.bot.vip-title-claims.store');
+Route::post('/bot/vip-title-changes', [VipTitleClaimController::class, 'change'])->name('api.bot.vip-title-changes.store');
 Route::post('/bot/vip-title-checkouts', [VipTitleClaimController::class, 'checkout'])->name('api.bot.vip-title-checkouts.store');
 Route::post('/roblox/vip-title-claims/pull', [VipTitleClaimController::class, 'pull'])->name('api.roblox.vip-title-claims.pull');
 Route::post('/roblox/vip-title-claims/consume', [VipTitleClaimController::class, 'consume'])->name('api.roblox.vip-title-claims.consume');

@@ -318,6 +318,29 @@ export async function createLaravelVipTitleClaim(config, payload) {
   return response.json();
 }
 
+export async function createLaravelVipTitleChange(config, payload) {
+  if (!config.internalToken) {
+    throw new Error('DISCORD_INTERNAL_TOKEN belum diisi.');
+  }
+
+  const response = await requestLaravel(`${config.botApiUrl}/api/bot/vip-title-changes`, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'X-Bot-Token': config.internalToken,
+    },
+    body: JSON.stringify(payload),
+  }, 'mengubah VIP title');
+
+  if (!response.ok) {
+    const message = await readLaravelErrorMessage(response, 'Laravel ubah VIP title gagal.');
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
 export async function createLaravelVipTitleCheckout(config, payload) {
   if (!config.internalToken) {
     throw new Error('DISCORD_INTERNAL_TOKEN belum diisi.');

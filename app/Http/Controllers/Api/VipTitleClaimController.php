@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
 
 class VipTitleClaimController extends Controller
 {
+    private const TITLE_CHANGE_COOLDOWN_HOURS = 12;
     private const RESERVED_TERMS = ['admin', 'administrator', 'dev', 'developer', 'owner', 'mod', 'moderator', 'staff'];
     private const PROFANITY_TERMS = ['anjing', 'babi', 'bangsat', 'kontol', 'memek', 'ngentot', 'goblok', 'tolol', 'jancok', 'fuck', 'bitch'];
 
@@ -351,6 +352,100 @@ class VipTitleClaimController extends Controller
         ], 201);
     }
 
+    public function change(Request $request): JsonResponse
+    {
+        abort_unless($this->hasBotToken($request), 401);
+
+        $validated = $request->validate([
+            'map_key' => ['required', 'string', 'max:64'],
+            'roblox_user_id' => ['required', 'integer', 'min:0'],
+            'roblox_username' => ['required', 'string', 'max:255'],
+            'requested_title' => ['required', 'string', 'min:3', 'max:28'],
+            'discord_user_id' => ['nullable', 'string', 'max:255'],
+            'discord_tag' => ['nullable', 'string', 'max:255'],
+            'meta' => ['nullable', 'array'],
+        ]);
+
+        $mapKey = $this->normalizeMapKey($validated['map_key']);
+        $mapSetting = $this->resolveActiveMapSetting($mapKey);
+
+        if (! $mapSetting) {
+            return response()->json([
+                'message' => sprintf('Map key "%s" belum aktif di dashboard VIP Title.', $mapKey),
+            ], 422);
+        }
+
+        $title = $this->sanitizeTitle($validated['requested_title']);
+        $reason = $this->validateTitle($title);
+
+        if ($reason !== null) {
+            return response()->json([
+                'message' => $reason,
+            ], 422);
+        }
+
+        $existingPending = $this->findPendingClaimForUser($mapKey, (int) $validated['roblox_user_id'], (string) $validated['roblox_username'], ['pending', 'awaiting_payment']);
+        if ($existingPending) {
+            return response()->json([
+                'message' => 'Masih ada request title yang belum selesai diproses. Tunggu title sebelumnya masuk dulu sebelum ubah lagi.',
+            ], 422);
+        }
+
+        $latestAppliedClaim = $this->findLatestAppliedClaimForUser($mapKey, (int) $validated['roblox_user_id'], (string) $validated['roblox_username']);
+        if (! $latestAppliedClaim) {
+            return response()->json([
+                'message' => 'User ini belum punya VIP title yang aktif di map ini, jadi belum bisa pakai fitur ubah title.',
+            ], 422);
+        }
+
+        $requestingDiscordUserId = (string) ($validated['discord_user_id'] ?? '');
+        $ownerDiscordUserId = (string) ($latestAppliedClaim->discord_user_id ?? '');
+        if ($ownerDiscordUserId !== '' && $requestingDiscordUserId !== '' && ! hash_equals($ownerDiscordUserId, $requestingDiscordUserId)) {
+            return response()->json([
+                'message' => 'Title ini terhubung ke akun Discord lain, jadi hanya owner aslinya yang bisa mengubah title.',
+            ], 422);
+        }
+
+        $cooldownSource = $latestAppliedClaim->consumed_at ?? $latestAppliedClaim->requested_at ?? $latestAppliedClaim->created_at;
+        $cooldownEndsAt = $cooldownSource?->copy()->addHours(self::TITLE_CHANGE_COOLDOWN_HOURS);
+
+        if ($cooldownEndsAt && now()->lt($cooldownEndsAt)) {
+            return response()->json([
+                'message' => sprintf(
+                    'Title baru bisa diubah lagi dalam %s, sekitar sampai %s.',
+                    $this->formatRemainingCooldown($cooldownEndsAt),
+                    $cooldownEndsAt->format('d M Y H:i')
+                ),
+                'cooldownEndsAt' => $cooldownEndsAt,
+            ], 422);
+        }
+
+        $claim = VipTitleClaim::query()->create([
+            'map_key' => $mapKey,
+            'gamepass_id' => $latestAppliedClaim->gamepass_id ?? $mapSetting->gamepass_id,
+            'roblox_user_id' => (int) $validated['roblox_user_id'],
+            'roblox_username' => $validated['roblox_username'],
+            'requested_title' => $title,
+            'discord_user_id' => $validated['discord_user_id'] ?? $latestAppliedClaim->discord_user_id,
+            'discord_tag' => $validated['discord_tag'] ?? $latestAppliedClaim->discord_tag,
+            'status' => 'pending',
+            'requested_at' => now(),
+            'meta' => $this->normalizeClaimMeta(array_filter([
+                ...($validated['meta'] ?? []),
+                'change_type' => 'self_service_update',
+                'previous_claim_id' => $latestAppliedClaim->id,
+                'cooldown_hours' => self::TITLE_CHANGE_COOLDOWN_HOURS,
+            ], static fn ($value) => $value !== null)),
+        ]);
+
+        return response()->json([
+            'claim' => $claim,
+            'cooldownHours' => self::TITLE_CHANGE_COOLDOWN_HOURS,
+            'nextChangeAt' => now()->addHours(self::TITLE_CHANGE_COOLDOWN_HOURS),
+            'basedOnClaimId' => $latestAppliedClaim->id,
+        ], 201);
+    }
+
     public function pull(Request $request): JsonResponse
     {
         abort_unless($this->hasRobloxApiKey($request), 401);
@@ -460,6 +555,27 @@ class VipTitleClaimController extends Controller
         return (int) ($setting->title_price_idr ?? 0) > 0;
     }
 
+    private function findPendingClaimForUser(string $mapKey, int $robloxUserId, string $robloxUsername, array $statuses = ['pending']): ?VipTitleClaim
+    {
+        return VipTitleClaim::query()
+            ->where('map_key', $mapKey)
+            ->whereIn('status', $statuses)
+            ->where(fn ($query) => $this->applyUserMatchQuery($query, $robloxUserId, $robloxUsername))
+            ->latest('requested_at')
+            ->first();
+    }
+
+    private function findLatestAppliedClaimForUser(string $mapKey, int $robloxUserId, string $robloxUsername): ?VipTitleClaim
+    {
+        return VipTitleClaim::query()
+            ->where('map_key', $mapKey)
+            ->where('status', 'applied')
+            ->where(fn ($query) => $this->applyUserMatchQuery($query, $robloxUserId, $robloxUsername))
+            ->orderByDesc('consumed_at')
+            ->orderByDesc('requested_at')
+            ->first();
+    }
+
     private function hasRobloxApiKey(Request $request): bool
     {
         $token = config('services.discord.internal_token');
@@ -509,6 +625,41 @@ class VipTitleClaimController extends Controller
         }
 
         return null;
+    }
+
+    private function applyUserMatchQuery($query, int $robloxUserId, string $robloxUsername): void
+    {
+        $query->where(function ($userQuery) use ($robloxUserId, $robloxUsername) {
+            if ($robloxUserId > 0) {
+                $userQuery->where('roblox_user_id', $robloxUserId);
+            }
+
+            if ($robloxUsername !== '') {
+                if ($robloxUserId > 0) {
+                    $userQuery->orWhereRaw('LOWER(roblox_username) = ?', [strtolower($robloxUsername)]);
+                } else {
+                    $userQuery->whereRaw('LOWER(roblox_username) = ?', [strtolower($robloxUsername)]);
+                }
+            }
+        });
+    }
+
+    private function formatRemainingCooldown($cooldownEndsAt): string
+    {
+        $remainingSeconds = max(60, now()->diffInSeconds($cooldownEndsAt, false));
+        $remainingSeconds = abs((int) $remainingSeconds);
+        $hours = intdiv($remainingSeconds, 3600);
+        $minutes = intdiv($remainingSeconds % 3600, 60);
+
+        if ($hours <= 0) {
+            return sprintf('%d menit', max(1, $minutes));
+        }
+
+        if ($minutes <= 0) {
+            return sprintf('%d jam', $hours);
+        }
+
+        return sprintf('%d jam %d menit', $hours, $minutes);
     }
 
     private function normalizeClaimMeta(?array $meta): ?array
