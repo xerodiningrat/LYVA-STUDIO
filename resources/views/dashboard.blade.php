@@ -19,6 +19,11 @@
     $availableBalanceAmount = $formatIdr($wallet['availableBalance'] ?? 0);
     $minimumWithdrawalAmount = max(1, (int) (($wallet['withdrawalFee'] ?? 2500) + 1));
     $maximumWithdrawalAmount = max($minimumWithdrawalAmount, (int) ($wallet['availableBalance'] ?? 0));
+    $grossSalesValue = (int) ($wallet['grossSalesTotal'] ?? 0);
+    $adminFeeValue = (int) ($wallet['adminFeeTotal'] ?? 0);
+    $netSalesValue = (int) ($wallet['netSalesTotal'] ?? 0);
+    $frozenBalanceValue = (int) ($wallet['frozenBalance'] ?? 0);
+    $availableBalanceValue = (int) ($wallet['availableBalance'] ?? 0);
     $healthScore = max(18, min(98, 92 - ($alertCount * 6) - ($reportCount * 3) + ($webhookCount * 2)));
     $cards = [
         ['title' => 'Roblox Discord Ops', 'subtitle' => 'Control room utama untuk server aktif.', 'value' => $healthScore.'%', 'progress' => $healthScore, 'meta' => $serverName, 'footer' => 'Guild '.$guildId],
@@ -44,6 +49,34 @@
         ['label' => 'Penarikan', 'href' => route('dashboard.wallet.withdrawals.index')],
         ['label' => 'Roblox Scripts', 'href' => route('roblox.scripts.index')],
     ];
+    $signalSeries = [
+        ['label' => 'Ops', 'value' => $healthScore, 'tone' => 'var(--studio-accent)'],
+        ['label' => 'Roblox', 'value' => min(100, 20 + ($trackedGamesCount * 12)), 'tone' => '#8bd7ff'],
+        ['label' => 'Discord', 'value' => min(100, 20 + ($webhookCount * 16)), 'tone' => 'var(--studio-accent-2)'],
+        ['label' => 'Wallet', 'value' => min(100, max(12, (int) round(($availableBalanceValue / max(1, $netSalesValue ?: 1)) * 100))), 'tone' => '#ffd27e'],
+        ['label' => 'Support', 'value' => max(12, min(100, 100 - (($alertCount * 10) + ($reportCount * 9)))), 'tone' => '#ff9bba'],
+    ];
+    $chartWidth = 420;
+    $chartHeight = 194;
+    $chartPaddingX = 28;
+    $chartPaddingY = 22;
+    $chartCount = max(1, count($signalSeries));
+    $chartStepX = $chartCount > 1 ? (($chartWidth - ($chartPaddingX * 2)) / ($chartCount - 1)) : 0;
+    $signalPoints = collect($signalSeries)->values()->map(function (array $point, int $index) use ($chartHeight, $chartPaddingY, $chartPaddingX, $chartStepX) {
+        $x = $chartPaddingX + ($chartStepX * $index);
+        $y = ($chartHeight - $chartPaddingY) - (($chartHeight - ($chartPaddingY * 2)) * ($point['value'] / 100));
+
+        return ['x' => round($x, 2), 'y' => round($y, 2)] + $point;
+    });
+    $signalPolyline = $signalPoints->map(fn ($point) => $point['x'].','.$point['y'])->implode(' ');
+    $signalArea = $signalPolyline.' '.($chartWidth - $chartPaddingX).','.($chartHeight - $chartPaddingY).' '.$chartPaddingX.','.($chartHeight - $chartPaddingY);
+    $walletCircleRadius = 46;
+    $walletCircleCircumference = 2 * pi() * $walletCircleRadius;
+    $walletReadyRatio = min(100, max(0, (int) round(($availableBalanceValue / max(1, $grossSalesValue ?: 1)) * 100)));
+    $walletFrozenRatio = min(100, max(0, (int) round(($frozenBalanceValue / max(1, $grossSalesValue ?: 1)) * 100)));
+    $walletReadyOffset = $walletCircleCircumference - (($walletReadyRatio / 100) * $walletCircleCircumference);
+    $walletFrozenOffset = $walletCircleCircumference - (($walletFrozenRatio / 100) * $walletCircleCircumference);
+    $particles = range(1, 16);
 @endphp
 
 <x-portfolio.shell :title="$title" active-key="dashboard" search-placeholder="Cari workspace, wallet, report, setup">
@@ -58,29 +91,107 @@
 
             .dashboard-card-grid {
                 display: grid;
-                gap: 1rem;
+                gap: 1.2rem;
                 grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             }
 
             .dashboard-ops-grid {
                 display: grid;
-                gap: 1rem;
+                gap: 1.25rem;
                 grid-template-columns: 1.45fr .8fr;
             }
 
             .dashboard-metric {
                 display: flex;
                 flex-wrap: wrap;
-                gap: 0.8rem;
+                gap: 0.95rem;
             }
 
             .dashboard-metric .studio-stat {
                 flex: 1 1 180px;
             }
 
+            .dashboard-hero {
+                position: relative;
+                isolation: isolate;
+            }
+
+            .dashboard-hero-grid {
+                gap: 1.4rem;
+            }
+
+            .dashboard-particles {
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                overflow: hidden;
+                z-index: 0;
+            }
+
+            .dashboard-particle {
+                position: absolute;
+                width: var(--size);
+                height: var(--size);
+                top: var(--top);
+                left: var(--left);
+                border-radius: 999px;
+                border: 1px solid rgba(123, 223, 255, .22);
+                background: radial-gradient(circle, rgba(123, 223, 255, .22), rgba(123, 223, 255, 0));
+                box-shadow: 0 0 18px rgba(123, 223, 255, .12);
+                animation: dashboardFloat var(--duration) ease-in-out infinite;
+                animation-delay: var(--delay);
+                opacity: .72;
+            }
+
+            .dashboard-orb {
+                position: absolute;
+                inset: auto auto -4rem -3rem;
+                width: 17rem;
+                height: 17rem;
+                border-radius: 999px;
+                background: radial-gradient(circle, rgba(121, 231, 255, .18), rgba(121, 231, 255, 0) 70%);
+                filter: blur(6px);
+                z-index: 0;
+                animation: dashboardPulse 9s ease-in-out infinite;
+            }
+
+            .dashboard-orb::after {
+                content: "";
+                position: absolute;
+                right: -6rem;
+                top: -4rem;
+                width: 12rem;
+                height: 12rem;
+                border-radius: inherit;
+                background: radial-gradient(circle, rgba(130, 255, 191, .16), rgba(130, 255, 191, 0) 72%);
+            }
+
             .dashboard-card {
                 position: relative;
                 overflow: hidden;
+                min-height: 100%;
+                transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+                background:
+                    radial-gradient(circle at top right, rgba(123, 223, 255, .11), transparent 34%),
+                    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015));
+            }
+
+            .dashboard-card::before,
+            .dashboard-chart-card::before,
+            .dashboard-wallet-visual::before {
+                content: "";
+                position: absolute;
+                inset: 0 auto auto 0;
+                width: 100%;
+                height: 1px;
+                background: linear-gradient(90deg, rgba(121, 231, 255, .55), rgba(130, 255, 191, 0));
+                opacity: .8;
+            }
+
+            .dashboard-card:hover,
+            .dashboard-chart-card:hover,
+            .dashboard-wallet-visual:hover {
+                box-shadow: 0 24px 48px rgba(2, 10, 20, .34);
             }
 
             .dashboard-card-value {
@@ -102,9 +213,14 @@
 
             .dashboard-progress span {
                 display: block;
+                width: var(--value);
                 height: 100%;
                 border-radius: inherit;
                 background: linear-gradient(90deg, var(--studio-accent), var(--studio-accent-2));
+                box-shadow: 0 0 18px rgba(123, 223, 255, .26);
+                transform-origin: left center;
+                transform: scaleX(0);
+                animation: dashboardGrow 1.25s cubic-bezier(.22, 1, .36, 1) forwards;
             }
 
             .dashboard-card-footer {
@@ -120,13 +236,137 @@
 
             .dashboard-mini-grid {
                 display: grid;
-                gap: 0.85rem;
+                gap: 1rem;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .dashboard-data-grid {
+                display: grid;
+                gap: 1.2rem;
+                grid-template-columns: minmax(0, 1.1fr) minmax(320px, .82fr);
+            }
+
+            .dashboard-chart-card {
+                padding: 1.2rem;
+                background:
+                    radial-gradient(circle at top right, rgba(255, 199, 123, .11), transparent 34%),
+                    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015));
+            }
+
+            .dashboard-chart-stage {
+                position: relative;
+                margin-top: 1rem;
+                padding: 1rem;
+                border-radius: 1.35rem;
+                border: 1px solid rgba(255,255,255,.07);
+                background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.02));
+                overflow: hidden;
+            }
+
+            .dashboard-chart-stage::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                background-image: linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+                background-size: 100% 25%, 14% 100%;
+                opacity: .32;
+                pointer-events: none;
+            }
+
+            .dashboard-chart-svg {
+                position: relative;
+                z-index: 1;
+                width: 100%;
+                height: auto;
+                overflow: visible;
+            }
+
+            .dashboard-chart-area {
+                fill: url(#dashboardSignalFill);
+                opacity: .55;
+            }
+
+            .dashboard-chart-line {
+                fill: none;
+                stroke: url(#dashboardSignalStroke);
+                stroke-width: 4;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+                stroke-dasharray: 720;
+                stroke-dashoffset: 720;
+                animation: dashboardTrace 1.8s ease forwards;
+            }
+
+            .dashboard-chart-node {
+                fill: #03111f;
+                stroke: rgba(123, 223, 255, .88);
+                stroke-width: 3;
+                transform-origin: center;
+                animation: dashboardNodePulse 2.4s ease-in-out infinite;
+            }
+
+            .dashboard-chart-node:nth-of-type(2n) {
+                animation-delay: .35s;
+            }
+
+            .dashboard-axis-labels,
+            .dashboard-chart-legend {
+                display: grid;
+                gap: 0.75rem;
+            }
+
+            .dashboard-axis-labels {
+                margin-top: .9rem;
+                grid-template-columns: repeat(5, minmax(0, 1fr));
+            }
+
+            .dashboard-axis-label {
+                display: grid;
+                gap: .28rem;
+            }
+
+            .dashboard-axis-label strong {
+                font: 700 .8rem/1 var(--studio-display);
+                letter-spacing: .08em;
+                text-transform: uppercase;
+            }
+
+            .dashboard-chart-legend {
+                margin-top: 1rem;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .dashboard-chart-legend-item {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: .8rem;
+                padding: .8rem .9rem;
+                border-radius: 1rem;
+                border: 1px solid rgba(255,255,255,.06);
+                background: rgba(255,255,255,.03);
+            }
+
+            .dashboard-chart-legend-item span {
+                display: inline-flex;
+                align-items: center;
+                gap: .55rem;
+                color: var(--studio-muted);
+                font-size: .9rem;
+            }
+
+            .dashboard-chart-legend-item i {
+                width: .72rem;
+                height: .72rem;
+                border-radius: 999px;
+                display: inline-block;
+                background: var(--tone);
+                box-shadow: 0 0 18px color-mix(in srgb, var(--tone) 45%, transparent);
             }
 
             .dashboard-activity-list {
                 display: grid;
-                gap: 0.8rem;
+                gap: 0.95rem;
             }
 
             .dashboard-activity-item {
@@ -154,18 +394,210 @@
             .dashboard-inline-actions {
                 display: flex;
                 flex-wrap: wrap;
-                gap: 0.7rem;
+                gap: 0.75rem;
+            }
+
+            .dashboard-wallet-visual {
+                padding: 1.2rem;
+                background:
+                    radial-gradient(circle at top left, rgba(130, 255, 191, .12), transparent 32%),
+                    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015));
+            }
+
+            .dashboard-ring-layout {
+                display: grid;
+                gap: 1rem;
+                grid-template-columns: 168px minmax(0, 1fr);
+                align-items: center;
+            }
+
+            .dashboard-ring {
+                position: relative;
+                width: 168px;
+                aspect-ratio: 1;
+                display: grid;
+                place-items: center;
+                margin-inline: auto;
+            }
+
+            .dashboard-ring svg {
+                width: 100%;
+                height: 100%;
+                transform: rotate(-90deg);
+                overflow: visible;
+            }
+
+            .dashboard-ring-track {
+                fill: none;
+                stroke: rgba(255,255,255,.08);
+                stroke-width: 12;
+            }
+
+            .dashboard-ring-progress,
+            .dashboard-ring-progress-secondary {
+                fill: none;
+                stroke-width: 12;
+                stroke-linecap: round;
+                stroke-dasharray: {{ $walletCircleCircumference }};
+                transform-origin: center;
+            }
+
+            .dashboard-ring-progress {
+                stroke: url(#dashboardRingPrimary);
+                stroke-dashoffset: {{ $walletCircleCircumference }};
+                animation: dashboardRingPrimary 1.7s cubic-bezier(.22, 1, .36, 1) forwards;
+            }
+
+            .dashboard-ring-progress-secondary {
+                stroke: rgba(255, 199, 123, .88);
+                stroke-dashoffset: {{ $walletCircleCircumference }};
+                animation: dashboardRingSecondary 1.7s cubic-bezier(.22, 1, .36, 1) forwards;
+            }
+
+            .dashboard-ring-center {
+                position: absolute;
+                inset: 0;
+                display: grid;
+                place-items: center;
+                text-align: center;
+                padding: 2rem;
+            }
+
+            .dashboard-ring-center strong {
+                display: block;
+                font: 700 1.5rem/1 var(--studio-display);
+            }
+
+            .dashboard-ring-center span {
+                color: var(--studio-muted);
+                font-size: .82rem;
+            }
+
+            .dashboard-distribution {
+                display: grid;
+                gap: .8rem;
+            }
+
+            .dashboard-distribution-item {
+                display: flex;
+                justify-content: space-between;
+                gap: .9rem;
+                padding: .85rem .95rem;
+                border-radius: 1rem;
+                background: rgba(255,255,255,.03);
+                border: 1px solid rgba(255,255,255,.06);
+            }
+
+            .dashboard-distribution-item div {
+                display: grid;
+                gap: .28rem;
+            }
+
+            .dashboard-distribution-item strong {
+                font: 700 .98rem/1.1 var(--studio-display);
+            }
+
+            .dashboard-distribution-item em {
+                align-self: center;
+                font-style: normal;
+                color: var(--studio-muted);
+                font-size: .84rem;
+            }
+
+            .dashboard-section-gap {
+                display: grid;
+                gap: 1.25rem;
+            }
+
+            @keyframes dashboardFloat {
+                0%, 100% {
+                    transform: translate3d(0, 0, 0) scale(1);
+                    opacity: .18;
+                }
+
+                50% {
+                    transform: translate3d(0, -18px, 0) scale(1.08);
+                    opacity: .82;
+                }
+            }
+
+            @keyframes dashboardPulse {
+                0%, 100% {
+                    transform: scale(1);
+                    opacity: .85;
+                }
+
+                50% {
+                    transform: scale(1.12);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes dashboardGrow {
+                to {
+                    transform: scaleX(1);
+                }
+            }
+
+            @keyframes dashboardTrace {
+                to {
+                    stroke-dashoffset: 0;
+                }
+            }
+
+            @keyframes dashboardNodePulse {
+                0%, 100% {
+                    transform: scale(1);
+                    filter: drop-shadow(0 0 0 rgba(123, 223, 255, 0));
+                }
+
+                50% {
+                    transform: scale(1.16);
+                    filter: drop-shadow(0 0 10px rgba(123, 223, 255, .45));
+                }
+            }
+
+            @keyframes dashboardRingPrimary {
+                to {
+                    stroke-dashoffset: {{ round($walletReadyOffset, 2) }};
+                }
+            }
+
+            @keyframes dashboardRingSecondary {
+                to {
+                    stroke-dashoffset: {{ round($walletFrozenOffset, 2) }};
+                }
             }
 
             @media (max-width: 1180px) {
+                .dashboard-data-grid,
                 .dashboard-ops-grid {
+                    grid-template-columns: 1fr;
+                }
+
+                .dashboard-ring-layout {
                     grid-template-columns: 1fr;
                 }
             }
 
             @media (max-width: 720px) {
+                .dashboard-chart-legend,
                 .dashboard-mini-grid {
                     grid-template-columns: 1fr;
+                }
+
+                .dashboard-axis-labels {
+                    grid-template-columns: repeat(3, minmax(0, 1fr));
+                }
+            }
+
+            @media (max-width: 560px) {
+                .dashboard-card-grid {
+                    grid-template-columns: 1fr;
+                }
+
+                .dashboard-particles {
+                    opacity: .5;
                 }
             }
         </style>
@@ -176,8 +608,18 @@
         <a href="{{ route('vip-title.setup') }}" wire:navigate class="portfolio-shell-action">VIP Setup</a>
     </x-slot:headerActions>
 
-    <section class="studio-hero" data-studio-hover>
-        <div class="studio-hero-grid">
+    <section class="studio-hero dashboard-hero" data-studio-hover>
+        <div class="dashboard-particles" aria-hidden="true">
+            <div class="dashboard-orb"></div>
+            @foreach ($particles as $particle)
+                <span
+                    class="dashboard-particle"
+                    style="--size: {{ 0.4 + (($particle % 4) * 0.22) }}rem; --top: {{ 6 + (($particle * 7) % 78) }}%; --left: {{ 4 + (($particle * 11) % 90) }}%; --delay: -{{ $particle * 0.35 }}s; --duration: {{ 8 + ($particle % 5) }}s;"
+                ></span>
+            @endforeach
+        </div>
+
+        <div class="studio-hero-grid dashboard-hero-grid">
             <div>
                 <span class="studio-kicker">Workspace Overview</span>
                 <h2>Roblox Discord Ops <span>tetap dalam satu shell</span></h2>
@@ -223,6 +665,55 @@
                     </div>
                     <p class="studio-copy" style="margin-top:1rem;">Link internal di workspace ini sekarang memakai navigasi app-like, jadi perpindahan page tidak terasa reload penuh browser.</p>
                 </article>
+
+                <article class="dashboard-chart-card" data-studio-hover>
+                    <div class="studio-panel-header">
+                        <div>
+                            <span class="studio-label">Ops Signal</span>
+                            <h3 style="margin-top:.75rem;">Grafik operasional live workspace</h3>
+                        </div>
+                        <span class="studio-pill">Animated</span>
+                    </div>
+
+                    <div class="dashboard-chart-stage">
+                        <svg class="dashboard-chart-svg" viewBox="0 0 {{ $chartWidth }} {{ $chartHeight }}" role="img" aria-label="Grafik operasional workspace">
+                            <defs>
+                                <linearGradient id="dashboardSignalFill" x1="0%" x2="0%" y1="0%" y2="100%">
+                                    <stop offset="0%" stop-color="rgba(123, 223, 255, 0.45)" />
+                                    <stop offset="100%" stop-color="rgba(123, 223, 255, 0)" />
+                                </linearGradient>
+                                <linearGradient id="dashboardSignalStroke" x1="0%" x2="100%" y1="0%" y2="0%">
+                                    <stop offset="0%" stop-color="#79e7ff" />
+                                    <stop offset="50%" stop-color="#82ffbf" />
+                                    <stop offset="100%" stop-color="#ffc77b" />
+                                </linearGradient>
+                            </defs>
+                            <polygon class="dashboard-chart-area" points="{{ $signalArea }}" />
+                            <polyline class="dashboard-chart-line" points="{{ $signalPolyline }}" />
+                            @foreach ($signalPoints as $point)
+                                <circle class="dashboard-chart-node" cx="{{ $point['x'] }}" cy="{{ $point['y'] }}" r="5.5" />
+                            @endforeach
+                        </svg>
+                    </div>
+
+                    <div class="dashboard-axis-labels">
+                        @foreach ($signalSeries as $signal)
+                            <div class="dashboard-axis-label">
+                                <strong>{{ $signal['label'] }}</strong>
+                                <span class="studio-note" style="margin-top:0;">{{ $signal['value'] }}%</span>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <div class="dashboard-chart-legend">
+                        @foreach ($signalSeries as $signal)
+                            <article class="dashboard-chart-legend-item">
+                                <span><i style="--tone: {{ $signal['tone'] }}"></i>{{ $signal['label'] }}</span>
+                                <strong>{{ $signal['value'] }}%</strong>
+                            </article>
+                        @endforeach
+                    </div>
+                </article>
             </aside>
         </div>
     </section>
@@ -245,7 +736,7 @@
                         <h3 style="margin-top:.9rem;">{{ $card['title'] }}</h3>
                         <p class="studio-copy" style="margin-top:.55rem;">{{ $card['subtitle'] }}</p>
                         <span class="dashboard-card-value">{{ $card['value'] }}</span>
-                        <div class="dashboard-progress"><span style="width: {{ max(8, min(100, (int) $card['progress'])) }}%"></span></div>
+                        <div class="dashboard-progress"><span style="--value: {{ max(8, min(100, (int) $card['progress'])) }}%"></span></div>
                         <div class="dashboard-card-footer">
                             <span>{{ $card['footer'] }}</span>
                             @if ($card['title'] === 'VIP Title Wallet')
@@ -260,7 +751,7 @@
                     <h3 style="margin-top:.9rem;">Request Penarikan</h3>
                     <p class="studio-copy" style="margin-top:.55rem;">Total jual {{ $grossSalesAmount }}, saldo siap tarik {{ $availableBalanceAmount }}, biaya tarik {{ $formatIdr($wallet['withdrawalFee'] ?? 0) }}.</p>
                     <span class="dashboard-card-value">{{ $availableBalanceAmount }}</span>
-                    <div class="dashboard-progress"><span style="width: {{ min(100, max(8, (int) round((($wallet['availableBalance'] ?? 0) / max(1, ($wallet['maturedBalance'] ?? 1))) * 100))) }}%"></span></div>
+                    <div class="dashboard-progress"><span style="--value: {{ min(100, max(8, (int) round((($wallet['availableBalance'] ?? 0) / max(1, ($wallet['maturedBalance'] ?? 1))) * 100))) }}%"></span></div>
                     <div class="dashboard-inline-actions" style="margin-top:1rem;">
                         <a href="{{ route('dashboard.wallet.earnings') }}" wire:navigate class="studio-button-ghost">Halaman Penghasilan</a>
                         <a href="{{ route('dashboard.wallet.withdrawals.index') }}" wire:navigate class="studio-button">Halaman Penarikan</a>
@@ -279,37 +770,129 @@
                 <span class="studio-pill">Activity</span>
             </div>
 
-            <div class="dashboard-mini-grid">
-                <article class="studio-card" data-studio-hover>
-                    <strong>VIP Title Wallet</strong>
-                    <p class="studio-copy" style="margin-top:.55rem;">Total penjualan {{ $grossSalesAmount }}, fee admin {{ $adminFeeAmount }}, net {{ $netSalesAmount }}</p>
-                </article>
-                <article class="studio-card" data-studio-hover>
-                    <strong>Request Penarikan</strong>
-                    <p class="studio-copy" style="margin-top:.55rem;">{{ count($wallet['recentWithdrawals'] ?? []) }} request terakhir | siap {{ collect($wallet['recentWithdrawals'] ?? [])->where('status', 'ready')->count() }} | beku {{ $frozenBalanceAmount }}</p>
-                </article>
-            </div>
+            <div class="dashboard-section-gap">
+                <article class="dashboard-wallet-visual" data-studio-hover>
+                    <div class="studio-panel-header">
+                        <div>
+                            <span class="studio-label">Revenue Pulse</span>
+                            <h3 style="margin-top:.75rem;">VIP Title Wallet</h3>
+                        </div>
+                        <span class="studio-pill">Graph</span>
+                    </div>
 
-            <div class="dashboard-activity-list">
-                @forelse ($activityItems as $item)
-                    <article class="dashboard-activity-item">
-                        <span class="dashboard-activity-avatar">{{ $item['initials'] }}</span>
-                        <div>
-                            <strong>{{ $item['name'] }}</strong>
-                            <p class="studio-copy" style="margin:.35rem 0 0;">{{ $item['line'] }}</p>
-                            <span class="studio-note">{{ $item['time'] }}</span>
+                    <div class="dashboard-ring-layout">
+                        <div class="dashboard-ring">
+                            <svg viewBox="0 0 140 140" role="img" aria-label="Distribusi wallet">
+                                <defs>
+                                    <linearGradient id="dashboardRingPrimary" x1="0%" x2="100%" y1="0%" y2="0%">
+                                        <stop offset="0%" stop-color="#79e7ff" />
+                                        <stop offset="100%" stop-color="#82ffbf" />
+                                    </linearGradient>
+                                </defs>
+                                <circle class="dashboard-ring-track" cx="70" cy="70" r="{{ $walletCircleRadius }}" />
+                                <circle class="dashboard-ring-progress-secondary" cx="70" cy="70" r="{{ $walletCircleRadius }}" />
+                                <circle class="dashboard-ring-progress" cx="70" cy="70" r="{{ $walletCircleRadius }}" />
+                            </svg>
+                            <div class="dashboard-ring-center">
+                                <div>
+                                    <strong>{{ $availableBalanceAmount }}</strong>
+                                    <span>saldo siap tarik</span>
+                                </div>
+                            </div>
                         </div>
-                    </article>
-                @empty
-                    <article class="dashboard-activity-item">
-                        <span class="dashboard-activity-avatar">LY</span>
-                        <div>
-                            <strong>Belum ada activity</strong>
-                            <p class="studio-copy" style="margin:.35rem 0 0;">Saat alert, report, webhook, race, atau withdrawal mulai bergerak, panel ini akan otomatis terisi.</p>
+
+                        <div class="dashboard-distribution">
+                            <article class="dashboard-distribution-item">
+                                <div>
+                                    <span class="studio-label">Net Sales</span>
+                                    <strong>{{ $netSalesAmount }}</strong>
+                                </div>
+                                <em>setelah fee admin</em>
+                            </article>
+                            <article class="dashboard-distribution-item">
+                                <div>
+                                    <span class="studio-label">Frozen 2 Hari</span>
+                                    <strong>{{ $frozenBalanceAmount }}</strong>
+                                </div>
+                                <em>{{ $walletFrozenRatio }}% of gross</em>
+                            </article>
+                            <article class="dashboard-distribution-item">
+                                <div>
+                                    <span class="studio-label">Ready to Withdraw</span>
+                                    <strong>{{ $availableBalanceAmount }}</strong>
+                                </div>
+                                <em>{{ $walletReadyRatio }}% of gross</em>
+                            </article>
                         </div>
+                    </div>
+                </article>
+
+                <div class="dashboard-mini-grid">
+                    <article class="studio-card" data-studio-hover>
+                        <strong>VIP Title Wallet</strong>
+                        <p class="studio-copy" style="margin-top:.55rem;">Total penjualan {{ $grossSalesAmount }}, fee admin {{ $adminFeeAmount }}, net {{ $netSalesAmount }}</p>
                     </article>
-                @endforelse
+                    <article class="studio-card" data-studio-hover>
+                        <strong>Request Penarikan</strong>
+                        <p class="studio-copy" style="margin-top:.55rem;">{{ count($wallet['recentWithdrawals'] ?? []) }} request terakhir | siap {{ collect($wallet['recentWithdrawals'] ?? [])->where('status', 'ready')->count() }} | beku {{ $frozenBalanceAmount }}</p>
+                    </article>
+                </div>
+
+                <div class="dashboard-activity-list">
+                    @forelse ($activityItems as $item)
+                        <article class="dashboard-activity-item">
+                            <span class="dashboard-activity-avatar">{{ $item['initials'] }}</span>
+                            <div>
+                                <strong>{{ $item['name'] }}</strong>
+                                <p class="studio-copy" style="margin:.35rem 0 0;">{{ $item['line'] }}</p>
+                                <span class="studio-note">{{ $item['time'] }}</span>
+                            </div>
+                        </article>
+                    @empty
+                        <article class="dashboard-activity-item">
+                            <span class="dashboard-activity-avatar">LY</span>
+                            <div>
+                                <strong>Belum ada activity</strong>
+                                <p class="studio-copy" style="margin:.35rem 0 0;">Saat alert, report, webhook, race, atau withdrawal mulai bergerak, panel ini akan otomatis terisi.</p>
+                            </div>
+                        </article>
+                    @endforelse
+                </div>
             </div>
         </aside>
     </section>
+
+    <x-slot:scripts>
+        <script>
+            (() => {
+                const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                if (prefersReducedMotion || window.innerWidth < 960) {
+                    return;
+                }
+
+                document.querySelectorAll('[data-studio-hover]').forEach((card) => {
+                    const reset = () => {
+                        card.style.transform = '';
+                        card.style.setProperty('--mx', '50%');
+                        card.style.setProperty('--my', '50%');
+                    };
+
+                    card.addEventListener('pointermove', (event) => {
+                        const rect = card.getBoundingClientRect();
+                        const x = event.clientX - rect.left;
+                        const y = event.clientY - rect.top;
+                        const rotateY = ((x / rect.width) - 0.5) * 7;
+                        const rotateX = (0.5 - (y / rect.height)) * 6;
+
+                        card.style.setProperty('--mx', `${(x / rect.width) * 100}%`);
+                        card.style.setProperty('--my', `${(y / rect.height) * 100}%`);
+                        card.style.transform = `perspective(1400px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-6px)`;
+                    });
+
+                    card.addEventListener('pointerleave', reset);
+                    card.addEventListener('pointercancel', reset);
+                });
+            })();
+        </script>
+    </x-slot:scripts>
 </x-portfolio.shell>
