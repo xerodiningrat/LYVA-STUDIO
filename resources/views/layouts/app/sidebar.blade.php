@@ -196,7 +196,7 @@
             }
 
             .ops-sidebar-shell [data-flux-sidebar-group] > * + * {
-                margin-top: 0.62rem;
+                margin-top: 0.9rem;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-item] {
@@ -355,6 +355,10 @@
                 .ops-sidebar-shell [data-flux-sidebar-item] {
                     padding: 0.82rem 0.88rem !important;
                     min-height: 4.4rem !important;
+                }
+
+                .ops-sidebar-shell [data-flux-sidebar-group] > * + * {
+                    margin-top: 1rem;
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-item] [data-content] {
