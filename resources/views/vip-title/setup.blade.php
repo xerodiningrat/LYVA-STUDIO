@@ -169,7 +169,7 @@
                             <div>
                                 <label>Mode claim</label>
                                 <input value="Otomatis dari harga" readonly>
-                                <div class="muted" style="margin-top:.45rem; font-size:.82rem;">Kalau harga title diisi, bot otomatis pakai flow <code>Beli Title</code>. Kalau harga kosong, bot pakai <code>Claim Title</code>.</div>
+                                <div class="muted" style="margin-top:.45rem; font-size:.82rem;">Tombol <code>Claim Title</code> tetap ada untuk user yang sudah punya VIP gamepass. Kalau harga title diisi, bot juga menambah tombol <code>Beli Title</code> via IDR.</div>
                             </div>
                         </div>
                         <div class="form-grid">
@@ -255,7 +255,7 @@
                                         </div>
                                         <div>
                                             <label>Mode claim</label>
-                                            <input value="{{ ($setting->title_price_idr ?? 0) > 0 ? 'Beli Title (otomatis dari harga)' : 'Claim Title (otomatis dari harga)' }}" readonly>
+                                            <input value="{{ ($setting->title_price_idr ?? 0) > 0 ? 'Hybrid: Claim + Beli Title' : 'Claim Title saja' }}" readonly>
                                         </div>
                                     </div>
                                     <div class="form-grid">
@@ -298,8 +298,8 @@
                                         <div class="label" style="margin-bottom:.7rem;">API key Roblox</div>
                                         {{ $setting->api_key }}
                                     </div>
-                                    <div class="code-box">CLAIM_MODE = "{{ ($setting->title_price_idr ?? 0) > 0 ? 'duitku' : 'vip_gamepass' }}"
-BUTTON_LABEL = "{{ $setting->button_label ?: (($setting->title_price_idr ?? 0) > 0 ? 'Beli Title' : 'Claim Title') }}"
+                                    <div class="code-box">CLAIM_MODE = "{{ ($setting->title_price_idr ?? 0) > 0 ? 'hybrid' : 'vip_gamepass' }}"
+BUTTON_LABEL = "{{ $setting->button_label ?: 'Beli Title' }}"
 TITLE_PRICE_IDR = {{ $setting->title_price_idr ?? 0 }}
 PAYMENT_EXPIRY_MINUTES = {{ $setting->payment_expiry_minutes ?? 60 }}
 VIP_GAMEPASS_ID = {{ $setting->gamepass_id }}

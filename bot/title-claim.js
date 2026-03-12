@@ -17,8 +17,10 @@ import {
 import { createLaravelVipTitleCheckout, createLaravelVipTitleClaim, fetchLaravelVipTitleClaims, fetchLaravelVipTitleMaps } from './laravel-api.js';
 
 const TITLE_PANEL_BUTTON_PREFIX = 'title_claim_open:';
+const TITLE_BUY_BUTTON_PREFIX = 'title_buy_open:';
 const TITLE_SCRIPT_BUTTON_PREFIX = 'title_claim_script:';
 const TITLE_CLAIM_MODAL_PREFIX = 'title_claim_modal:';
+const TITLE_BUY_MODAL_PREFIX = 'title_buy_modal:';
 const TITLE_SETUP_SELECT_PREFIX = 'title_setup_map_select:';
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(MODULE_DIR, '..');
@@ -167,6 +169,10 @@ function buildTitleScriptButtonId(mapKey) {
   return `${TITLE_SCRIPT_BUTTON_PREFIX}${normalizeMapKey(mapKey)}`;
 }
 
+function buildTitleBuyButtonId(mapKey) {
+  return `${TITLE_BUY_BUTTON_PREFIX}${normalizeMapKey(mapKey)}`;
+}
+
 function parseTitlePanelButtonId(customId) {
   if (!String(customId || '').startsWith(TITLE_PANEL_BUTTON_PREFIX)) {
     return '';
@@ -183,8 +189,20 @@ function parseTitleScriptButtonId(customId) {
   return normalizeMapKey(customId.slice(TITLE_SCRIPT_BUTTON_PREFIX.length));
 }
 
+function parseTitleBuyButtonId(customId) {
+  if (!String(customId || '').startsWith(TITLE_BUY_BUTTON_PREFIX)) {
+    return '';
+  }
+
+  return normalizeMapKey(customId.slice(TITLE_BUY_BUTTON_PREFIX.length));
+}
+
 function buildTitleClaimModalId(mapKey) {
   return `${TITLE_CLAIM_MODAL_PREFIX}${normalizeMapKey(mapKey)}`;
+}
+
+function buildTitleBuyModalId(mapKey) {
+  return `${TITLE_BUY_MODAL_PREFIX}${normalizeMapKey(mapKey)}`;
 }
 
 function parseTitleClaimModalId(customId) {
@@ -193,6 +211,14 @@ function parseTitleClaimModalId(customId) {
   }
 
   return normalizeMapKey(customId.slice(TITLE_CLAIM_MODAL_PREFIX.length));
+}
+
+function parseTitleBuyModalId(customId) {
+  if (!String(customId || '').startsWith(TITLE_BUY_MODAL_PREFIX)) {
+    return '';
+  }
+
+  return normalizeMapKey(customId.slice(TITLE_BUY_MODAL_PREFIX.length));
 }
 
 function buildTitleSetupSelectId(channelId) {
@@ -263,7 +289,7 @@ async function resolveMapConfig(config, rawMapKey) {
 }
 
 function buildTitlePanelEmbed(mapConfig) {
-  const isPaidFlow = mapConfig.claimMode === 'duitku';
+  const hasPaidOption = mapConfig.titlePriceIdr > 0;
 
   return new EmbedBuilder()
     .setColor(0xf97316)
@@ -273,19 +299,17 @@ function buildTitlePanelEmbed(mapConfig) {
         'Panel claim custom title untuk member VIP.',
         '',
         `Panel ini sudah terhubung ke map **${mapConfig.name}** dari dashboard.`,
-        isPaidFlow
-          ? `Klik \`${resolvePrimaryButtonLabel(mapConfig)}\` lalu isi username Roblox dan custom title.`
-          : 'Klik `Claim Title` lalu isi username Roblox dan custom title.',
-        isPaidFlow
-          ? `Setelah form dikirim, bot akan buat invoice Duitku sebesar **${formatIdr(mapConfig.titlePriceIdr)}**.`
-          : 'Bot akan ambil map key + gamepass otomatis dari setup dashboard.',
+        'Klik `Claim Title` kalau user sudah punya VIP gamepass.',
+        hasPaidOption
+          ? `Klik \`Beli Title\` kalau user mau bayar pakai IDR. Harga saat ini **${formatIdr(mapConfig.titlePriceIdr)}**.`
+          : 'Kalau harga IDR belum diisi, panel ini hanya pakai flow claim gamepass.',
         'Klik `Script Roblox` kalau admin butuh file yang harus ditaruh di game.',
       ].join('\n'),
     )
     .addFields(
       { name: 'Map', value: mapConfig.name, inline: true },
-      { name: 'Mode', value: isPaidFlow ? 'Pembayaran Duitku' : 'VIP Gamepass', inline: true },
-      { name: 'Output', value: isPaidFlow ? 'Invoice bayar + title otomatis' : 'Claim tersimpan', inline: true },
+      { name: 'Claim VIP', value: 'Aktif', inline: true },
+      { name: 'Beli IDR', value: hasPaidOption ? formatIdr(mapConfig.titlePriceIdr) : 'Nonaktif', inline: true },
       { name: 'Filter', value: 'Reserved title + profanity diblok', inline: true },
     )
     .setFooter({ text: 'ProjectBotDC | VIP Title Panel' });
@@ -300,12 +324,12 @@ function formatIdr(value) {
   }).format(amount);
 }
 
-function resolvePrimaryButtonLabel(mapConfig) {
+function resolveBuyButtonLabel(mapConfig) {
   if (mapConfig.buttonLabel) {
     return truncateForComponent(mapConfig.buttonLabel, 80);
   }
 
-  return mapConfig.claimMode === 'duitku' ? 'Beli Title' : 'Claim Title';
+  return 'Beli Title';
 }
 
 function canAccessRobloxScript(interaction, mapConfig) {
@@ -401,9 +425,7 @@ function buildScriptEmbed(mapConfig) {
   const roleInfo = mapConfig.scriptAccessRoleIds?.length
     ? mapConfig.scriptAccessRoleIds.map((roleId) => `<@&${roleId}>`).join(', ')
     : 'Admin only';
-  const gamepassInfo = mapConfig.claimMode === 'duitku'
-    ? 'Tidak dipakai (mode bayar)'
-    : String(mapConfig.gamepassId || 0);
+  const gamepassInfo = String(mapConfig.gamepassId || 0);
 
   return new EmbedBuilder()
     .setColor(0x60a5fa)
@@ -482,9 +504,7 @@ function buildLuaAllowedPlaceIds(placeIds) {
 }
 
 function effectiveGamepassId(mapConfig) {
-  return mapConfig.claimMode === 'duitku'
-    ? 0
-    : Number(mapConfig.gamepassId || 0);
+  return Number(mapConfig.gamepassId || 0);
 }
 
 function buildRobloxConfigSnippet(mapConfig, appUrl) {
@@ -562,11 +582,11 @@ function buildRobloxSetupGuide(mapConfig, appUrl) {
     '',
     `Map: ${mapConfig.name}`,
     `Map key: ${mapConfig.mapKey}`,
-    `Mode claim: ${mapConfig.claimMode === 'duitku' ? 'Pembayaran Duitku' : 'VIP Gamepass'}`,
+    `Mode claim: ${(mapConfig.titlePriceIdr || 0) > 0 ? 'Hybrid: claim gamepass + bayar IDR' : 'VIP Gamepass'}`,
     `Backend URL: ${appUrl}`,
     `Gamepass ID: ${effectiveGamepassId(mapConfig)}`,
     `Title slot: ${Number(mapConfig.titleSlot || 10)}`,
-    `Harga title: ${mapConfig.claimMode === 'duitku' ? formatIdr(mapConfig.titlePriceIdr) : '-'}`,
+    `Harga title: ${(mapConfig.titlePriceIdr || 0) > 0 ? formatIdr(mapConfig.titlePriceIdr) : '-'}`,
     `Allowed Place IDs: ${mapConfig.placeIds?.length ? mapConfig.placeIds.join(', ') : 'Semua place diizinkan'}`,
     '',
     '## Langkah setup',
@@ -636,13 +656,24 @@ function truncateDiscordContent(value, maxLength = 1800) {
 }
 
 async function publishTitlePanel(channel, mapConfig) {
+  const components = [
+    new ButtonBuilder().setCustomId(buildTitlePanelButtonId(mapConfig.mapKey)).setLabel('Claim Title').setStyle(ButtonStyle.Primary),
+  ];
+
+  if ((mapConfig.titlePriceIdr || 0) > 0) {
+    components.push(
+      new ButtonBuilder().setCustomId(buildTitleBuyButtonId(mapConfig.mapKey)).setLabel(resolveBuyButtonLabel(mapConfig)).setStyle(ButtonStyle.Success),
+    );
+  }
+
+  components.push(
+    new ButtonBuilder().setCustomId(buildTitleScriptButtonId(mapConfig.mapKey)).setLabel('Script Roblox').setStyle(ButtonStyle.Secondary),
+  );
+
   await channel.send({
     embeds: [buildTitlePanelEmbed(mapConfig)],
     components: [
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(buildTitlePanelButtonId(mapConfig.mapKey)).setLabel(resolvePrimaryButtonLabel(mapConfig)).setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId(buildTitleScriptButtonId(mapConfig.mapKey)).setLabel('Script Roblox').setStyle(ButtonStyle.Secondary),
-      ),
+      new ActionRowBuilder().addComponents(...components),
     ],
   });
 }
@@ -796,10 +827,40 @@ export async function handleTitileComponent(interaction, config) {
 
   const panelMapKey = parseTitlePanelButtonId(interaction.customId);
   if (panelMapKey) {
-    const mapConfig = await resolveMapConfig(config, panelMapKey);
     const modal = new ModalBuilder()
       .setCustomId(buildTitleClaimModalId(panelMapKey))
-      .setTitle(mapConfig?.claimMode === 'duitku' ? 'Beli VIP Title' : 'Claim VIP Title');
+      .setTitle('Claim VIP Title');
+
+    const usernameInput = new TextInputBuilder()
+      .setCustomId('roblox_username')
+      .setLabel('Roblox Username')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setMaxLength(20)
+      .setPlaceholder('Masukkan username Roblox');
+
+    const titleInput = new TextInputBuilder()
+      .setCustomId('custom_title')
+      .setLabel('Custom Title')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setMaxLength(28)
+      .setPlaceholder('Masukkan custom title');
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(usernameInput),
+      new ActionRowBuilder().addComponents(titleInput),
+    );
+
+    await interaction.showModal(modal);
+    return true;
+  }
+
+  const buyMapKey = parseTitleBuyButtonId(interaction.customId);
+  if (buyMapKey) {
+    const modal = new ModalBuilder()
+      .setCustomId(buildTitleBuyModalId(buyMapKey))
+      .setTitle('Beli VIP Title');
 
     const usernameInput = new TextInputBuilder()
       .setCustomId('roblox_username')
@@ -866,7 +927,10 @@ export async function handleTitileComponent(interaction, config) {
 }
 
 export async function handleTitileModal(interaction, config) {
-  if (!interaction.isModalSubmit() || !interaction.customId.startsWith(TITLE_CLAIM_MODAL_PREFIX)) {
+  const isClaimModal = interaction.isModalSubmit() && interaction.customId.startsWith(TITLE_CLAIM_MODAL_PREFIX);
+  const isBuyModal = interaction.isModalSubmit() && interaction.customId.startsWith(TITLE_BUY_MODAL_PREFIX);
+
+  if (!isClaimModal && !isBuyModal) {
     return false;
   }
 
@@ -874,7 +938,9 @@ export async function handleTitileModal(interaction, config) {
 
   const robloxUsername = String(interaction.fields.getTextInputValue('roblox_username') || '').trim();
   const titleCheck = validateTitle(interaction.fields.getTextInputValue('custom_title'));
-  const mapKey = parseTitleClaimModalId(interaction.customId);
+  const mapKey = isBuyModal
+    ? parseTitleBuyModalId(interaction.customId)
+    : parseTitleClaimModalId(interaction.customId);
 
   if (!robloxUsername) {
     await interaction.editReply({ content: 'Username Roblox wajib diisi.' });
@@ -916,7 +982,14 @@ export async function handleTitileModal(interaction, config) {
     return true;
   }
 
-  if (mapConfig.claimMode === 'duitku') {
+  if (isBuyModal) {
+    if ((mapConfig.titlePriceIdr || 0) <= 0) {
+      await interaction.editReply({
+        content: 'Map ini belum punya harga IDR, jadi tombol beli title belum aktif.',
+      });
+      return true;
+    }
+
     try {
       const checkout = await createLaravelVipTitleCheckout(config, {
         map_key: mapKey,

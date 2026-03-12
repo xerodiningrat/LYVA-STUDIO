@@ -223,12 +223,6 @@ class VipTitleClaimController extends Controller
             ], 422);
         }
 
-        if ($this->usesPaidCheckout($mapSetting)) {
-            return response()->json([
-                'message' => 'Map ini memakai flow pembayaran Duitku. Gunakan endpoint checkout.',
-            ], 422);
-        }
-
         $title = $this->sanitizeTitle($validated['requested_title']);
         $reason = $this->validateTitle($title);
 
@@ -375,8 +369,7 @@ class VipTitleClaimController extends Controller
 
     private function usesPaidCheckout(VipTitleMapSetting $setting): bool
     {
-        return (int) ($setting->title_price_idr ?? 0) > 0
-            || $setting->claim_mode === 'duitku';
+        return (int) ($setting->title_price_idr ?? 0) > 0;
     }
 
     private function hasRobloxApiKey(Request $request): bool

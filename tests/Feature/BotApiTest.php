@@ -208,6 +208,40 @@ test('bot can create duitku vip title checkout', function () {
     expect(VipTitlePayment::query()->count())->toBe(1);
 });
 
+test('bot can still create vip title claim when map also has idr price', function () {
+    config()->set('services.discord.internal_token', 'shared-secret');
+
+    VipTitleMapSetting::query()->create([
+        'name' => 'Mount Xyra Hybrid',
+        'map_key' => 'mountxyra-hybrid',
+        'gamepass_id' => 1700114697,
+        'claim_mode' => 'duitku',
+        'api_key' => 'lyva_hybrid_secret',
+        'title_slot' => 10,
+        'title_price_idr' => 15000,
+        'payment_expiry_minutes' => 60,
+        'button_label' => 'Beli Title',
+        'place_ids' => ['76880221507840'],
+        'script_access_role_ids' => [],
+        'is_active' => true,
+    ]);
+
+    $response = $this->withHeaders([
+        'X-Bot-Token' => 'shared-secret',
+    ])->postJson(route('api.bot.vip-title-claims.store'), [
+        'map_key' => 'mountxyra-hybrid',
+        'roblox_user_id' => 99123,
+        'roblox_username' => 'RobloxBuyer',
+        'requested_title' => 'Sky King',
+        'discord_user_id' => '777',
+        'discord_tag' => 'Buyer#1234',
+    ]);
+
+    $response
+        ->assertCreated()
+        ->assertJsonPath('claim.status', 'pending');
+});
+
 test('duitku callback marks vip title payment as paid', function () {
     config()->set('services.duitku.merchant_code', 'D1234');
     config()->set('services.duitku.api_key', 'secret-key');

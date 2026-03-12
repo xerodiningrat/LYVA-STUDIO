@@ -541,8 +541,9 @@ local function vipClaimRequest(pathSuffix: string, body: table)
 	return decodedOk and decoded or nil
 end
 
-local function playerOwnsVipForClaim(player: Player): boolean
-	if CONFIG.VIP_GAMEPASS_ID == 0 then
+local function playerOwnsVipForClaim(player: Player, claimGamepassId: number?): boolean
+	local activeGamepassId = tonumber(claimGamepassId) or CONFIG.VIP_GAMEPASS_ID
+	if activeGamepassId == 0 then
 		return true
 	end
 
@@ -551,11 +552,11 @@ local function playerOwnsVipForClaim(player: Player): boolean
 	end
 
 	local ok, owns = pcall(function()
-		return MarketplaceService:UserOwnsGamePassAsync(player.UserId, CONFIG.VIP_GAMEPASS_ID)
+		return MarketplaceService:UserOwnsGamePassAsync(player.UserId, activeGamepassId)
 	end)
 
 	if not ok then
-		warn("[VIP CLAIM] UserOwnsGamePassAsync gagal:", player.Name, player.UserId, CONFIG.VIP_GAMEPASS_ID)
+		warn("[VIP CLAIM] UserOwnsGamePassAsync gagal:", player.Name, player.UserId, activeGamepassId)
 	end
 
 	return ok and owns == true
@@ -572,8 +573,8 @@ end
 local function applyVipClaimToPlayer(player: Player, claim: table): boolean
 	print("[VIP CLAIM] APPLY START", player.Name, claim and claim.title or "NO_TITLE", "slot", CONFIG.VIP_TITLE_SLOT)
 
-	if not playerOwnsVipForClaim(player) then
-		warn("[VIP CLAIM] APPLY FAIL: player tidak punya VIP", player.Name, player.UserId, CONFIG.VIP_GAMEPASS_ID)
+	if not playerOwnsVipForClaim(player, claim and claim.gamepassId) then
+		warn("[VIP CLAIM] APPLY FAIL: player tidak punya VIP", player.Name, player.UserId, claim and claim.gamepassId or CONFIG.VIP_GAMEPASS_ID)
 		return false
 	end
 

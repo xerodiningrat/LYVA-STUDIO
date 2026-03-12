@@ -62,21 +62,22 @@ function Module.Init(config)
 		return allowedPlaceIds[game.PlaceId] == true
 	end
 
-	local function ownsVip(player)
-		if vipGamepassId == 0 then
+	local function ownsVip(player, requiredGamepassId)
+		local activeGamepassId = tonumber(requiredGamepassId) or vipGamepassId
+		if activeGamepassId == 0 then
 			return true
 		end
 		if allowNonVipInStudio and RunService:IsStudio() then
 			return true
 		end
 		local ok, result = pcall(function()
-			return MarketplaceService:UserOwnsGamePassAsync(player.UserId, vipGamepassId)
+			return MarketplaceService:UserOwnsGamePassAsync(player.UserId, activeGamepassId)
 		end)
 		return ok and result == true
 	end
 
 	local function applyClaim(player, claim)
-		if not ownsVip(player) then
+		if not ownsVip(player, claim and claim.gamepassId) then
 			return false
 		end
 
