@@ -38,8 +38,13 @@ function Module.Init(config)
 	end
 
 	local function requestJson(path, body)
+		local normalizedBackendUrl = tostring(backendUrl or "")
+			:gsub("%s+", "")
+			:gsub("/+$", "")
+			:gsub("/api$", "")
+
 		local response = HttpService:RequestAsync({
-			Url = backendUrl .. path,
+			Url = normalizedBackendUrl .. path,
 			Method = "POST",
 			Headers = {
 				["Content-Type"] = "application/json",
@@ -207,7 +212,9 @@ function Module.Init(config)
 	Players.PlayerAdded:Connect(function(player)
 		scheduleTitleHydration(player)
 
-		player.CharacterAdded:Connect(function()
+		player.CharacterAdded:Connect(function(char)
+			char:WaitForChild("Head")
+			char:WaitForChild("HumanoidRootPart")
 			scheduleTitleHydration(player)
 		end)
 

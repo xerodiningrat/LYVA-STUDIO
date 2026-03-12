@@ -573,10 +573,19 @@ end
 --========================
 -- VIP title claim polling
 --========================
+local function normalizeVipBackendUrl(rawUrl: string): string
+	local normalized = tostring(rawUrl or "")
+	normalized = normalized:gsub("%s+", "")
+	normalized = normalized:gsub("/+$", "")
+	normalized = normalized:gsub("/api$", "")
+	return normalized
+end
+
 local function vipClaimRequest(pathSuffix: string, body: table)
+	local requestUrl = normalizeVipBackendUrl(CONFIG.VIP_TITLE_BACKEND_URL) .. pathSuffix
 	local ok, response = pcall(function()
 		return HttpService:RequestAsync({
-			Url = CONFIG.VIP_TITLE_BACKEND_URL .. pathSuffix,
+			Url = requestUrl,
 			Method = "POST",
 			Headers = {
 				["Content-Type"] = "application/json",
@@ -587,12 +596,12 @@ local function vipClaimRequest(pathSuffix: string, body: table)
 	end)
 
 	if not ok or not response then
-		warn("[VIP CLAIM] RequestAsync gagal:", pathSuffix)
+		warn("[VIP CLAIM] RequestAsync gagal:", requestUrl)
 		return nil
 	end
 
 	if not response.Success then
-		warn("[VIP CLAIM] HTTP request gagal:", pathSuffix, response.StatusCode, response.StatusMessage, response.Body)
+		warn("[VIP CLAIM] HTTP request gagal:", requestUrl, response.StatusCode, response.StatusMessage, response.Body)
 		return nil
 	end
 
@@ -601,7 +610,7 @@ local function vipClaimRequest(pathSuffix: string, body: table)
 	end)
 
 	if not decodedOk then
-		warn("[VIP CLAIM] JSON decode gagal:", pathSuffix, response.Body)
+		warn("[VIP CLAIM] JSON decode gagal:", requestUrl, response.Body)
 	end
 
 	return decodedOk and decoded or nil
@@ -1079,6 +1088,12 @@ local function setupPlayer(player:Player)
 				end
 			end)
 		end
+
+		task.delay(0.2, function()
+			if player.Character == char then
+				scheduleTitleHydration(player, cached)
+			end
+		end)
 	end)
 end
 
