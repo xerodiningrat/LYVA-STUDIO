@@ -21,16 +21,22 @@
                 color: #eef4ff;
             }
 
+            .ops-sidebar-shell [data-flux-sidebar-header] {
+                display: block !important;
+                min-height: 0 !important;
+                margin-bottom: 1rem;
+            }
+
             .ops-sidebar-shell [data-flux-sidebar-nav] {
                 gap: 1rem;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-header] + [data-flux-sidebar-nav] {
-                margin-top: 1.35rem;
+                margin-top: 0 !important;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-nav] + [data-flux-sidebar-nav] {
-                margin-top: 1.15rem;
+                margin-top: 1.2rem;
             }
 
             .ops-sidebar-shell::before {
@@ -66,10 +72,12 @@
             }
 
             .ops-sidebar-panel {
+                margin-top: 0.2rem;
                 padding: 0.95rem;
             }
 
             .ops-sidebar-footer {
+                margin-top: 0.2rem;
                 padding: 0.9rem;
             }
 
@@ -85,6 +93,8 @@
 
             .ops-sidebar-header {
                 position: relative;
+                display: grid;
+                gap: 1rem;
                 padding-top: 0.15rem;
             }
 
@@ -93,8 +103,8 @@
             }
 
             .ops-sidebar-guild {
-                margin-top: 1rem;
-                margin-bottom: 0.35rem;
+                margin-top: 0;
+                margin-bottom: 0;
                 border-radius: 1.4rem;
                 border: 1px solid rgba(104, 240, 255, 0.12);
                 background:
@@ -334,16 +344,20 @@
                     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
                 }
 
+                .ops-sidebar-shell [data-flux-sidebar-header] {
+                    margin-bottom: 1.15rem;
+                }
+
                 .ops-sidebar-shell [data-flux-sidebar-nav] {
                     gap: 0.9rem;
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-header] + [data-flux-sidebar-nav] {
-                    margin-top: 1.05rem;
+                    margin-top: 0 !important;
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-nav] + [data-flux-sidebar-nav] {
-                    margin-top: 1.2rem;
+                    margin-top: 1.35rem;
                 }
 
                 .ops-sidebar-panel,
@@ -358,7 +372,7 @@
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-group] > * + * {
-                    margin-top: 1rem;
+                    margin-top: 1.05rem;
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-item] [data-content] {
@@ -384,6 +398,21 @@
 
                 .ops-sidebar-guild {
                     margin-top: 0;
+                }
+            }
+
+            @media (min-width: 769px) {
+                .ops-sidebar-shell {
+                    padding-top: 1rem !important;
+                    padding-bottom: 1.1rem !important;
+                }
+
+                .ops-sidebar-shell [data-flux-sidebar-header] {
+                    margin-bottom: 1.1rem;
+                }
+
+                .ops-sidebar-shell [data-flux-sidebar-nav] + [data-flux-sidebar-nav] {
+                    margin-top: 1.3rem;
                 }
             }
         </style>
