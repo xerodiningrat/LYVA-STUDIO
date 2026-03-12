@@ -137,6 +137,30 @@ function Module.Init(config)
 		end
 	end
 
+	local function scheduleCharacterTitleRefresh(player, character)
+		for _, delaySeconds in ipairs({ 0, 0.2, 0.6, 1.25, 2.5, 4 }) do
+			task.delay(delaySeconds, function()
+				if not player or not player:IsDescendantOf(Players) then
+					return
+				end
+
+				if player.Character ~= character then
+					return
+				end
+
+				if not character.Parent then
+					return
+				end
+
+				if not character:FindFirstChild("Head") or not character:FindFirstChild("HumanoidRootPart") then
+					return
+				end
+
+				hydratePlayerTitle(player)
+			end)
+		end
+	end
+
 	local function applyClaim(player, claim)
 		if not ownsVip(player, claim and claim.gamepassId) then
 			return false
@@ -211,11 +235,20 @@ function Module.Init(config)
 
 	Players.PlayerAdded:Connect(function(player)
 		scheduleTitleHydration(player)
+		if player.Character then
+			scheduleCharacterTitleRefresh(player, player.Character)
+		end
 
 		player.CharacterAdded:Connect(function(char)
 			char:WaitForChild("Head")
 			char:WaitForChild("HumanoidRootPart")
 			scheduleTitleHydration(player)
+			scheduleCharacterTitleRefresh(player, char)
+		end)
+
+		player.CharacterAppearanceLoaded:Connect(function(char)
+			scheduleTitleHydration(player)
+			scheduleCharacterTitleRefresh(player, char)
 		end)
 
 		task.delay(5, function()

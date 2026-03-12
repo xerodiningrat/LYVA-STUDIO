@@ -570,6 +570,30 @@ local function scheduleTitleHydration(player: Player, profile: table?)
 	end
 end
 
+local function scheduleCharacterTitleRefresh(player: Player, character: Model, profile: table?)
+	for _, delaySeconds in ipairs({ 0, 0.2, 0.6, 1.25, 2.5, 4 }) do
+		task.delay(delaySeconds, function()
+			if not player or not player:IsDescendantOf(Players) then
+				return
+			end
+
+			if player.Character ~= character then
+				return
+			end
+
+			if not character.Parent then
+				return
+			end
+
+			if not character:FindFirstChild("Head") or not character:FindFirstChild("HumanoidRootPart") then
+				return
+			end
+
+			hydratePlayerTitle(player, profile)
+		end)
+	end
+end
+
 --========================
 -- VIP title claim polling
 --========================
@@ -1052,6 +1076,7 @@ local function setupPlayer(player:Player)
 	task.defer(function()
 		if player.Character then
 			scheduleTitleHydration(player, d)
+			scheduleCharacterTitleRefresh(player, player.Character, d)
 		end
 	end)
 
@@ -1080,6 +1105,7 @@ local function setupPlayer(player:Player)
 		end
 
 		scheduleTitleHydration(player, cached)
+		scheduleCharacterTitleRefresh(player, char, cached)
 
 		if player:GetAttribute(SPAWN_SUMMIT_ATTR) ~= true and runCp.Value > 0 then
 			task.delay(0.25, function()
@@ -1094,6 +1120,12 @@ local function setupPlayer(player:Player)
 				scheduleTitleHydration(player, cached)
 			end
 		end)
+	end)
+
+	player.CharacterAppearanceLoaded:Connect(function(char)
+		local cached = Data:GetCached(player.UserId)
+		scheduleTitleHydration(player, cached)
+		scheduleCharacterTitleRefresh(player, char, cached)
 	end)
 end
 
