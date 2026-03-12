@@ -111,7 +111,7 @@
     </x-slot:head>
 
     <x-slot:headerActions>
-        <a href="{{ route('roblox.scripts.index') }}" class="portfolio-shell-action">Balik ke Library</a>
+        <a href="{{ route('roblox.scripts.index') }}" wire:navigate class="portfolio-shell-action">Balik ke Library</a>
     </x-slot:headerActions>
 
     <div class="script-preview-shell">

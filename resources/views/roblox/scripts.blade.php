@@ -21,7 +21,7 @@
     </x-slot:head>
 
     <x-slot:headerActions>
-        <a href="{{ route('vip-title.setup') }}" class="portfolio-shell-action">Buka VIP Setup</a>
+        <a href="{{ route('vip-title.setup') }}" wire:navigate class="portfolio-shell-action">Buka VIP Setup</a>
     </x-slot:headerActions>
 
     <section class="studio-hero" data-studio-hover>
@@ -92,7 +92,7 @@
                 <p class="studio-copy" style="margin-top:.7rem;">{{ $script['description'] }}</p>
 
                 <div class="studio-actions">
-                    <a href="{{ route('roblox.scripts.show', $script['slug']) }}" class="studio-button-ghost">Preview</a>
+                    <a href="{{ route('roblox.scripts.show', $script['slug']) }}" wire:navigate class="studio-button-ghost">Preview</a>
                     <a href="{{ route('roblox.scripts.download', $script['slug']) }}" class="studio-button">Download</a>
                 </div>
             </article>

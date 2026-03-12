@@ -52,7 +52,7 @@
     </x-slot:head>
 
     <x-slot:headerActions>
-        <a href="{{ route('roblox.scripts.index') }}" class="portfolio-shell-action">Buka Roblox Scripts</a>
+        <a href="{{ route('roblox.scripts.index') }}" wire:navigate class="portfolio-shell-action">Buka Roblox Scripts</a>
     </x-slot:headerActions>
 
     @if (session('status'))

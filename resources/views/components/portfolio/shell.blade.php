@@ -106,7 +106,7 @@
                 <div class="portfolio-shell-content">
                     <div class="portfolio-shell-sidebar">
                         @foreach ($sidebarLinks as $link)
-                            <a href="{{ $link['href'] }}" class="{{ $activeKey === $link['key'] ? 'is-active' : '' }}" data-label="{{ $link['label'] }}" title="{{ $link['label'] }}">
+                            <a href="{{ $link['href'] }}" wire:navigate class="{{ $activeKey === $link['key'] ? 'is-active' : '' }}" data-label="{{ $link['label'] }}" title="{{ $link['label'] }}">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{!! $link['icon'] !!}</svg>
                             </a>
                         @endforeach
@@ -129,6 +129,7 @@
                 });
             })();
         </script>
+        @fluxScripts
         {{ $scripts ?? '' }}
     </body>
 </html>

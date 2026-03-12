@@ -15,7 +15,7 @@
     </x-slot:head>
 
     <x-slot:headerActions>
-        <a href="{{ route('dashboard') }}" class="portfolio-shell-action">Kembali ke Dashboard</a>
+        <a href="{{ route('dashboard') }}" wire:navigate class="portfolio-shell-action">Kembali ke Dashboard</a>
     </x-slot:headerActions>
 
     <section class="studio-hero" data-studio-hover>
