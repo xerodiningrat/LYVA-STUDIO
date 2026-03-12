@@ -10,6 +10,16 @@
         ['label' => 'Endpoint', 'value' => filled($interactionUrl ?? null) ? 92 : 24, 'tone' => '#ffd27e'],
     ];
     $discordParticles = range(1, 12);
+    $launchNotes = [
+        ['title' => 'Interaction endpoint', 'copy' => 'Wajib publik dan memakai HTTPS agar Discord mau menerima slash command interaction.'],
+        ['title' => 'Register command', 'copy' => 'Jalankan ulang sesudah env atau URL berubah supaya slash command sinkron dengan backend.'],
+        ['title' => 'Final check', 'copy' => 'Sebelum dipakai user, cek invite bot, token, dan application ID sudah mengarah ke app yang benar.'],
+    ];
+    $safetyNotes = [
+        ['label' => 'Token safety', 'copy' => 'Jangan pernah taruh bot token di screenshot, panel publik, atau file client-side.'],
+        ['label' => 'Endpoint rule', 'copy' => 'Kalau APP_URL berubah, interaction URL Discord juga harus ikut diperbarui.'],
+        ['label' => 'Deploy habit', 'copy' => 'Sesudah update command atau interaction, biasakan register ulang slash command.'],
+    ];
 @endphp
 
 <x-portfolio.shell :title="$title" active-key="discord" search-placeholder="Cari Discord setup, endpoint, invite, command">
@@ -207,6 +217,40 @@
                 gap: 1rem;
             }
 
+            .discord-fill-grid {
+                display: grid;
+                gap: 1rem;
+                margin-top: 1rem;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .discord-fill-item {
+                position: relative;
+                overflow: hidden;
+                padding: 1rem 1.05rem;
+                border-radius: 1.25rem;
+                border: 1px solid rgba(255,255,255,.06);
+                background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+            }
+
+            .discord-bottom-grid {
+                display: grid;
+                gap: 1rem;
+                grid-template-columns: 1.05fr .95fr;
+            }
+
+            .discord-note-list {
+                display: grid;
+                gap: .9rem;
+            }
+
+            .discord-note-item {
+                padding: .95rem 1rem;
+                border-radius: 1.1rem;
+                border: 1px solid rgba(255,255,255,.06);
+                background: rgba(255,255,255,.03);
+            }
+
             .discord-command-card {
                 display: grid;
                 gap: .8rem;
@@ -269,6 +313,8 @@
             }
 
             @media (max-width: 860px) {
+                .discord-bottom-grid,
+                .discord-fill-grid,
                 .discord-links-grid {
                     grid-template-columns: 1fr;
                 }
@@ -319,6 +365,16 @@
                         <strong>Ready</strong>
                         <p class="studio-copy">Invite, endpoint, dan register flow ada di halaman ini.</p>
                     </article>
+                </div>
+
+                <div class="discord-fill-grid">
+                    @foreach ($launchNotes as $index => $note)
+                        <article class="discord-fill-item" data-studio-hover>
+                            <span class="studio-note" style="margin-top:0;">Launch {{ $index + 1 }}</span>
+                            <strong style="display:block;margin-top:.65rem;font-size:1rem;">{{ $note['title'] }}</strong>
+                            <p class="studio-copy" style="margin:.5rem 0 0;">{{ $note['copy'] }}</p>
+                        </article>
+                    @endforeach
                 </div>
             </div>
 
@@ -482,6 +538,54 @@
                 </article>
             @endforeach
         </div>
+    </section>
+
+    <section class="discord-bottom-grid">
+        <section class="studio-panel" data-studio-hover>
+            <div class="studio-panel-header">
+                <div>
+                    <span class="studio-label">Launch Checklist</span>
+                    <h3 style="margin-top:.75rem;">Hal yang sebaiknya dicek setelah setup</h3>
+                    <p class="studio-copy" style="margin-top:.45rem;">Saya isi bagian bawah ini biar halaman tidak terasa bolong dan admin punya panduan cepat setelah command selesai dijalankan.</p>
+                </div>
+                <span class="studio-pill">Post Setup</span>
+            </div>
+
+            <div class="discord-note-list">
+                @foreach ($launchNotes as $index => $note)
+                    <article class="discord-note-item" data-studio-hover>
+                        <span class="studio-note" style="margin-top:0;">Check {{ $index + 1 }}</span>
+                        <strong style="display:block;margin-top:.55rem;">{{ $note['title'] }}</strong>
+                        <p class="studio-copy" style="margin:.45rem 0 0;">{{ $note['copy'] }}</p>
+                    </article>
+                @endforeach
+            </div>
+        </section>
+
+        <aside class="studio-panel" data-studio-hover>
+            <div class="studio-panel-header">
+                <div>
+                    <span class="studio-label">Safety Notes</span>
+                    <h3 style="margin-top:.75rem;">Catatan kecil yang sering bikin setup gagal</h3>
+                    <p class="studio-copy" style="margin-top:.45rem;">Saya jadikan panel tetap supaya ruang kosong berubah jadi info yang benar-benar kepakai.</p>
+                </div>
+                <span class="studio-pill">Guide</span>
+            </div>
+
+            <div class="discord-note-list">
+                @foreach ($safetyNotes as $note)
+                    <article class="discord-note-item" data-studio-hover>
+                        <span class="studio-label">{{ $note['label'] }}</span>
+                        <p class="studio-copy" style="margin:.55rem 0 0;">{{ $note['copy'] }}</p>
+                    </article>
+                @endforeach
+
+                <article class="discord-note-item" data-studio-hover>
+                    <span class="studio-label">Status sekarang</span>
+                    <p class="studio-copy" style="margin:.55rem 0 0;">{{ $readyChecks }} dari {{ count($setupChecks) }} check sudah siap. Kalau masih ada yang belum ready, urutan paling aman tetap: invite bot, isi endpoint, register command, lalu verifikasi env.</p>
+                </article>
+            </div>
+        </aside>
     </section>
 
     <x-slot:scripts>

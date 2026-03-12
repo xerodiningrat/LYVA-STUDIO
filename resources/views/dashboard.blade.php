@@ -77,6 +77,17 @@
     $walletReadyOffset = $walletCircleCircumference - (($walletReadyRatio / 100) * $walletCircleCircumference);
     $walletFrozenOffset = $walletCircleCircumference - (($walletFrozenRatio / 100) * $walletCircleCircumference);
     $particles = range(1, 16);
+    $focusItems = [
+        ['label' => 'Webhook health', 'value' => $webhookCount, 'hint' => $webhookCount > 0 ? 'Webhook aktif siap kirim alert dan deploy log.' : 'Belum ada webhook aktif di workspace ini.'],
+        ['label' => 'Alert backlog', 'value' => $alertCount, 'hint' => $alertCount > 0 ? 'Masih ada alert operasional yang perlu ditutup.' : 'Tidak ada alert terbuka, kondisi cukup aman.'],
+        ['label' => 'Bug queue', 'value' => $reportCount, 'hint' => $reportCount > 0 ? 'Report player terbaru menunggu ditindak.' : 'Belum ada report baru dari player.'],
+        ['label' => 'Race desk', 'value' => $raceCount, 'hint' => $raceCount > 0 ? 'Event komunitas aktif masih berjalan.' : 'Belum ada event race aktif saat ini.'],
+    ];
+    $actionBoard = [
+        ['title' => 'Server aktif', 'copy' => 'Pastikan workspace yang aktif memang guild yang sedang kamu kelola sebelum edit setup apa pun.'],
+        ['title' => 'VIP wallet', 'copy' => 'Cek penghasilan dan request penarikan dari halaman wallet kalau ada transaksi baru yang masuk.'],
+        ['title' => 'Support flow', 'copy' => 'Kalau report mulai naik, buka panel support lebih dulu supaya queue tidak menumpuk.'],
+    ];
 @endphp
 
 <x-portfolio.shell :title="$title" active-key="dashboard" search-placeholder="Cari workspace, wallet, report, setup">
@@ -509,6 +520,43 @@
                 gap: 1.25rem;
             }
 
+            .dashboard-bottom-grid {
+                display: grid;
+                gap: 1.25rem;
+                grid-template-columns: 1.05fr .95fr;
+            }
+
+            .dashboard-focus-grid,
+            .dashboard-action-grid {
+                display: grid;
+                gap: 1rem;
+            }
+
+            .dashboard-focus-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .dashboard-focus-item,
+            .dashboard-action-item {
+                position: relative;
+                overflow: hidden;
+                padding: 1rem 1.05rem;
+                border-radius: 1.25rem;
+                border: 1px solid rgba(255,255,255,.06);
+                background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+            }
+
+            .dashboard-focus-item strong {
+                display: block;
+                margin-top: .75rem;
+                font: 700 1.7rem/1 var(--studio-display);
+            }
+
+            .dashboard-action-item {
+                display: grid;
+                gap: .45rem;
+            }
+
             @keyframes dashboardFloat {
                 0%, 100% {
                     transform: translate3d(0, 0, 0) scale(1);
@@ -570,6 +618,7 @@
             }
 
             @media (max-width: 1180px) {
+                .dashboard-bottom-grid,
                 .dashboard-data-grid,
                 .dashboard-ops-grid {
                     grid-template-columns: 1fr;
@@ -582,6 +631,7 @@
 
             @media (max-width: 720px) {
                 .dashboard-chart-legend,
+                .dashboard-focus-grid,
                 .dashboard-mini-grid {
                     grid-template-columns: 1fr;
                 }
@@ -858,6 +908,56 @@
                         </article>
                     @endforelse
                 </div>
+            </div>
+        </aside>
+    </section>
+
+    <section class="dashboard-bottom-grid">
+        <section class="studio-panel" data-studio-hover>
+            <div class="studio-panel-header">
+                <div>
+                    <span class="studio-label">Focus Queue</span>
+                    <h3 style="margin-top:.75rem;">Area yang paling perlu dilihat sekarang</h3>
+                    <p class="studio-copy" style="margin-top:.45rem;">Bagian ini saya isi biar dashboard tidak terasa kosong dan admin langsung tahu titik perhatian utamanya.</p>
+                </div>
+                <span class="studio-pill">Ops</span>
+            </div>
+
+            <div class="dashboard-focus-grid">
+                @foreach ($focusItems as $item)
+                    <article class="dashboard-focus-item" data-studio-hover>
+                        <span class="studio-label">{{ $item['label'] }}</span>
+                        <strong>{{ $item['value'] }}</strong>
+                        <p class="studio-copy" style="margin:.55rem 0 0;">{{ $item['hint'] }}</p>
+                    </article>
+                @endforeach
+            </div>
+        </section>
+
+        <aside class="studio-panel" data-studio-hover>
+            <div class="studio-panel-header">
+                <div>
+                    <span class="studio-label">Action Board</span>
+                    <h3 style="margin-top:.75rem;">Checklist cepat untuk admin</h3>
+                    <p class="studio-copy" style="margin-top:.45rem;">Supaya sisi kanan bawah tidak kosong, saya ubah jadi panel arahan cepat yang tetap relevan dengan workspace ini.</p>
+                </div>
+                <span class="studio-pill">Guide</span>
+            </div>
+
+            <div class="dashboard-action-grid">
+                @foreach ($actionBoard as $index => $item)
+                    <article class="dashboard-action-item" data-studio-hover>
+                        <span class="studio-note" style="margin-top:0;">Step {{ $index + 1 }}</span>
+                        <strong>{{ $item['title'] }}</strong>
+                        <p class="studio-copy" style="margin:0;">{{ $item['copy'] }}</p>
+                    </article>
+                @endforeach
+
+                <article class="dashboard-action-item" data-studio-hover>
+                    <span class="studio-note" style="margin-top:0;">Workspace Hint</span>
+                    <strong>{{ $serverName }}</strong>
+                    <p class="studio-copy" style="margin:0;">Guild aktif ini tetap jadi konteks utama untuk panel setup, script, penghasilan, dan penarikan.</p>
+                </article>
             </div>
         </aside>
     </section>
