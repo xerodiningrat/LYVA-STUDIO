@@ -443,6 +443,9 @@ class VipTitleClaimController extends Controller
             'cooldownHours' => self::TITLE_CHANGE_COOLDOWN_HOURS,
             'nextChangeAt' => now()->addHours(self::TITLE_CHANGE_COOLDOWN_HOURS),
             'basedOnClaimId' => $latestAppliedClaim->id,
+            'previousTitle' => $latestAppliedClaim->requested_title,
+            'previousTitleStyle' => $this->normalizeTitleStyle($latestAppliedClaim->meta['title_style'] ?? null),
+            'titleSlot' => (int) ($mapSetting->title_slot ?? 10),
         ], 201);
     }
 

@@ -486,7 +486,7 @@ function buildTitlePanelEmbed(mapConfig) {
         hasPaidOption
           ? `Klik \`Beli Title\` kalau user mau bayar pakai IDR. Harga saat ini **${formatIdr(mapConfig.titlePriceIdr)}**.`
           : 'Kalau harga IDR belum diisi, panel ini hanya pakai flow claim gamepass.',
-        'Kalau title sudah pernah berhasil dipakai, user bisa klik `Ubah Title` untuk ganti title tiap 12 jam sekali.',
+        `Kalau title sudah pernah berhasil dipakai, user bisa klik \`Ubah Title\` untuk ganti title aktif di slot **${Number(mapConfig.titleSlot || 10)}** tiap 12 jam sekali.`,
         `Warna title bisa dipilih dengan preset atau RGB custom. Preset: \`${getTitleColorPresetSummary()}\`.`,
         'Klik `Script Roblox` kalau admin butuh file yang harus ditaruh di game.',
       ].join('\n'),
@@ -648,19 +648,25 @@ function buildClaimSuccessEmbed(username, title, mapConfig, titleStyle) {
     .setFooter({ text: 'Admin bisa cek daftar claim dengan /titile list' });
 }
 
-function buildTitleChangeSuccessEmbed(username, title, mapConfig, titleStyle, nextChangeAt = null) {
+function buildTitleChangeSuccessEmbed(username, title, mapConfig, titleStyle, nextChangeAt = null, previousTitle = null, titleSlot = null) {
   return new EmbedBuilder()
     .setColor(0x0891b2)
     .setTitle('Perubahan Title Tersimpan')
-    .setDescription(`Perubahan title untuk **@${username}** sudah masuk antrean update.`)
+    .setDescription(`Perubahan title untuk **@${username}** sudah masuk antrean update. Yang diubah adalah title aktif terakhir di map ini.`)
     .addFields(
+      ...(previousTitle
+        ? [{ name: 'Title Sebelumnya', value: previousTitle, inline: true }]
+        : []),
       { name: 'Custom Title', value: title, inline: true },
       { name: 'Warna', value: formatTitleStyle(titleStyle), inline: true },
       { name: 'Map', value: mapConfig.name, inline: true },
+      ...(titleSlot
+        ? [{ name: 'Slot', value: String(titleSlot), inline: true }]
+        : []),
       { name: 'Cooldown', value: nextChangeAt ? `<t:${Math.floor(new Date(nextChangeAt).getTime() / 1000)}:R>` : '12 jam', inline: true },
       { name: 'Status', value: 'Menunggu apply di Roblox', inline: true },
     )
-    .setFooter({ text: 'User bisa ubah title lagi setelah cooldown 12 jam selesai.' });
+    .setFooter({ text: 'Kalau user pernah beli berkali-kali, yang diubah tetap title aktif terbaru di map ini.' });
 }
 
 function buildPaymentCheckoutEmbed(username, title, mapConfig, payment, titleStyle = null) {
@@ -1558,6 +1564,8 @@ export async function handleTitileModal(interaction, config) {
           mapConfig,
           titleStyle,
           updateResponse?.nextChangeAt || null,
+          updateResponse?.previousTitle || null,
+          updateResponse?.titleSlot || mapConfig.titleSlot || null,
         )],
       });
     } catch (error) {

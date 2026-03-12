@@ -370,7 +370,9 @@ test('bot can request vip title change after cooldown', function () {
         ->assertJsonPath('claim.status', 'pending')
         ->assertJsonPath('claim.meta.change_type', 'self_service_update')
         ->assertJsonPath('claim.meta.title_style.label', 'Blue')
-        ->assertJsonPath('cooldownHours', 12);
+        ->assertJsonPath('cooldownHours', 12)
+        ->assertJsonPath('previousTitle', 'Sky King')
+        ->assertJsonPath('titleSlot', 10);
 });
 
 test('bot vip title change enforces 12 hour cooldown', function () {
