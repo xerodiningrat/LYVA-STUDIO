@@ -58,11 +58,11 @@
                     <div>
                         <small>Guild Picker</small>
                         <h1>Pilih Server</h1>
-                        <p>Yang tampil di bawah cuma server yang kamu punya akses kelola dan bot LYVA sudah benar-benar masuk ke server itu.</p>
+                        <p>Yang tampil di bawah adalah server yang kamu punya akses kelola. Server dengan badge <strong>Bot Joined</strong> sudah siap langsung dibuka dashboard-nya.</p>
                     </div>
                     <div class="summary">
-                        <span class="chip">{{ count($guilds) }} server siap dikelola</span>
-                        <span class="chip">bot joined only</span>
+                        <span class="chip">{{ count($guilds) }} server terdeteksi</span>
+                        <span class="chip">{{ count($joinedGuilds) }} server siap dikelola</span>
                     </div>
                 </div>
 
@@ -86,24 +86,38 @@
 
                             <div class="guild-meta">
                                 <span class="badge">Manageable</span>
-                                <span class="badge">Bot Joined</span>
+                                <span class="badge {{ $guild['bot_joined'] ? '' : 'owner' }}">{{ $guild['bot_joined'] ? 'Bot Joined' : 'Bot Missing' }}</span>
                                 @if ($guild['owner'])
                                     <span class="badge owner">Owner</span>
                                 @endif
                             </div>
 
-                            <p class="guild-copy">Pilih server ini untuk membuka dashboard, setup Discord bot, VIP title tools, dan workflow Roblox yang terkait langsung dengan guild ini.</p>
+                            <p class="guild-copy">
+                                @if ($guild['bot_joined'])
+                                    Pilih server ini untuk membuka dashboard, setup Discord bot, VIP title tools, dan workflow Roblox yang terkait langsung dengan guild ini.
+                                @else
+                                    Kamu punya akses kelola di server ini, tapi bot LYVA belum terdeteksi masuk. Masukkan bot dulu supaya server ini bisa dipilih dari dashboard.
+                                @endif
+                            </p>
 
                             <div class="guild-actions">
-                                <button class="cta primary" type="submit">Kelola server ini</button>
+                                <button class="cta {{ $guild['bot_joined'] ? 'primary' : '' }}" type="submit" @disabled(! $guild['bot_joined'])>
+                                    {{ $guild['bot_joined'] ? 'Kelola server ini' : 'Bot belum masuk' }}
+                                </button>
                             </div>
                         </form>
                     @empty
                         <div class="empty">
-                            Belum ada server yang cocok ditampilkan. Pastikan bot sudah masuk ke server Discord, lalu akunmu memang punya akses kelola di server itu.
+                            Belum ada server yang bisa kamu kelola dengan akun Discord ini. Pastikan akunmu punya akses Manage Server atau Administrator di server tujuan.
                         </div>
                     @endforelse
                 </div>
+
+                @if (count($guilds) > 0 && count($joinedGuilds) === 0)
+                    <div class="empty" style="margin-top:16px;">
+                        Server kamu terdeteksi, tapi bot LYVA belum ada di server-server itu. Invite bot ke server yang kamu kelola, lalu login ulang Discord supaya statusnya ikut ter-refresh.
+                    </div>
+                @endif
             </div>
         </main>
     </body>

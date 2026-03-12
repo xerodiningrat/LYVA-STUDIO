@@ -84,11 +84,15 @@ class DiscordAuthController extends Controller
 
         Auth::login($user, true);
 
-        $manageableGuilds = $this->filterManageableGuilds($guilds);
+        $manageableGuilds = $this->mapManageableGuilds($guilds);
         $request->session()->put('discord_managed_guilds', $manageableGuilds);
 
-        if (count($manageableGuilds) === 1) {
-            $guild = $manageableGuilds[0];
+        $selectableGuilds = collect($manageableGuilds)
+            ->where('bot_joined', true)
+            ->values();
+
+        if ($selectableGuilds->count() === 1) {
+            $guild = $selectableGuilds->first();
             $user->forceFill(['selected_guild_id' => $guild['id']])->save();
             $request->session()->put('managed_guild', $guild);
 
@@ -98,7 +102,7 @@ class DiscordAuthController extends Controller
         return redirect()->route('guilds.select');
     }
 
-    private function filterManageableGuilds(array $guilds): array
+    private function mapManageableGuilds(array $guilds): array
     {
         $knownGuildIds = DiscordGuildSetting::query()->pluck('guild_id')
             ->map(fn ($id) => (string) $id)
@@ -117,38 +121,30 @@ class DiscordAuthController extends Controller
         }
 
         $botGuildIds = $this->fetchBotGuildIds();
-
-        if ($botGuildIds !== []) {
-            $knownGuildIds = $knownGuildIds === []
-                ? $botGuildIds
-                : array_values(array_intersect($knownGuildIds, $botGuildIds));
-        }
+        $knownGuildLookup = collect($knownGuildIds)->flip()->all();
+        $botGuildLookup = collect($botGuildIds)->flip()->all();
 
         return collect($guilds)
-            ->filter(function (array $guild) use ($knownGuildIds) {
+            ->filter(function (array $guild) {
                 $permissions = (int) ($guild['permissions'] ?? 0);
-                $canManage = ($permissions & self::ADMINISTRATOR_PERMISSION) === self::ADMINISTRATOR_PERMISSION
+                $canManage = (bool) ($guild['owner'] ?? false)
+                    || ($permissions & self::ADMINISTRATOR_PERMISSION) === self::ADMINISTRATOR_PERMISSION
                     || ($permissions & self::MANAGE_GUILD_PERMISSION) === self::MANAGE_GUILD_PERMISSION;
 
-                if (! $canManage) {
-                    return false;
-                }
-
-                if ($knownGuildIds === []) {
-                    return true;
-                }
-
-                return in_array((string) ($guild['id'] ?? ''), $knownGuildIds, true);
+                return $canManage;
             })
-            ->map(function (array $guild) {
+            ->map(function (array $guild) use ($knownGuildLookup, $botGuildLookup) {
                 $icon = $guild['icon'] ?? null;
                 $id = (string) ($guild['id'] ?? '');
+                $knownToApp = $knownGuildLookup === [] || isset($knownGuildLookup[$id]);
+                $botJoined = $botGuildLookup === [] ? $knownToApp : $knownToApp && isset($botGuildLookup[$id]);
 
                 return [
                     'id' => $id,
                     'name' => $guild['name'] ?? 'Unknown Guild',
                     'icon_url' => $icon ? "https://cdn.discordapp.com/icons/{$id}/{$icon}.png?size=128" : null,
                     'owner' => (bool) ($guild['owner'] ?? false),
+                    'bot_joined' => $botJoined,
                 ];
             })
             ->values()
