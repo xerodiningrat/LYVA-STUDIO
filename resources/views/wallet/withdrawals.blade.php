@@ -15,6 +15,18 @@
                 --studio-accent-3: #ffc77b;
                 --studio-danger: #ff8f9d;
             }
+
+            .withdrawal-status-stack {
+                display: grid;
+                gap: 0.7rem;
+            }
+
+            .withdrawal-status-item {
+                padding: 0.9rem 1rem;
+                border-radius: 1rem;
+                border: 1px solid rgba(255,255,255,.06);
+                background: rgba(255,255,255,.03);
+            }
         </style>
         @include('partials.studio-workspace-style')
     </x-slot:head>
@@ -26,6 +38,11 @@
     @if (session('wallet_status'))
         <section class="studio-notice" data-studio-hover>
             {{ session('wallet_status') }}
+        </section>
+    @endif
+    @if ($errors->has('withdrawal'))
+        <section class="studio-notice" data-studio-hover style="background: color-mix(in srgb, var(--studio-danger) 14%, transparent);">
+            {{ $errors->first('withdrawal') }}
         </section>
     @endif
 
@@ -81,9 +98,14 @@
                     </div>
 
                     <div class="studio-field">
-                        <label for="bank_name">Nama bank</label>
-                        <input id="bank_name" class="studio-input" type="text" name="bank_name" value="{{ old('bank_name') }}" placeholder="BCA / BRI / Mandiri / SeaBank">
-                        @error('bank_name')
+                        <label for="bank_code">Nama bank</label>
+                        <select id="bank_code" class="studio-input" name="bank_code">
+                            <option value="">Pilih bank tujuan</option>
+                            @foreach (($bankOptions ?? []) as $bank)
+                                <option value="{{ $bank['code'] }}" @selected(old('bank_code') === $bank['code'])>{{ $bank['label'] }}</option>
+                            @endforeach
+                        </select>
+                        @error('bank_code')
                             <small style="color:var(--studio-danger)">{{ $message }}</small>
                         @enderror
                     </div>
@@ -116,6 +138,31 @@
     <section class="studio-panel" data-studio-hover>
         <div class="studio-panel-header">
             <div>
+                <span class="studio-label">Status Guide</span>
+                <h3 style="margin-top:.75rem;">Arti status penarikan</h3>
+            </div>
+            <span class="studio-pill">3 Step</span>
+        </div>
+
+        <div class="withdrawal-status-stack">
+            <article class="withdrawal-status-item">
+                <strong>Processing</strong>
+                <p class="studio-copy" style="margin-top:.35rem;">Request baru dibuat dan sedang menunggu masa proses 1 hari.</p>
+            </article>
+            <article class="withdrawal-status-item">
+                <strong>Ready</strong>
+                <p class="studio-copy" style="margin-top:.35rem;">Request sudah siap dibayar manual. Di tahap ini tombol <span class="studio-inline-code">Tandai Sudah Dibayar</span> akan muncul.</p>
+            </article>
+            <article class="withdrawal-status-item">
+                <strong>Completed</strong>
+                <p class="studio-copy" style="margin-top:.35rem;">Dana sudah dibayarkan ke rekening tujuan dan request dinyatakan selesai.</p>
+            </article>
+        </div>
+    </section>
+
+    <section class="studio-panel" data-studio-hover>
+        <div class="studio-panel-header">
+            <div>
                 <span class="studio-label">Withdrawal History</span>
                 <h3 style="margin-top:.75rem;">Riwayat penarikan terbaru</h3>
                 <p class="studio-copy" style="margin-top:.45rem;">Riwayat request sekarang menampilkan detail bank tujuan supaya payout lebih rapi dan mudah dilacak.</p>
@@ -133,6 +180,7 @@
                         <th>Bank</th>
                         <th>Atas Nama</th>
                         <th>Status</th>
+                        <th>Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -149,14 +197,29 @@
                             </td>
                             <td>{{ $withdrawal['accountHolderName'] ?? '-' }}</td>
                             <td>
-                                <span class="studio-badge {{ in_array($withdrawal['status'] ?? '', ['ready', 'completed'], true) ? 'studio-badge-ok' : 'studio-badge-warn' }}">
+                                <span class="studio-badge {{ ($withdrawal['status'] ?? '') === 'completed' ? 'studio-badge-ok' : (($withdrawal['status'] ?? '') === 'ready' ? 'studio-badge-warn' : 'studio-badge-off') }}">
                                     {{ $withdrawal['status'] ?? '-' }}
                                 </span>
+                                @if (($withdrawal['status'] ?? '') === 'processing' && ! empty($withdrawal['readyAt']))
+                                    <div class="studio-muted" style="margin-top:.35rem;">Siap {{ optional($withdrawal['readyAt'])?->diffForHumans() }}</div>
+                                @elseif (($withdrawal['status'] ?? '') === 'completed' && ! empty($withdrawal['completedAt']))
+                                    <div class="studio-muted" style="margin-top:.35rem;">Dibayar {{ optional($withdrawal['completedAt'])?->diffForHumans() }}</div>
+                                @endif
+                            </td>
+                            <td>
+                                @if (($withdrawal['status'] ?? '') === 'ready')
+                                    <form method="POST" action="{{ route('dashboard.wallet.withdrawals.complete', $withdrawal['id']) }}">
+                                        @csrf
+                                        <button type="submit" class="studio-button-ghost">Tandai Sudah Dibayar</button>
+                                    </form>
+                                @else
+                                    <span class="studio-muted">-</span>
+                                @endif
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="studio-muted" style="text-align:center;">Belum ada request penarikan untuk server ini.</td>
+                            <td colspan="7" class="studio-muted" style="text-align:center;">Belum ada request penarikan untuk server ini.</td>
                         </tr>
                     @endforelse
                 </tbody>

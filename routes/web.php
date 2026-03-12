@@ -29,6 +29,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard/wallet/earnings', [VipTitleWalletController::class, 'earnings'])->name('dashboard.wallet.earnings');
     Route::get('dashboard/wallet/withdrawals', [VipTitleWalletController::class, 'withdrawals'])->name('dashboard.wallet.withdrawals.index');
     Route::post('dashboard/wallet/withdrawals', [VipTitleWithdrawalController::class, 'store'])->name('dashboard.wallet.withdrawals.store');
+    Route::post('dashboard/wallet/withdrawals/{withdrawal}/complete', [VipTitleWithdrawalController::class, 'complete'])->name('dashboard.wallet.withdrawals.complete');
     Route::get('discord/setup', DiscordSetupController::class)->name('discord.setup');
     Route::get('vip-title/setup', [VipTitleSetupController::class, 'index'])->name('vip-title.setup');
     Route::post('vip-title/setup/maps', [VipTitleSetupController::class, 'store'])->name('vip-title.setup.store');

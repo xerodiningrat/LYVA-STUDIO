@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\VipTitleWalletService;
+use App\Support\WithdrawalBankCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -36,6 +37,7 @@ class VipTitleWalletController extends Controller
         return view('wallet.withdrawals', [
             'walletSummary' => $walletService->summarizeForGuild($guildId, (string) ($managedGuild['name'] ?? '')),
             'managedGuild' => $managedGuild,
+            'bankOptions' => WithdrawalBankCatalog::options(),
         ]);
     }
 }
