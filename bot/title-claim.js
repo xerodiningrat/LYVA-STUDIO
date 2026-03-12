@@ -32,6 +32,23 @@ const RESERVED_TERMS = ['admin', 'administrator', 'dev', 'developer', 'owner', '
 const PROFANITY_TERMS = ['anjing', 'babi', 'bangsat', 'kontol', 'memek', 'ngentot', 'goblok', 'tolol', 'jancok', 'fuck', 'bitch'];
 const USER_LOOKUP_CACHE_TTL_MS = 5 * 60 * 1000;
 const VIP_CHECK_CACHE_TTL_MS = 2 * 60 * 1000;
+const TITLE_COLOR_PRESETS = {
+  white: { mode: 'SOLID', preset: 'VIP', color: { r: 255, g: 255, b: 255 }, label: 'White' },
+  gold: { mode: 'SOLID', preset: 'VIP', color: { r: 255, g: 215, b: 0 }, label: 'Gold' },
+  yellow: { mode: 'SOLID', preset: 'VIP', color: { r: 255, g: 221, b: 51 }, label: 'Yellow' },
+  red: { mode: 'SOLID', preset: 'VIP', color: { r: 239, g: 68, b: 68 }, label: 'Red' },
+  orange: { mode: 'SOLID', preset: 'VIP', color: { r: 249, g: 115, b: 22 }, label: 'Orange' },
+  green: { mode: 'SOLID', preset: 'VIP', color: { r: 34, g: 197, b: 94 }, label: 'Green' },
+  lime: { mode: 'SOLID', preset: 'VIP', color: { r: 132, g: 204, b: 22 }, label: 'Lime' },
+  cyan: { mode: 'SOLID', preset: 'VIP', color: { r: 34, g: 211, b: 238 }, label: 'Cyan' },
+  blue: { mode: 'SOLID', preset: 'VIP', color: { r: 59, g: 130, b: 246 }, label: 'Blue' },
+  purple: { mode: 'SOLID', preset: 'VIP', color: { r: 168, g: 85, b: 247 }, label: 'Purple' },
+  pink: { mode: 'SOLID', preset: 'VIP', color: { r: 236, g: 72, b: 153 }, label: 'Pink' },
+  silver: { mode: 'SOLID', preset: 'VIP', color: { r: 203, g: 213, b: 225 }, label: 'Silver' },
+  black: { mode: 'SOLID', preset: 'VIP', color: { r: 15, g: 23, b: 42 }, label: 'Black' },
+  rgb: { mode: 'RGB', preset: 'VIP', color: { r: 255, g: 255, b: 255 }, label: 'RGB Rainbow' },
+  rainbow: { mode: 'RGB', preset: 'VIP', color: { r: 255, g: 255, b: 255 }, label: 'RGB Rainbow' },
+};
 const userLookupCache = new Map();
 const vipOwnershipCache = new Map();
 const paymentMethodSessionCache = new Map();
@@ -81,6 +98,111 @@ function validateTitle(value) {
   }
 
   return { ok: true, title };
+}
+
+function clampColorChannel(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return 255;
+  }
+
+  return Math.max(0, Math.min(255, Math.round(numericValue)));
+}
+
+function parseRgbInput(value) {
+  const rawValue = String(value || '').trim();
+  if (!rawValue) {
+    return null;
+  }
+
+  const matches = rawValue.match(/\d{1,3}/g);
+  if (!matches || matches.length !== 3) {
+    return { ok: false, reason: 'Format RGB harus seperti `255,215,0`.' };
+  }
+
+  const channels = matches.map((item) => Number(item));
+  if (channels.some((item) => !Number.isFinite(item) || item < 0 || item > 255)) {
+    return { ok: false, reason: 'Nilai RGB harus di antara 0 sampai 255.' };
+  }
+
+  return {
+    ok: true,
+    color: {
+      r: clampColorChannel(channels[0]),
+      g: clampColorChannel(channels[1]),
+      b: clampColorChannel(channels[2]),
+    },
+  };
+}
+
+function cloneTitleStyle(style) {
+  if (!style) {
+    return null;
+  }
+
+  return {
+    mode: String(style.mode || 'SOLID').toUpperCase() === 'RGB' ? 'RGB' : 'SOLID',
+    preset: String(style.preset || 'VIP').trim().toUpperCase() || 'VIP',
+    color: {
+      r: clampColorChannel(style.color?.r),
+      g: clampColorChannel(style.color?.g),
+      b: clampColorChannel(style.color?.b),
+    },
+    label: truncateForComponent(style.label || 'White', 60),
+  };
+}
+
+function getTitleColorPresetSummary() {
+  return 'white, gold, yellow, red, orange, green, lime, cyan, blue, purple, pink, silver, black, rgb';
+}
+
+function resolveTitleStyle(presetInput, rgbInput) {
+  const parsedRgb = parseRgbInput(rgbInput);
+  if (parsedRgb && !parsedRgb.ok) {
+    return parsedRgb;
+  }
+
+  if (parsedRgb?.ok) {
+    const { r, g, b } = parsedRgb.color;
+    return {
+      ok: true,
+      style: {
+        mode: 'SOLID',
+        preset: 'VIP',
+        color: parsedRgb.color,
+        label: `RGB ${r},${g},${b}`,
+      },
+    };
+  }
+
+  const presetKey = normalizeText(presetInput);
+  if (!presetKey) {
+    return { ok: true, style: cloneTitleStyle(TITLE_COLOR_PRESETS.white) };
+  }
+
+  const preset = TITLE_COLOR_PRESETS[presetKey];
+  if (!preset) {
+    return {
+      ok: false,
+      reason: `Warna tidak valid. Pilih salah satu: ${getTitleColorPresetSummary()}. Atau isi RGB custom seperti 255,215,0.`,
+    };
+  }
+
+  return { ok: true, style: cloneTitleStyle(preset) };
+}
+
+function formatTitleStyle(style) {
+  const normalizedStyle = cloneTitleStyle(style);
+  if (!normalizedStyle) {
+    return 'White';
+  }
+
+  if (normalizedStyle.mode === 'RGB') {
+    return normalizedStyle.label || 'RGB Rainbow';
+  }
+
+  const { r, g, b } = normalizedStyle.color;
+  return `${normalizedStyle.label || 'White'} (${r}, ${g}, ${b})`;
 }
 
 function sleep(ms) {
@@ -338,6 +460,7 @@ function buildTitlePanelEmbed(mapConfig) {
         hasPaidOption
           ? `Klik \`Beli Title\` kalau user mau bayar pakai IDR. Harga saat ini **${formatIdr(mapConfig.titlePriceIdr)}**.`
           : 'Kalau harga IDR belum diisi, panel ini hanya pakai flow claim gamepass.',
+        `Warna title bisa dipilih dengan preset atau RGB custom. Preset: \`${getTitleColorPresetSummary()}\`.`,
         'Klik `Script Roblox` kalau admin butuh file yang harus ditaruh di game.',
       ].join('\n'),
     )
@@ -346,6 +469,7 @@ function buildTitlePanelEmbed(mapConfig) {
       { name: 'Claim VIP', value: 'Aktif', inline: true },
       { name: 'Beli IDR', value: hasPaidOption ? formatIdr(mapConfig.titlePriceIdr) : 'Nonaktif', inline: true },
       { name: 'Filter', value: 'Reserved title + profanity diblok', inline: true },
+      { name: 'Warna', value: 'Preset + RGB custom', inline: true },
     )
     .setFooter({ text: 'ProjectBotDC | VIP Title Panel' });
 }
@@ -482,20 +606,21 @@ function buildScriptEmbed(mapConfig) {
     );
 }
 
-function buildClaimSuccessEmbed(username, title, mapConfig) {
+function buildClaimSuccessEmbed(username, title, mapConfig, titleStyle) {
   return new EmbedBuilder()
     .setColor(0x16a34a)
     .setTitle('Claim Title Tersimpan')
     .setDescription(`Claim untuk **@${username}** berhasil masuk antrean.`)
     .addFields(
       { name: 'Custom Title', value: title, inline: true },
+      { name: 'Warna', value: formatTitleStyle(titleStyle), inline: true },
       { name: 'Map', value: mapConfig.name, inline: true },
       { name: 'Status', value: 'Pending review / apply', inline: true },
     )
     .setFooter({ text: 'Admin bisa cek daftar claim dengan /titile list' });
 }
 
-function buildPaymentCheckoutEmbed(username, title, mapConfig, payment) {
+function buildPaymentCheckoutEmbed(username, title, mapConfig, payment, titleStyle = null) {
   const paymentStatus = String(payment.status || 'pending');
   const claimStatus = String(payment.claimStatus || 'awaiting_payment');
   const statusText = claimStatus === 'applied'
@@ -510,6 +635,7 @@ function buildPaymentCheckoutEmbed(username, title, mapConfig, payment) {
     .setDescription(`Invoice untuk **@${username}** sudah dibuat. Lanjutkan pembayaran lewat Duitku atau klik cek status untuk update terbaru.`)
     .addFields(
       { name: 'Custom Title', value: title, inline: true },
+      { name: 'Warna', value: formatTitleStyle(titleStyle), inline: true },
       { name: 'Map', value: mapConfig.name, inline: true },
       { name: 'Nominal', value: formatIdr(payment.amount), inline: true },
       { name: 'Order ID', value: payment.merchantOrderId, inline: false },
@@ -538,7 +664,7 @@ function normalizePaymentMethodOption(method = {}, baseAmount = 0) {
   };
 }
 
-function buildPaymentMethodSelectEmbed(mapConfig, username, title, amount, methods, warning = null) {
+function buildPaymentMethodSelectEmbed(mapConfig, username, title, titleStyle, amount, methods, warning = null) {
   const lines = methods.slice(0, 10).map((method, index) => (
     `${index + 1}. **${method.paymentName}** - ${formatIdr(method.totalFee)}`
   ));
@@ -550,6 +676,7 @@ function buildPaymentMethodSelectEmbed(mapConfig, username, title, amount, metho
       [
         `Checkout untuk **@${username}** di map **${mapConfig.name}**.`,
         `Custom title: **${title}**`,
+        `Warna: **${formatTitleStyle(titleStyle)}**`,
         `Harga dasar: **${formatIdr(amount)}**`,
         warning || 'Pilih salah satu metode pembayaran Duitku di bawah ini.',
         '',
@@ -939,6 +1066,7 @@ export async function handleTitileComponent(interaction, config) {
         meta: {
           source: 'discord-bot',
           payment_method_name: selectedMethod.paymentName,
+          title_style: session.titleStyle,
         },
       });
 
@@ -955,7 +1083,7 @@ export async function handleTitileComponent(interaction, config) {
           ...checkout.payment,
           amount: selectedMethod.totalFee || checkout.payment.amount,
           claimStatus: checkout?.claim?.status ?? 'awaiting_payment',
-        })],
+        }, session.titleStyle)],
         components: [
           new ActionRowBuilder().addComponents(
             new ButtonBuilder().setLabel(`Bayar via ${selectedMethod.paymentName}`).setStyle(ButtonStyle.Link).setURL(paymentUrl),
@@ -999,6 +1127,7 @@ export async function handleTitileComponent(interaction, config) {
             ...status.payment,
             claimStatus: status?.claim?.status || 'unknown',
           },
+          status?.claim?.titleStyle || null,
         )],
         components: status?.payment?.paymentUrl
           ? [
@@ -1040,9 +1169,27 @@ export async function handleTitileComponent(interaction, config) {
       .setMaxLength(28)
       .setPlaceholder('Masukkan custom title');
 
+    const colorPresetInput = new TextInputBuilder()
+      .setCustomId('title_color_preset')
+      .setLabel('Warna Preset / rgb (opsional)')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false)
+      .setMaxLength(20)
+      .setPlaceholder('gold, blue, pink, rgb');
+
+    const colorRgbInput = new TextInputBuilder()
+      .setCustomId('title_color_rgb')
+      .setLabel('RGB Custom (opsional)')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false)
+      .setMaxLength(20)
+      .setPlaceholder('255,215,0');
+
     modal.addComponents(
       new ActionRowBuilder().addComponents(usernameInput),
       new ActionRowBuilder().addComponents(titleInput),
+      new ActionRowBuilder().addComponents(colorPresetInput),
+      new ActionRowBuilder().addComponents(colorRgbInput),
     );
 
     await interaction.showModal(modal);
@@ -1071,9 +1218,27 @@ export async function handleTitileComponent(interaction, config) {
       .setMaxLength(28)
       .setPlaceholder('Masukkan custom title');
 
+    const colorPresetInput = new TextInputBuilder()
+      .setCustomId('title_color_preset')
+      .setLabel('Warna Preset / rgb (opsional)')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false)
+      .setMaxLength(20)
+      .setPlaceholder('gold, blue, pink, rgb');
+
+    const colorRgbInput = new TextInputBuilder()
+      .setCustomId('title_color_rgb')
+      .setLabel('RGB Custom (opsional)')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false)
+      .setMaxLength(20)
+      .setPlaceholder('255,215,0');
+
     modal.addComponents(
       new ActionRowBuilder().addComponents(usernameInput),
       new ActionRowBuilder().addComponents(titleInput),
+      new ActionRowBuilder().addComponents(colorPresetInput),
+      new ActionRowBuilder().addComponents(colorRgbInput),
     );
 
     await interaction.showModal(modal);
@@ -1131,6 +1296,10 @@ export async function handleTitileModal(interaction, config) {
 
   const robloxUsername = String(interaction.fields.getTextInputValue('roblox_username') || '').trim();
   const titleCheck = validateTitle(interaction.fields.getTextInputValue('custom_title'));
+  const titleStyleCheck = resolveTitleStyle(
+    interaction.fields.getTextInputValue('title_color_preset'),
+    interaction.fields.getTextInputValue('title_color_rgb'),
+  );
   const mapKey = isBuyModal
     ? parseTitleBuyModalId(interaction.customId)
     : parseTitleClaimModalId(interaction.customId);
@@ -1157,6 +1326,13 @@ export async function handleTitileModal(interaction, config) {
     await interaction.editReply({ content: titleCheck.reason });
     return true;
   }
+
+  if (!titleStyleCheck.ok) {
+    await interaction.editReply({ content: titleStyleCheck.reason });
+    return true;
+  }
+
+  const titleStyle = titleStyleCheck.style;
 
   let robloxUser = null;
   try {
@@ -1218,6 +1394,7 @@ export async function handleTitileModal(interaction, config) {
         robloxUserId: robloxUser.userId,
         robloxUsername: robloxUser.username,
         requestedTitle: titleCheck.title,
+        titleStyle,
         discordUserId: interaction.user.id,
         discordTag: interaction.user.tag,
         lookupWarning: robloxUser.userId === 0
@@ -1242,6 +1419,7 @@ export async function handleTitileModal(interaction, config) {
           mapConfig,
           robloxUser.username,
           titleCheck.title,
+          titleStyle,
           mapConfig.titlePriceIdr,
           methods,
           robloxUser.userId === 0
@@ -1284,6 +1462,7 @@ export async function handleTitileModal(interaction, config) {
       discord_tag: interaction.user.tag,
       meta: {
         source: 'discord-bot',
+        title_style: titleStyle,
       },
     });
   } catch (error) {
@@ -1294,7 +1473,7 @@ export async function handleTitileModal(interaction, config) {
   }
 
   await interaction.editReply({
-    embeds: [buildClaimSuccessEmbed(robloxUser.username, titleCheck.title, mapConfig)],
+    embeds: [buildClaimSuccessEmbed(robloxUser.username, titleCheck.title, mapConfig, titleStyle)],
   });
 
   return true;

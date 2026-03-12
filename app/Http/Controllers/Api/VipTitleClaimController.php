@@ -97,6 +97,7 @@ class VipTitleClaimController extends Controller
                 'mapKey' => $payment->claim?->map_key,
                 'robloxUsername' => $payment->claim?->roblox_username,
                 'requestedTitle' => $payment->claim?->requested_title,
+                'titleStyle' => $this->normalizeTitleStyle($payment->claim?->meta['title_style'] ?? null),
                 'status' => $payment->claim?->status,
                 'requestedAt' => $payment->claim?->requested_at,
                 'consumedAt' => $payment->claim?->consumed_at,
@@ -149,6 +150,12 @@ class VipTitleClaimController extends Controller
             ], 422);
         }
 
+        $claimMeta = $this->normalizeClaimMeta(array_filter([
+            ...($validated['meta'] ?? []),
+            'claim_mode' => 'duitku',
+            'price_idr' => $amount,
+        ], static fn ($value) => $value !== null));
+
         $claim = VipTitleClaim::query()->create([
             'map_key' => $mapSetting->map_key,
             'gamepass_id' => 0,
@@ -159,11 +166,7 @@ class VipTitleClaimController extends Controller
             'discord_tag' => $validated['discord_tag'] ?? null,
             'status' => 'awaiting_payment',
             'requested_at' => now(),
-            'meta' => array_filter([
-                ...($validated['meta'] ?? []),
-                'claim_mode' => 'duitku',
-                'price_idr' => $amount,
-            ], static fn ($value) => $value !== null),
+            'meta' => $claimMeta,
         ]);
 
         $merchantOrderId = sprintf('VIPTITLE-%s-%s', $claim->id, Str::upper(Str::random(8)));
@@ -319,7 +322,7 @@ class VipTitleClaimController extends Controller
                 'gamepass_id' => $mapSetting->gamepass_id,
                 'discord_user_id' => $validated['discord_user_id'] ?? null,
                 'discord_tag' => $validated['discord_tag'] ?? null,
-                'meta' => $validated['meta'] ?? null,
+                'meta' => $this->normalizeClaimMeta($validated['meta'] ?? null),
                 'requested_at' => now(),
             ]);
 
@@ -339,7 +342,7 @@ class VipTitleClaimController extends Controller
             'discord_tag' => $validated['discord_tag'] ?? null,
             'status' => 'pending',
             'requested_at' => now(),
-            'meta' => $validated['meta'] ?? null,
+            'meta' => $this->normalizeClaimMeta($validated['meta'] ?? null),
         ]);
 
         return response()->json([
@@ -387,6 +390,7 @@ class VipTitleClaimController extends Controller
             'claim' => [
                 'claimId' => $claim->id,
                 'title' => $claim->requested_title,
+                'titleMeta' => $this->normalizeTitleStyle($claim->meta['title_style'] ?? null),
                 'mapKey' => $claim->map_key,
                 'gamepassId' => $claim->gamepass_id,
                 'requestedAt' => $claim->requested_at,
@@ -505,5 +509,50 @@ class VipTitleClaimController extends Controller
         }
 
         return null;
+    }
+
+    private function normalizeClaimMeta(?array $meta): ?array
+    {
+        $normalized = is_array($meta) ? $meta : [];
+        $titleStyle = $this->normalizeTitleStyle($normalized['title_style'] ?? null);
+
+        if ($titleStyle !== null) {
+            $normalized['title_style'] = $titleStyle;
+        } else {
+            unset($normalized['title_style']);
+        }
+
+        return $normalized === [] ? null : $normalized;
+    }
+
+    private function normalizeTitleStyle(mixed $titleStyle): ?array
+    {
+        if (! is_array($titleStyle)) {
+            return null;
+        }
+
+        $mode = strtoupper(trim((string) ($titleStyle['mode'] ?? 'SOLID')));
+        if (! in_array($mode, ['SOLID', 'RGB'], true)) {
+            $mode = 'SOLID';
+        }
+
+        $preset = strtoupper(trim((string) ($titleStyle['preset'] ?? 'VIP')));
+        if ($preset === '') {
+            $preset = 'VIP';
+        }
+
+        $color = is_array($titleStyle['color'] ?? null) ? $titleStyle['color'] : [];
+        $label = trim((string) ($titleStyle['label'] ?? ''));
+
+        return [
+            'mode' => $mode,
+            'preset' => Str::upper(Str::limit($preset, 40, '')),
+            'color' => [
+                'r' => max(0, min(255, (int) ($color['r'] ?? 255))),
+                'g' => max(0, min(255, (int) ($color['g'] ?? 255))),
+                'b' => max(0, min(255, (int) ($color['b'] ?? 255))),
+            ],
+            'label' => $label !== '' ? Str::limit($label, 60, '') : null,
+        ];
     }
 }

@@ -196,6 +196,14 @@ test('bot can create duitku vip title checkout', function () {
         'discord_user_id' => '777',
         'discord_tag' => 'Buyer#1234',
         'payment_method' => 'VC',
+        'meta' => [
+            'title_style' => [
+                'mode' => 'SOLID',
+                'preset' => 'GOLD',
+                'color' => ['r' => 255, 'g' => 215, 'b' => 0],
+                'label' => 'Gold',
+            ],
+        ],
     ]);
 
     $response
@@ -207,6 +215,7 @@ test('bot can create duitku vip title checkout', function () {
 
     expect(VipTitleClaim::query()->count())->toBe(1);
     expect(VipTitlePayment::query()->count())->toBe(1);
+    expect(VipTitleClaim::query()->first()?->meta['title_style']['color']['g'])->toBe(215);
 });
 
 test('bot can fetch duitku payment methods for vip title', function () {
@@ -289,11 +298,20 @@ test('bot can still create vip title claim when map also has idr price', functio
         'requested_title' => 'Sky King',
         'discord_user_id' => '777',
         'discord_tag' => 'Buyer#1234',
+        'meta' => [
+            'title_style' => [
+                'mode' => 'RGB',
+                'preset' => 'VIP',
+                'color' => ['r' => 255, 'g' => 255, 'b' => 255],
+                'label' => 'RGB Rainbow',
+            ],
+        ],
     ]);
 
     $response
         ->assertCreated()
-        ->assertJsonPath('claim.status', 'pending');
+        ->assertJsonPath('claim.status', 'pending')
+        ->assertJsonPath('claim.meta.title_style.mode', 'RGB');
 });
 
 test('duitku callback marks vip title payment as paid', function () {
@@ -387,6 +405,58 @@ test('bot can fetch vip title payment status', function () {
         ->assertJsonPath('payment.status', 'paid')
         ->assertJsonPath('claim.status', 'applied')
         ->assertJsonPath('claim.robloxUsername', 'fenzane25');
+});
+
+test('roblox pull includes title style metadata', function () {
+    VipTitleMapSetting::query()->create([
+        'name' => 'Mount Xyra',
+        'map_key' => 'mountxyra',
+        'gamepass_id' => 1700114697,
+        'claim_mode' => 'vip_gamepass',
+        'api_key' => 'lyva_map_secret',
+        'title_slot' => 10,
+        'title_price_idr' => null,
+        'payment_expiry_minutes' => 60,
+        'button_label' => 'Claim Title',
+        'place_ids' => ['76880221507840'],
+        'script_access_role_ids' => [],
+        'is_active' => true,
+    ]);
+
+    VipTitleClaim::query()->create([
+        'map_key' => 'mountxyra',
+        'gamepass_id' => 1700114697,
+        'roblox_user_id' => 99123,
+        'roblox_username' => 'RobloxBuyer',
+        'requested_title' => 'Sky King',
+        'status' => 'pending',
+        'requested_at' => now(),
+        'meta' => [
+            'title_style' => [
+                'mode' => 'SOLID',
+                'preset' => 'VIP',
+                'color' => ['r' => 255, 'g' => 215, 'b' => 0],
+                'label' => 'Gold',
+            ],
+        ],
+    ]);
+
+    $response = $this->withHeaders([
+        'X-Api-Key' => 'lyva_map_secret',
+    ])->postJson(route('api.roblox.vip-title-claims.pull'), [
+        'userId' => 99123,
+        'username' => 'RobloxBuyer',
+        'mapKey' => 'mountxyra',
+        'placeId' => '76880221507840',
+        'universeId' => '123456789',
+    ]);
+
+    $response
+        ->assertOk()
+        ->assertJsonPath('claim.title', 'Sky King')
+        ->assertJsonPath('claim.titleMeta.mode', 'SOLID')
+        ->assertJsonPath('claim.titleMeta.color.g', 215)
+        ->assertJsonPath('claim.titleMeta.label', 'Gold');
 });
 
 test('roblox sales event api stores incoming sales event', function () {

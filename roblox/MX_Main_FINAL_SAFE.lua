@@ -590,10 +590,24 @@ local function applyVipClaimToPlayer(player: Player, claim: table): boolean
 	profile.customTitles = profile.customTitles or {}
 	profile.customTitleMeta = profile.customTitleMeta or {}
 	profile.customTitles[CONFIG.VIP_TITLE_SLOT] = tostring(claim.title or "")
+	local titleMeta = (claim and typeof(claim.titleMeta) == "table") and claim.titleMeta or nil
+	local titleMetaColor = (titleMeta and typeof(titleMeta.color) == "table") and titleMeta.color or {}
+	local titleMode = titleMeta and tostring(titleMeta.mode or "SOLID"):upper() or "SOLID"
+	if titleMode ~= "RGB" then
+		titleMode = "SOLID"
+	end
+	local titlePreset = titleMeta and tostring(titleMeta.preset or "VIP") or "VIP"
+	if titlePreset == "" then
+		titlePreset = "VIP"
+	end
 	profile.customTitleMeta[CONFIG.VIP_TITLE_SLOT] = {
-		mode = "SOLID",
-		preset = "VIP",
-		color = { r = 255, g = 255, b = 255 },
+		mode = titleMode,
+		preset = titlePreset,
+		color = {
+			r = math.clamp(tonumber(titleMetaColor.r) or 255, 0, 255),
+			g = math.clamp(tonumber(titleMetaColor.g) or 255, 0, 255),
+			b = math.clamp(tonumber(titleMetaColor.b) or 255, 0, 255),
+		},
 	}
 
 	print("[VIP CLAIM] TITLE WRITE", player.Name, CONFIG.VIP_TITLE_SLOT, profile.customTitles[CONFIG.VIP_TITLE_SLOT])
