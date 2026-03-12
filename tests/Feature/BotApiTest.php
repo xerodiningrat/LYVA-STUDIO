@@ -195,6 +195,8 @@ test('bot can create duitku vip title checkout', function () {
         'requested_title' => 'Sky King',
         'discord_user_id' => '777',
         'discord_tag' => 'Buyer#1234',
+        'guild_id' => 'guild-1',
+        'guild_name' => 'Lyva Community',
         'payment_method' => 'VC',
         'meta' => [
             'title_style' => [
@@ -217,6 +219,9 @@ test('bot can create duitku vip title checkout', function () {
     expect(VipTitleClaim::query()->count())->toBe(1);
     expect(VipTitlePayment::query()->count())->toBe(1);
     expect(VipTitleClaim::query()->first()?->meta['title_style']['color']['g'])->toBe(215);
+    expect(VipTitlePayment::query()->first()?->guild_id)->toBe('guild-1');
+    expect(VipTitlePayment::query()->first()?->admin_fee_amount)->toBe(5000);
+    expect(VipTitlePayment::query()->first()?->seller_net_amount)->toBe(10000);
 });
 
 test('second vip title checkout reserves a different slot instead of overwriting the old one', function () {
@@ -795,6 +800,7 @@ test('duitku callback marks vip title payment as paid', function () {
 
     expect($claim->fresh()->status)->toBe('pending');
     expect(VipTitlePayment::query()->first()?->status)->toBe('paid');
+    expect(VipTitlePayment::query()->first()?->frozen_until)->not->toBeNull();
 });
 
 test('bot can fetch vip title payment status', function () {

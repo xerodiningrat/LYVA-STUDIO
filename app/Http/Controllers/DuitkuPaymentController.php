@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\VipTitlePayment;
 use App\Services\Payments\DuitkuService;
+use App\Services\VipTitleWalletService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
@@ -107,11 +108,17 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
         $isPaid = $statusCode === '00' || $resultCode === '00';
         $isExpired = str_contains(strtolower((string) ($statusResponse['statusMessage'] ?? '')), 'expired')
             || str_contains(strtolower((string) $resultCode), 'expired');
+        $feeBreakdown = app(VipTitleWalletService::class)->determineFeeBreakdown((int) $payment->amount);
 
         $payment->update([
             'duitku_reference' => $payload['reference'] ?? $payment->duitku_reference,
             'status' => $isPaid ? 'paid' : ($isExpired ? 'expired' : 'pending'),
             'paid_at' => $isPaid ? ($payment->paid_at ?? now()) : $payment->paid_at,
+            'admin_fee_amount' => (int) ($payment->admin_fee_amount ?: $feeBreakdown['admin_fee_amount']),
+            'seller_net_amount' => (int) ($payment->seller_net_amount ?: $feeBreakdown['seller_net_amount']),
+            'frozen_until' => $isPaid
+                ? ($payment->frozen_until ?? now()->addDays(VipTitleWalletService::BALANCE_FREEZE_DAYS))
+                : $payment->frozen_until,
             'callback_payload' => array_filter([
                 ...($payment->callback_payload ?? []),
                 'callback' => $payload,

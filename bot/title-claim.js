@@ -1285,6 +1285,8 @@ export async function handleTitileComponent(interaction, config) {
         requested_title: session.requestedTitle,
         discord_user_id: session.discordUserId,
         discord_tag: session.discordTag,
+        guild_id: session.guildId,
+        guild_name: session.guildName,
         payment_method: paymentMethod,
         meta: {
           source: 'discord-bot',
@@ -1695,6 +1697,8 @@ export async function handleTitileModal(interaction, config) {
         titleStyle,
         discordUserId: interaction.user.id,
         discordTag: interaction.user.tag,
+        guildId: interaction.guildId || null,
+        guildName: interaction.guild?.name || null,
         lookupWarning: robloxUser.userId === 0
           ? 'Lookup Roblox sedang timeout dari server, jadi checkout lanjut pakai username yang kamu isi. Pastikan username Roblox benar.'
           : null,

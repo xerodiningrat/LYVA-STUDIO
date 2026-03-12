@@ -8,6 +8,7 @@ use App\Http\Controllers\DuitkuPaymentController;
 use App\Http\Controllers\GuildSelectionController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\RobloxScriptController;
+use App\Http\Controllers\VipTitleWithdrawalController;
 use App\Http\Controllers\VipTitleSetupController;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
@@ -24,6 +25,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('guilds/select', [GuildSelectionController::class, 'index'])->name('guilds.select');
     Route::post('guilds/select/{guildId}', [GuildSelectionController::class, 'select'])->name('guilds.select.store');
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::post('dashboard/wallet/withdrawals', [VipTitleWithdrawalController::class, 'store'])->name('dashboard.wallet.withdrawals.store');
     Route::get('discord/setup', DiscordSetupController::class)->name('discord.setup');
     Route::get('vip-title/setup', [VipTitleSetupController::class, 'index'])->name('vip-title.setup');
     Route::post('vip-title/setup/maps', [VipTitleSetupController::class, 'store'])->name('vip-title.setup.store');

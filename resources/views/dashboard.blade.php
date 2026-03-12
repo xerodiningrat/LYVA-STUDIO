@@ -38,6 +38,22 @@
 
     $primaryAlert = collect($alerts)->first();
     $primaryReport = collect($reports)->first();
+    $wallet = $walletSummary ?? [];
+    $formatIdr = fn ($value) => 'Rp '.number_format((int) $value, 0, ',', '.');
+    $walletStatusTone = fn ($status) => match ($status) {
+        'ready' => 'emerald',
+        'completed' => 'cyan',
+        'processing' => 'amber',
+        default => 'violet',
+    };
+    $walletStatusLabel = fn ($status) => match ($status) {
+        'ready' => 'Siap ditarik',
+        'completed' => 'Selesai',
+        'processing' => 'Diproses',
+        default => ucfirst((string) $status),
+    };
+    $minimumWithdrawalAmount = max(1, (int) (($wallet['withdrawalFee'] ?? 2500) + 1));
+    $maximumWithdrawalAmount = max($minimumWithdrawalAmount, (int) ($wallet['availableBalance'] ?? 0));
 @endphp
 
 <x-layouts::app :title="$title">
@@ -262,6 +278,39 @@
         .dash .tag.amber { background: rgba(255,202,123,.14); color: var(--amber); }
         .dash .tag.rose { background: rgba(255,143,157,.14); color: var(--rose); }
         .dash .twins { grid-template-columns: repeat(2, minmax(0,1fr)); margin-top: 1rem; }
+        .dash .wallet-grid { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr); margin-top: 1.2rem; }
+        .dash .wallet-metrics { display: grid; gap: 1rem; grid-template-columns: repeat(4, minmax(0,1fr)); margin-top: 1rem; }
+        .dash .wallet-list { display: grid; gap: .9rem; margin-top: 1rem; }
+        .dash .wallet-form { display: grid; gap: .9rem; margin-top: 1rem; }
+        .dash .wallet-form label { display: grid; gap: .45rem; }
+        .dash .wallet-form input {
+            width: 100%;
+            border-radius: 1rem;
+            border: 1px solid rgba(123,223,255,.16);
+            background: rgba(255,255,255,.04);
+            color: var(--text);
+            padding: .9rem 1rem;
+        }
+        .dash .wallet-form button {
+            border: 0;
+            cursor: pointer;
+        }
+        .dash .alertline {
+            margin-top: 1rem;
+            padding: .85rem 1rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(127,247,196,.16);
+            background: rgba(127,247,196,.08);
+            color: #dffbf0;
+        }
+        .dash .errorline {
+            margin-top: .9rem;
+            padding: .85rem 1rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(255,143,157,.16);
+            background: rgba(255,143,157,.08);
+            color: #ffe7eb;
+        }
 
         @keyframes fill { from { transform: scaleX(.25); opacity: .45; } to { transform: scaleX(1); opacity: 1; } }
         @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
@@ -274,7 +323,8 @@
 
         @media (max-width: 1180px) {
             .dash .hero, .dash .grid { grid-template-columns: 1fr; }
-            .dash .metrics, .dash .stats, .dash .subgrid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+            .dash .metrics, .dash .stats, .dash .subgrid, .dash .wallet-metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
+            .dash .wallet-grid { grid-template-columns: 1fr; }
         }
 
         @media (max-width: 760px) {
@@ -282,7 +332,7 @@
             .dash .banner, .dash .top, .dash .itemtop { flex-direction: column; }
             .dash h1 { max-width: none; font-size: clamp(2.3rem, 14vw, 3.2rem); }
             .dash .hero-orbit, .dash .server { grid-template-columns: 1fr; }
-            .dash .stats, .dash .actions, .dash .metrics, .dash .subgrid, .dash .twins { grid-template-columns: 1fr; }
+            .dash .stats, .dash .actions, .dash .metrics, .dash .subgrid, .dash .twins, .dash .wallet-grid, .dash .wallet-metrics { grid-template-columns: 1fr; }
             .dash .radar { margin: 0 auto; }
         }
 
@@ -410,6 +460,152 @@
                         </a>
                     @endforeach
                 </div>
+            </aside>
+        </section>
+
+        <section class="wallet-grid">
+            <section class="panel" data-glow-card>
+                <div class="top">
+                    <div>
+                        <span class="label" style="color:var(--emerald)">VIP Title Wallet</span>
+                        <h2 style="margin-top:.35rem;">Saldo penjualan title per server</h2>
+                        <p class="copy">Setiap pembayaran title yang masuk dari bot Discord sekarang diringkas per guild aktif. Fee admin per pembelian {{ $formatIdr($wallet['adminFeePerSale'] ?? 0) }}, saldo beku {{ $wallet['freezeDays'] ?? 2 }} hari, dan request penarikan diproses {{ $wallet['withdrawalProcessingDays'] ?? 1 }} hari dengan biaya tarik {{ $formatIdr($wallet['withdrawalFee'] ?? 0) }}.</p>
+                    </div>
+                    <span class="tag emerald">{{ $wallet['buyersCount'] ?? 0 }} buyer</span>
+                </div>
+
+                @if (session('wallet_status'))
+                    <div class="alertline">{{ session('wallet_status') }}</div>
+                @endif
+
+                @if ($errors->has('amount'))
+                    <div class="errorline">{{ $errors->first('amount') }}</div>
+                @endif
+
+                <div class="wallet-metrics">
+                    <article class="mini" data-glow-card>
+                        <span class="label">Transaksi masuk</span>
+                        <strong class="value">{{ $displayMetric($wallet['paidTransactionsCount'] ?? 0) }}</strong>
+                        <p class="copy">Jumlah invoice title yang sudah lunas untuk server ini.</p>
+                    </article>
+                    <article class="mini" data-glow-card>
+                        <span class="label">Gross sales</span>
+                        <strong class="value" style="font-size:1.5rem;">{{ $formatIdr($wallet['grossSalesTotal'] ?? 0) }}</strong>
+                        <p class="copy">Total pembayaran buyer sebelum potongan admin.</p>
+                    </article>
+                    <article class="mini" data-glow-card>
+                        <span class="label">Saldo beku</span>
+                        <strong class="value" style="font-size:1.5rem;">{{ $formatIdr($wallet['frozenBalance'] ?? 0) }}</strong>
+                        <p class="copy">Dana yang masih menunggu masa tahan 2 hari selesai.</p>
+                    </article>
+                    <article class="mini" data-glow-card>
+                        <span class="label">Saldo siap tarik</span>
+                        <strong class="value" style="font-size:1.5rem;">{{ $formatIdr($wallet['availableBalance'] ?? 0) }}</strong>
+                        <p class="copy">Saldo bersih yang bisa diajukan penarikan sekarang.</p>
+                    </article>
+                </div>
+
+                <div class="twins">
+                    <article class="mini" data-glow-card>
+                        <span class="label">Fee admin terkumpul</span>
+                        <strong class="value" style="font-size:1.4rem;">{{ $formatIdr($wallet['adminFeeTotal'] ?? 0) }}</strong>
+                        <p class="copy">Akumulasi potongan Rp5.000 dari setiap pembelian title.</p>
+                    </article>
+                    <article class="mini" data-glow-card>
+                        <span class="label">Antrian penarikan</span>
+                        <strong class="value" style="font-size:1.4rem;">{{ $formatIdr(($wallet['processingWithdrawalBalance'] ?? 0) + ($wallet['readyWithdrawalBalance'] ?? 0)) }}</strong>
+                        <p class="copy">Saldo yang sudah diminta tarik dan sedang diproses atau sudah siap dicairkan.</p>
+                    </article>
+                </div>
+
+                <div class="wallet-list">
+                    @forelse ($wallet['recentPayments'] ?? [] as $payment)
+                        <article class="item" data-glow-card>
+                            <div class="itemtop">
+                                <div>
+                                    <h3 style="font-size:1rem;">{{ $payment['buyer'] }}</h3>
+                                    <p class="listcopy">{{ $payment['mapKey'] }} &middot; {{ $formatIdr($payment['amount']) }} gross &middot; {{ $formatIdr($payment['sellerNetAmount']) }} net</p>
+                                </div>
+                                <span class="tag {{ optional($payment['frozenUntil'])->isFuture() ? 'amber' : 'emerald' }}">
+                                    {{ optional($payment['frozenUntil'])->isFuture() ? 'Beku sampai '.optional($payment['frozenUntil'])->format('d M H:i') : 'Sudah cair' }}
+                                </span>
+                            </div>
+                            <span class="note">{{ $payment['merchantOrderId'] }} &middot; {{ optional($payment['paidAt'])->diffForHumans() ?? 'baru saja' }}</span>
+                        </article>
+                    @empty
+                        <p class="copy">Belum ada pembayaran title yang tercatat untuk server aktif ini.</p>
+                    @endforelse
+                </div>
+            </section>
+
+            <aside class="stack">
+                <section class="panel" data-glow-card>
+                    <div class="top">
+                        <div>
+                            <span class="label" style="color:var(--amber)">Request Penarikan</span>
+                            <h2 style="margin-top:.35rem;">Tarik saldo dari penjualan title</h2>
+                            <p class="copy">Masukkan nominal yang mau ditarik dari saldo siap tarik. Nominal akan dikunci, diproses 1 hari, lalu pindah ke status siap ditarik manual.</p>
+                        </div>
+                        <span class="tag amber">{{ $formatIdr($wallet['withdrawalFee'] ?? 0) }} fee</span>
+                    </div>
+
+                    <form method="POST" action="{{ route('dashboard.wallet.withdrawals.store') }}" class="wallet-form">
+                        @csrf
+                        <label>
+                            <span class="label">Nominal penarikan</span>
+                            <input type="number" name="amount" min="{{ $minimumWithdrawalAmount }}" max="{{ $maximumWithdrawalAmount }}" step="1" value="{{ old('amount', max(0, (int) ($wallet['availableBalance'] ?? 0))) }}" placeholder="Contoh 50000">
+                        </label>
+                        <div class="subgrid" style="margin-top:0;">
+                            <div class="box">
+                                <span class="label">Saldo tersedia</span>
+                                <strong style="display:block;margin-top:.4rem;">{{ $formatIdr($wallet['availableBalance'] ?? 0) }}</strong>
+                            </div>
+                            <div class="box">
+                                <span class="label">Biaya tarik</span>
+                                <strong style="display:block;margin-top:.4rem;">{{ $formatIdr($wallet['withdrawalFee'] ?? 0) }}</strong>
+                            </div>
+                            <div class="box">
+                                <span class="label">Matured</span>
+                                <strong style="display:block;margin-top:.4rem;">{{ $formatIdr($wallet['maturedBalance'] ?? 0) }}</strong>
+                            </div>
+                        </div>
+                        <button type="submit" class="button" @disabled(($wallet['availableBalance'] ?? 0) <= ($wallet['withdrawalFee'] ?? 0))>Ajukan penarikan</button>
+                    </form>
+                </section>
+
+                <section class="panel" data-glow-card>
+                    <div class="top">
+                        <div>
+                            <span class="label" style="color:var(--violet)">Riwayat Penarikan</span>
+                            <h2 style="margin-top:.35rem;">Status proses saldo keluar</h2>
+                            <p class="copy">Begitu request dibuat, saldo langsung dikunci. Setelah 1 hari statusnya otomatis berubah jadi siap ditarik.</p>
+                        </div>
+                        <span class="tag violet">{{ count($wallet['recentWithdrawals'] ?? []) }} item</span>
+                    </div>
+
+                    <div class="wallet-list">
+                        @forelse ($wallet['recentWithdrawals'] ?? [] as $withdrawal)
+                            <article class="item" data-glow-card>
+                                <div class="itemtop">
+                                    <div>
+                                        <h3 style="font-size:1rem;">{{ $formatIdr($withdrawal['grossAmount']) }}</h3>
+                                        <p class="listcopy">Net {{ $formatIdr($withdrawal['netAmount']) }} setelah biaya tarik {{ $formatIdr($withdrawal['withdrawalFeeAmount']) }}</p>
+                                    </div>
+                                    <span class="tag {{ $walletStatusTone($withdrawal['status']) }}">{{ $walletStatusLabel($withdrawal['status']) }}</span>
+                                </div>
+                                <span class="note">
+                                    {{ $withdrawal['requesterName'] ?: 'User dashboard' }}
+                                    &middot;
+                                    Request {{ optional($withdrawal['requestedAt'])->diffForHumans() ?? '-' }}
+                                    &middot;
+                                    Ready {{ optional($withdrawal['readyAt'])->format('d M Y H:i') ?? '-' }}
+                                </span>
+                            </article>
+                        @empty
+                            <p class="copy">Belum ada request penarikan untuk server aktif ini.</p>
+                        @endforelse
+                    </div>
+                </section>
             </aside>
         </section>
 

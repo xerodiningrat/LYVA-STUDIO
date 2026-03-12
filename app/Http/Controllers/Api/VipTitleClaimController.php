@@ -7,6 +7,7 @@ use App\Models\VipTitleClaim;
 use App\Models\VipTitleMapSetting;
 use App\Models\VipTitlePayment;
 use App\Services\Payments\DuitkuService;
+use App\Services\VipTitleWalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -172,7 +173,7 @@ class VipTitleClaimController extends Controller
         ]);
     }
 
-    public function checkout(Request $request, DuitkuService $duitku): JsonResponse
+    public function checkout(Request $request, DuitkuService $duitku, VipTitleWalletService $walletService): JsonResponse
     {
         abort_unless($this->hasBotToken($request), 401);
 
@@ -183,6 +184,8 @@ class VipTitleClaimController extends Controller
             'requested_title' => ['required', 'string', 'min:3', 'max:28'],
             'discord_user_id' => ['nullable', 'string', 'max:255'],
             'discord_tag' => ['nullable', 'string', 'max:255'],
+            'guild_id' => ['nullable', 'string', 'max:255'],
+            'guild_name' => ['nullable', 'string', 'max:255'],
             'buyer_email' => ['nullable', 'email:rfc,dns', 'max:255'],
             'payment_method' => ['required', 'string', 'max:32'],
             'meta' => ['nullable', 'array'],
@@ -248,6 +251,7 @@ class VipTitleClaimController extends Controller
             ?? $duitku->buildSyntheticEmail((string) ($validated['discord_user_id'] ?? $validated['roblox_user_id']));
         $expiryMinutes = max(5, (int) ($mapSetting->payment_expiry_minutes ?? 60));
         $baseUrl = rtrim((string) config('app.url'), '/');
+        $feeBreakdown = $walletService->determineFeeBreakdown($amount);
 
         try {
             $checkout = $duitku->createTransaction([
@@ -283,14 +287,19 @@ class VipTitleClaimController extends Controller
         $payment = VipTitlePayment::query()->create([
             'vip_title_claim_id' => $claim->id,
             'map_key' => $mapSetting->map_key,
+            'guild_id' => $validated['guild_id'] ?? null,
+            'guild_name' => $validated['guild_name'] ?? null,
             'merchant_order_id' => $merchantOrderId,
             'duitku_reference' => $checkout['reference'] ?? null,
             'amount' => $amount,
+            'admin_fee_amount' => $feeBreakdown['admin_fee_amount'],
+            'seller_net_amount' => $feeBreakdown['seller_net_amount'],
             'status' => 'pending',
             'payment_url' => $checkout['paymentUrl'] ?? null,
             'payment_method' => $checkout['paymentMethod'] ?? config('services.duitku.payment_method'),
             'expires_at' => now()->addMinutes($expiryMinutes),
             'buyer_email' => $buyerEmail,
+            'buyer_discord_user_id' => $validated['discord_user_id'] ?? null,
             'callback_payload' => [
                 'create_transaction_response' => $checkout,
             ],

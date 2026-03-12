@@ -7,6 +7,7 @@ use App\Models\PlatformAlert;
 use App\Models\PlayerReport;
 use App\Models\RaceEvent;
 use App\Models\RobloxGame;
+use App\Services\VipTitleWalletService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Schema;
@@ -14,7 +15,7 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request): View|RedirectResponse
+    public function __invoke(Request $request, VipTitleWalletService $walletService): View|RedirectResponse
     {
         if (auth()->user()?->discord_user_id && ! $request->session()->has('managed_guild')) {
             $selectedGuildId = (string) (auth()->user()?->selected_guild_id ?? '');
@@ -93,6 +94,12 @@ class DashboardController extends Controller
             ? RaceEvent::query()->withCount('participants')->latest()->take(3)->get()
             : collect();
 
+        $managedGuild = $request->session()->get('managed_guild');
+        $walletSummary = $walletService->summarizeForGuild(
+            (string) ($managedGuild['id'] ?? ''),
+            (string) ($managedGuild['name'] ?? ''),
+        );
+
         return view('dashboard', [
             'stats' => $stats,
             'games' => $games,
@@ -100,8 +107,9 @@ class DashboardController extends Controller
             'reports' => $reports,
             'webhooks' => $webhooks,
             'races' => $races,
+            'walletSummary' => $walletSummary,
             'hasBotTables' => $hasGamesTable || $hasWebhooksTable || $hasAlertsTable || $hasReportsTable || $hasRacesTable,
-            'managedGuild' => $request->session()->get('managed_guild'),
+            'managedGuild' => $managedGuild,
         ]);
     }
 }
