@@ -40,7 +40,7 @@ import {
 import { registerCommands } from './register-commands.js';
 import { buildRulesAcknowledgementAttachment } from './rules-acknowledgement-image.js';
 import { getScriptTemplate } from './script-templates.js';
-import { handleTitileButton, handleTitileCommand, handleTitileModal } from './title-claim.js';
+import { handleTitileComponent, handleTitileCommand, handleTitileModal } from './title-claim.js';
 
 const config = loadBotConfig();
 const guildSettingsCache = new Map();
@@ -110,8 +110,8 @@ client.once('clientReady', async (readyClient) => {
 
 client.on('interactionCreate', async (interaction) => {
   try {
-    if (interaction.isButton()) {
-      await handleButton(interaction);
+    if (interaction.isButton() || interaction.isStringSelectMenu()) {
+      await handleMessageComponent(interaction);
       return;
     }
 
@@ -1311,8 +1311,8 @@ async function handleRace(interaction) {
   });
 }
 
-async function handleButton(interaction) {
-  if (await handleTitileButton(interaction, config)) {
+async function handleMessageComponent(interaction) {
+  if (await handleTitileComponent(interaction, config)) {
     return;
   }
 

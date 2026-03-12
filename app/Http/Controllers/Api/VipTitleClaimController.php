@@ -13,6 +13,28 @@ class VipTitleClaimController extends Controller
     private const RESERVED_TERMS = ['admin', 'administrator', 'dev', 'developer', 'owner', 'mod', 'moderator', 'staff'];
     private const PROFANITY_TERMS = ['anjing', 'babi', 'bangsat', 'kontol', 'memek', 'ngentot', 'goblok', 'tolol', 'jancok', 'fuck', 'bitch'];
 
+    public function maps(Request $request): JsonResponse
+    {
+        abort_unless($this->hasBotToken($request), 401);
+
+        $items = VipTitleMapSetting::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get([
+                'id',
+                'name',
+                'map_key',
+                'gamepass_id',
+                'title_slot',
+                'is_active',
+                'notes',
+            ]);
+
+        return response()->json([
+            'items' => $items,
+        ]);
+    }
+
     public function index(Request $request): JsonResponse
     {
         abort_unless($this->hasBotToken($request), 401);

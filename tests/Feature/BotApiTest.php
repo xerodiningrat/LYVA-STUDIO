@@ -6,6 +6,7 @@ use App\Models\DiscordVerification;
 use App\Models\DiscordGuildSetting;
 use App\Models\RulesAcknowledgement;
 use App\Models\SalesEvent;
+use App\Models\VipTitleMapSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 
@@ -100,6 +101,42 @@ test('bot sales api returns summary data', function () {
         ->assertJsonPath('transactions', 1)
         ->assertJsonPath('robux_total', 240)
         ->assertJsonPath('top_product.product_name', 'Premium Crate');
+});
+
+test('bot vip title maps api returns active dashboard maps', function () {
+    config()->set('services.discord.internal_token', 'shared-secret');
+
+    VipTitleMapSetting::query()->create([
+        'name' => 'Mount Xyra',
+        'map_key' => 'mountxyra',
+        'gamepass_id' => 1700114697,
+        'api_key' => 'lyva_active_secret',
+        'title_slot' => 10,
+        'place_ids' => ['76880221507840'],
+        'is_active' => true,
+    ]);
+
+    VipTitleMapSetting::query()->create([
+        'name' => 'Legacy Map',
+        'map_key' => 'legacymap',
+        'gamepass_id' => 123456,
+        'api_key' => 'lyva_inactive_secret',
+        'title_slot' => 8,
+        'place_ids' => [],
+        'is_active' => false,
+    ]);
+
+    $response = $this->withHeaders([
+        'X-Bot-Token' => 'shared-secret',
+    ])->getJson(route('api.bot.vip-title-maps.index'));
+
+    $response
+        ->assertOk()
+        ->assertJsonCount(1, 'items')
+        ->assertJsonPath('items.0.name', 'Mount Xyra')
+        ->assertJsonPath('items.0.map_key', 'mountxyra')
+        ->assertJsonPath('items.0.gamepass_id', 1700114697)
+        ->assertJsonMissing(['api_key' => 'lyva_active_secret']);
 });
 
 test('roblox sales event api stores incoming sales event', function () {

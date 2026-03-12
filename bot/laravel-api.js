@@ -318,6 +318,25 @@ export async function createLaravelVipTitleClaim(config, payload) {
   return response.json();
 }
 
+export async function fetchLaravelVipTitleMaps(config) {
+  if (!config.internalToken) {
+    return null;
+  }
+
+  const response = await requestLaravel(`${config.botApiUrl}/api/bot/vip-title-maps`, {
+    headers: {
+      'Accept': 'application/json',
+      'X-Bot-Token': config.internalToken,
+    },
+  }, 'mengambil daftar map VIP title');
+
+  if (!response.ok) {
+    throw new Error(`Laravel VIP title maps request gagal dengan HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export async function fetchLaravelVipTitleClaims(config, params = {}) {
   if (!config.internalToken) {
     return null;

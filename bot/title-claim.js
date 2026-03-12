@@ -9,14 +9,17 @@ import {
   EmbedBuilder,
   ModalBuilder,
   PermissionFlagsBits,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
   TextInputBuilder,
   TextInputStyle,
 } from 'discord.js';
-import { createLaravelVipTitleClaim, fetchLaravelVipTitleClaims } from './laravel-api.js';
+import { createLaravelVipTitleClaim, fetchLaravelVipTitleClaims, fetchLaravelVipTitleMaps } from './laravel-api.js';
 
-const TITLE_PANEL_BUTTON_ID = 'title_claim_open';
+const TITLE_PANEL_BUTTON_PREFIX = 'title_claim_open:';
 const TITLE_SCRIPT_BUTTON_ID = 'title_claim_script';
-const TITLE_CLAIM_MODAL_ID = 'title_claim_modal';
+const TITLE_CLAIM_MODAL_PREFIX = 'title_claim_modal:';
+const TITLE_SETUP_SELECT_PREFIX = 'title_setup_map_select:';
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(MODULE_DIR, '..');
 const CLAIMS_PATH = path.join(PROJECT_ROOT, 'data', 'vip-title-claims.json');
@@ -147,7 +150,91 @@ async function writeClaimsStore(store) {
   await writeFile(CLAIMS_PATH, JSON.stringify(store, null, 2), 'utf8');
 }
 
-function buildTitlePanelEmbed() {
+function truncateForComponent(value, maxLength = 100) {
+  const text = String(value || '').trim();
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
+function buildTitlePanelButtonId(mapKey) {
+  return `${TITLE_PANEL_BUTTON_PREFIX}${normalizeMapKey(mapKey)}`;
+}
+
+function parseTitlePanelButtonId(customId) {
+  if (!String(customId || '').startsWith(TITLE_PANEL_BUTTON_PREFIX)) {
+    return '';
+  }
+
+  return normalizeMapKey(customId.slice(TITLE_PANEL_BUTTON_PREFIX.length));
+}
+
+function buildTitleClaimModalId(mapKey) {
+  return `${TITLE_CLAIM_MODAL_PREFIX}${normalizeMapKey(mapKey)}`;
+}
+
+function parseTitleClaimModalId(customId) {
+  if (!String(customId || '').startsWith(TITLE_CLAIM_MODAL_PREFIX)) {
+    return '';
+  }
+
+  return normalizeMapKey(customId.slice(TITLE_CLAIM_MODAL_PREFIX.length));
+}
+
+function buildTitleSetupSelectId(channelId) {
+  return `${TITLE_SETUP_SELECT_PREFIX}${channelId}`;
+}
+
+function parseTitleSetupSelectChannelId(customId) {
+  if (!String(customId || '').startsWith(TITLE_SETUP_SELECT_PREFIX)) {
+    return '';
+  }
+
+  return String(customId).slice(TITLE_SETUP_SELECT_PREFIX.length);
+}
+
+function normalizeMapConfig(rawMap = {}) {
+  const mapKey = normalizeMapKey(rawMap.map_key ?? rawMap.mapKey ?? '');
+  if (!mapKey) {
+    return null;
+  }
+
+  return {
+    id: rawMap.id ?? null,
+    mapKey,
+    name: String(rawMap.name || mapKey).trim() || mapKey,
+    gamepassId: Number(rawMap.gamepass_id ?? rawMap.gamepassId ?? 0),
+    titleSlot: Number(rawMap.title_slot ?? rawMap.titleSlot ?? 0),
+    isActive: rawMap.is_active ?? rawMap.isActive ?? true,
+  };
+}
+
+async function loadActiveMapConfigs(config) {
+  const response = await fetchLaravelVipTitleMaps(config).catch(() => null);
+  if (Array.isArray(response?.items)) {
+    return response.items
+      .map((item) => normalizeMapConfig(item))
+      .filter((item) => item && item.isActive);
+  }
+
+  return Object.values(config?.vipTitleMaps || {})
+    .map((item) => normalizeMapConfig(item))
+    .filter((item) => item);
+}
+
+async function resolveMapConfig(config, rawMapKey) {
+  const mapKey = normalizeMapKey(rawMapKey);
+  if (!mapKey) {
+    return null;
+  }
+
+  const maps = await loadActiveMapConfigs(config);
+  return maps.find((item) => item.mapKey === mapKey) || null;
+}
+
+function buildTitlePanelEmbed(mapConfig) {
   return new EmbedBuilder()
     .setColor(0xf97316)
     .setTitle('VIP Title Center')
@@ -155,17 +242,19 @@ function buildTitlePanelEmbed() {
       [
         'Panel claim custom title untuk member VIP.',
         '',
-        'Klik `Claim Title` untuk isi username Roblox, custom title, dan map key target.',
-        'Bot akan cek VIP gamepass berdasarkan map key yang kamu pilih.',
+        `Panel ini sudah terhubung ke map **${mapConfig.name}** dari dashboard.`,
+        'Klik `Claim Title` lalu isi username Roblox dan custom title.',
+        'Bot akan ambil map key + gamepass otomatis dari setup dashboard.',
         'Klik `Script Roblox` kalau admin butuh file yang harus ditaruh di game.',
       ].join('\n'),
     )
     .addFields(
+      { name: 'Map', value: mapConfig.name, inline: true },
       { name: 'Akses', value: 'VIP User', inline: true },
       { name: 'Output', value: 'Claim tersimpan', inline: true },
       { name: 'Filter', value: 'Reserved title + profanity diblok', inline: true },
     )
-    .setFooter({ text: 'ProjectBotDC · VIP Title Panel' });
+    .setFooter({ text: 'ProjectBotDC | VIP Title Panel' });
 }
 
 async function resolveRobloxUser(username) {
@@ -210,7 +299,7 @@ async function resolveRobloxUser(username) {
 async function checkVipOwnership(config, userId) {
   const gamepassId = Number(config?.vipTitleGamepassId || 0);
   if (!gamepassId) {
-    throw new Error('ROBLOX_VIP_GAMEPASS_ID belum diisi.');
+    throw new Error('Gamepass VIP untuk map ini belum diatur di dashboard.');
   }
 
   const cacheKey = `${userId}:${gamepassId}`;
@@ -255,14 +344,14 @@ function buildScriptEmbed() {
     );
 }
 
-function buildClaimSuccessEmbed(username, title, mapKey) {
+function buildClaimSuccessEmbed(username, title, mapConfig) {
   return new EmbedBuilder()
     .setColor(0x16a34a)
     .setTitle('Claim Title Tersimpan')
     .setDescription(`Claim untuk **@${username}** berhasil masuk antrean.`)
     .addFields(
       { name: 'Custom Title', value: title, inline: true },
-      { name: 'Map Key', value: mapKey, inline: true },
+      { name: 'Map', value: mapConfig.name, inline: true },
       { name: 'Status', value: 'Pending review / apply', inline: true },
     )
     .setFooter({ text: 'Admin bisa cek daftar claim dengan /titile list' });
@@ -297,10 +386,24 @@ function truncateDiscordContent(value, maxLength = 1800) {
   return truncateText(value, maxLength);
 }
 
-function resolveMapConfig(config, rawMapKey) {
-  const mapKey = normalizeMapKey(rawMapKey);
-  const maps = config?.vipTitleMaps || {};
-  return maps[mapKey] || null;
+async function publishTitlePanel(channel, mapConfig) {
+  await channel.send({
+    embeds: [buildTitlePanelEmbed(mapConfig)],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(buildTitlePanelButtonId(mapConfig.mapKey)).setLabel('Claim Title').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(TITLE_SCRIPT_BUTTON_ID).setLabel('Script Roblox').setStyle(ButtonStyle.Secondary),
+      ),
+    ],
+  });
+}
+
+function buildMapSelectEmbed(channel, maps) {
+  return new EmbedBuilder()
+    .setColor(0xf97316)
+    .setTitle('Pilih Map VIP Title')
+    .setDescription(`Ada ${maps.length} map aktif di dashboard. Pilih map yang mau dipakai untuk panel di ${channel}.`)
+    .setFooter({ text: 'User nanti cukup isi username Roblox dan custom title.' });
 }
 
 export async function handleTitileCommand(interaction, config) {
@@ -318,17 +421,41 @@ export async function handleTitileCommand(interaction, config) {
       return;
     }
 
-    await channel.send({
-      embeds: [buildTitlePanelEmbed()],
-      components: [
-        new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId(TITLE_PANEL_BUTTON_ID).setLabel('Claim Title').setStyle(ButtonStyle.Primary),
-          new ButtonBuilder().setCustomId(TITLE_SCRIPT_BUTTON_ID).setLabel('Script Roblox').setStyle(ButtonStyle.Secondary),
-        ),
-      ],
-    });
+    const maps = await loadActiveMapConfigs(config);
+    if (maps.length === 0) {
+      await interaction.reply({
+        content: 'Belum ada map VIP Title aktif di dashboard. Aktifkan map dulu di panel setup.',
+        ephemeral: true,
+      });
+      return;
+    }
 
-    await interaction.reply({ content: `Panel VIP Title berhasil dikirim ke ${channel}.`, ephemeral: true });
+    if (maps.length === 1) {
+      await publishTitlePanel(channel, maps[0]);
+      await interaction.reply({
+        content: `Panel VIP Title untuk **${maps[0].name}** berhasil dikirim ke ${channel}.`,
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const select = new StringSelectMenuBuilder()
+      .setCustomId(buildTitleSetupSelectId(channel.id))
+      .setPlaceholder('Pilih map dari dashboard')
+      .addOptions(
+        maps.slice(0, 25).map((mapConfig) =>
+          new StringSelectMenuOptionBuilder()
+            .setLabel(truncateForComponent(mapConfig.name))
+            .setDescription(truncateForComponent(`Map key: ${mapConfig.mapKey} | Gamepass: ${mapConfig.gamepassId || '-'}`))
+            .setValue(mapConfig.mapKey),
+        ),
+      );
+
+    await interaction.reply({
+      embeds: [buildMapSelectEmbed(channel, maps)],
+      components: [new ActionRowBuilder().addComponents(select)],
+      ephemeral: true,
+    });
     return;
   }
 
@@ -362,13 +489,65 @@ export async function handleTitileCommand(interaction, config) {
   }
 }
 
-export async function handleTitileButton(interaction, config) {
+export async function handleTitileComponent(interaction, config) {
+  if (interaction.isStringSelectMenu() && interaction.customId.startsWith(TITLE_SETUP_SELECT_PREFIX)) {
+    if (!canManage(interaction)) {
+      await interaction.reply({ content: 'Hanya admin yang bisa memilih map panel title.', ephemeral: true });
+      return true;
+    }
+
+    const channelId = parseTitleSetupSelectChannelId(interaction.customId);
+    const mapKey = normalizeMapKey(interaction.values?.[0] || '');
+    const mapConfig = await resolveMapConfig(config, mapKey);
+
+    if (!channelId) {
+      await interaction.update({
+        content: 'Channel target panel tidak valid.',
+        embeds: [],
+        components: [],
+      });
+      return true;
+    }
+
+    if (!mapConfig) {
+      await interaction.update({
+        content: 'Map yang dipilih sudah tidak aktif di dashboard. Coba kirim ulang command setup.',
+        embeds: [],
+        components: [],
+      });
+      return true;
+    }
+
+    const channel = interaction.guild
+      ? interaction.guild.channels.cache.get(channelId)
+        ?? await interaction.guild.channels.fetch(channelId).catch(() => null)
+      : null;
+
+    if (!channel || typeof channel.send !== 'function') {
+      await interaction.update({
+        content: 'Channel target tidak ditemukan atau tidak bisa dipakai.',
+        embeds: [],
+        components: [],
+      });
+      return true;
+    }
+
+    await publishTitlePanel(channel, mapConfig);
+    await interaction.update({
+      content: `Panel VIP Title untuk **${mapConfig.name}** berhasil dikirim ke ${channel}.`,
+      embeds: [],
+      components: [],
+    });
+    return true;
+  }
+
   if (!interaction.isButton()) {
     return false;
   }
 
-  if (interaction.customId === TITLE_PANEL_BUTTON_ID) {
-    const modal = new ModalBuilder().setCustomId(TITLE_CLAIM_MODAL_ID).setTitle('Claim VIP Title');
+  const panelMapKey = parseTitlePanelButtonId(interaction.customId);
+  if (panelMapKey) {
+    const modal = new ModalBuilder().setCustomId(buildTitleClaimModalId(panelMapKey)).setTitle('Claim VIP Title');
 
     const usernameInput = new TextInputBuilder()
       .setCustomId('roblox_username')
@@ -386,18 +565,9 @@ export async function handleTitileButton(interaction, config) {
       .setMaxLength(28)
       .setPlaceholder('Masukkan custom title');
 
-    const mapKeyInput = new TextInputBuilder()
-      .setCustomId('map_key')
-      .setLabel('Map Key')
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true)
-      .setMaxLength(32)
-      .setPlaceholder('Contoh: mountxyra');
-
     modal.addComponents(
       new ActionRowBuilder().addComponents(usernameInput),
       new ActionRowBuilder().addComponents(titleInput),
-      new ActionRowBuilder().addComponents(mapKeyInput),
     );
 
     await interaction.showModal(modal);
@@ -436,7 +606,7 @@ export async function handleTitileButton(interaction, config) {
 }
 
 export async function handleTitileModal(interaction, config) {
-  if (!interaction.isModalSubmit() || interaction.customId !== TITLE_CLAIM_MODAL_ID) {
+  if (!interaction.isModalSubmit() || !interaction.customId.startsWith(TITLE_CLAIM_MODAL_PREFIX)) {
     return false;
   }
 
@@ -444,7 +614,7 @@ export async function handleTitileModal(interaction, config) {
 
   const robloxUsername = String(interaction.fields.getTextInputValue('roblox_username') || '').trim();
   const titleCheck = validateTitle(interaction.fields.getTextInputValue('custom_title'));
-  const mapKey = normalizeMapKey(interaction.fields.getTextInputValue('map_key'));
+  const mapKey = parseTitleClaimModalId(interaction.customId);
 
   if (!robloxUsername) {
     await interaction.editReply({ content: 'Username Roblox wajib diisi.' });
@@ -452,14 +622,14 @@ export async function handleTitileModal(interaction, config) {
   }
 
   if (!mapKey) {
-    await interaction.editReply({ content: 'Map key wajib diisi.' });
+    await interaction.editReply({ content: 'Panel claim ini belum punya map yang valid. Minta admin kirim panel baru dari dashboard.' });
     return true;
   }
 
-  const mapConfig = resolveMapConfig(config, mapKey);
+  const mapConfig = await resolveMapConfig(config, mapKey);
   if (!mapConfig) {
     await interaction.editReply({
-      content: `Map key \`${mapKey}\` belum terdaftar. Minta admin isi \`VIP_TITLE_MAPS\` dulu.`,
+      content: `Map untuk panel ini sudah tidak aktif atau belum terdaftar di dashboard VIP Title.`,
     });
     return true;
   }
@@ -490,7 +660,7 @@ export async function handleTitileModal(interaction, config) {
     const hasVip = await checkVipOwnership({ vipTitleGamepassId: mapConfig.gamepassId }, robloxUser.userId);
     if (!hasVip) {
       await interaction.editReply({
-        content: `@${robloxUser.username} belum terdeteksi punya VIP gamepass untuk map \`${mapKey}\`, jadi belum bisa request title.`,
+        content: `@${robloxUser.username} belum terdeteksi punya VIP gamepass untuk map **${mapConfig.name}**, jadi belum bisa request title.`,
       });
       return true;
     }
@@ -504,7 +674,6 @@ export async function handleTitileModal(interaction, config) {
   try {
     await createLaravelVipTitleClaim(config, {
       map_key: mapKey,
-      gamepass_id: mapConfig.gamepassId,
       roblox_user_id: robloxUser.userId,
       roblox_username: robloxUser.username,
       requested_title: titleCheck.title,
@@ -522,7 +691,7 @@ export async function handleTitileModal(interaction, config) {
   }
 
   await interaction.editReply({
-    embeds: [buildClaimSuccessEmbed(robloxUser.username, titleCheck.title, mapKey)],
+    embeds: [buildClaimSuccessEmbed(robloxUser.username, titleCheck.title, mapConfig)],
   });
 
   return true;
