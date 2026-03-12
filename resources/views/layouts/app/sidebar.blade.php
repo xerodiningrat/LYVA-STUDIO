@@ -22,9 +22,11 @@
             }
 
             .ops-sidebar-shell [data-flux-sidebar-header] {
-                display: block !important;
+                display: flex !important;
+                align-items: center;
+                justify-content: flex-end;
                 min-height: 0 !important;
-                margin-bottom: 1rem;
+                margin-bottom: 0.35rem;
             }
 
             .ops-sidebar-shell [data-flux-sidebar-nav] {
@@ -93,85 +95,14 @@
 
             .ops-sidebar-header {
                 position: relative;
-                display: grid;
-                gap: 1rem;
-                padding-top: 0.15rem;
+                width: 100%;
+                padding-top: 0;
             }
 
-            .ops-sidebar-mobile-brand {
-                display: none;
-            }
-
-            .ops-sidebar-guild {
-                margin-top: 0;
-                margin-bottom: 0;
-                border-radius: 1.4rem;
-                border: 1px solid rgba(104, 240, 255, 0.12);
-                background:
-                    linear-gradient(180deg, rgba(12, 26, 56, 0.88), rgba(7, 15, 31, 0.82));
-                padding: 1rem;
-                box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-            }
-
-            .ops-sidebar-eyebrow,
             .ops-sidebar-block-title {
                 font-family: "JetBrains Mono", ui-monospace, monospace;
                 text-transform: uppercase;
                 letter-spacing: 0.14em;
-            }
-
-            .ops-sidebar-eyebrow {
-                display: inline-flex;
-                align-items: center;
-                gap: 0.45rem;
-                border-radius: 999px;
-                border: 1px solid rgba(104, 240, 255, 0.18);
-                background: rgba(104, 240, 255, 0.08);
-                padding: 0.4rem 0.68rem;
-                font-size: 0.56rem;
-                font-weight: 700;
-                color: #68f0ff;
-            }
-
-            .ops-sidebar-eyebrow::before {
-                content: "";
-                width: 0.46rem;
-                height: 0.46rem;
-                border-radius: 999px;
-                background: #76ffb8;
-                box-shadow: 0 0 14px rgba(118, 255, 184, 0.9);
-            }
-
-            .ops-sidebar-guild strong {
-                display: block;
-                margin-top: 0.8rem;
-                font-family: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif;
-                font-size: 1.08rem;
-                line-height: 1.15;
-                letter-spacing: 0.03em;
-                color: #f4f8ff;
-            }
-
-            .ops-sidebar-meta {
-                margin-top: 0.42rem;
-                font-family: "JetBrains Mono", ui-monospace, monospace;
-                font-size: 0.62rem;
-                font-weight: 700;
-                letter-spacing: 0.12em;
-                color: #8ea4cb;
-            }
-
-            .ops-sidebar-mini {
-                display: inline-flex;
-                margin-top: 0.85rem;
-                border-radius: 999px;
-                background: linear-gradient(135deg, rgba(21, 87, 74, 0.82), rgba(18, 68, 55, 0.72));
-                color: #8fffd1;
-                padding: 0.38rem 0.72rem;
-                font-family: "JetBrains Mono", ui-monospace, monospace;
-                font-size: 0.56rem;
-                font-weight: 700;
-                letter-spacing: 0.12em;
             }
 
             .ops-sidebar-block-title {
@@ -353,7 +284,7 @@
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-header] {
-                    margin-bottom: 1.15rem;
+                    margin-bottom: 0.75rem;
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-nav] {
@@ -404,16 +335,8 @@
                     padding-top: 1rem;
                 }
 
-                .ops-sidebar-mobile-brand {
-                    display: none !important;
-                }
-
                 .ops-sidebar-header {
                     padding-top: 0;
-                }
-
-                .ops-sidebar-guild {
-                    margin-top: 0;
                 }
             }
 
@@ -424,7 +347,7 @@
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-header] {
-                    margin-bottom: 1.1rem;
+                    margin-bottom: 0.55rem;
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-nav] + [data-flux-sidebar-nav] {
@@ -439,17 +362,7 @@
 
         <flux:sidebar sticky collapsible="mobile" class="ops-sidebar-shell border-e border-[rgba(104,240,255,0.1)]">
             <flux:sidebar.header>
-                <div class="ops-sidebar-header w-full space-y-4">
-                    <div class="ops-sidebar-mobile-brand">
-                        <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
-                    </div>
-                    <div class="ops-sidebar-guild">
-                        <span class="ops-sidebar-eyebrow">Ops surface</span>
-                        <strong>{{ $managedGuild['name'] ?? 'Belum pilih server' }}</strong>
-                        <div class="ops-sidebar-meta">{{ $managedGuild['id'] ?? 'Guild belum dipilih' }}</div>
-                        <span class="ops-sidebar-mini">{{ $managedGuild ? 'Scoped dashboard' : 'Global mode' }}</span>
-                    </div>
-                </div>
+                <div class="ops-sidebar-header"></div>
                 <flux:sidebar.collapse class="lg:hidden" />
             </flux:sidebar.header>
 
