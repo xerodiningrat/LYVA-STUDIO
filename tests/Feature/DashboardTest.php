@@ -177,6 +177,19 @@ test('authenticated users can visit the roblox scripts page', function () {
         ->assertSee('Dev Product Reporter');
 });
 
+test('authenticated users can visit the vip title setup page', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $response = $this->get(route('vip-title.setup'));
+
+    $response
+        ->assertOk()
+        ->assertSee('VIP Title Control')
+        ->assertSee('Map VIP Title baru')
+        ->assertSee('Recent VIP Title claims');
+});
+
 test('authenticated users can download a roblox script template', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

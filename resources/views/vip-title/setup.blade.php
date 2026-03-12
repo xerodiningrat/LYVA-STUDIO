@@ -12,293 +12,326 @@
     <head>
         @include('partials.head')
         <style>
-            :root { color-scheme: dark; --ops-bg:#020715; --ops-panel:rgba(7,16,34,.84); --ops-line:rgba(92,232,255,.14); --ops-text:#eef4ff; --ops-muted:#91a5c7; --ops-cyan:#5ce8ff; --ops-emerald:#79ffbc; --ops-violet:#8a95ff; --ops-amber:#ffc07d; --ops-rose:#ff8d99; --ops-shadow:0 28px 80px rgba(0,0,0,.36); --ops-display:"Orbitron","Oxanium",ui-sans-serif,sans-serif; --ops-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,monospace; }
-            * { box-sizing:border-box; }
-            body { margin:0; min-height:100vh; background:radial-gradient(circle at 18% 0%, rgba(92,232,255,.12), transparent 30%),radial-gradient(circle at 84% 9%, rgba(138,149,255,.13), transparent 28%),linear-gradient(180deg,#020612 0%,#030816 100%); color:var(--ops-text); font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif; }
-            body::before { content:""; position:fixed; inset:0; pointer-events:none; background-image:linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px); background-size:46px 46px; opacity:.14; mask-image:linear-gradient(180deg, rgba(0,0,0,.9), transparent 96%); }
-            a { color:inherit; text-decoration:none; }
-            .shell { max-width:1480px; margin:0 auto; padding:1.25rem; }
-            .topbar,.hero,.panel,.tile,.notice { border:1px solid var(--ops-line); background:var(--ops-panel); box-shadow:var(--ops-shadow); backdrop-filter:blur(18px); }
-            .topbar { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:1rem 1.15rem; border-radius:1.6rem; }
-            .brand { display:flex; gap:.9rem; align-items:center; }
-            .mark { width:3rem; height:3rem; display:grid; place-items:center; border-radius:1rem; background:linear-gradient(135deg,var(--ops-cyan),var(--ops-emerald)); color:#04111c; font:800 .92rem/1 var(--ops-display); letter-spacing:.12em; text-transform:uppercase; }
-            .brand h1,.hero h2,.panel h3 { margin:0; font-family:var(--ops-display); text-transform:uppercase; letter-spacing:.08em; }
-            .brand p,.hero p,.muted { color:var(--ops-muted); }
-            .brand p { margin:.22rem 0 0; font-size:.82rem; }
-            .nav { display:flex; flex-wrap:wrap; gap:.75rem; }
-            .nav a,.primary { border-radius:999px; border:1px solid rgba(92,232,255,.14); background:rgba(255,255,255,.04); padding:.72rem 1rem; font-weight:700; }
-            .primary { background:linear-gradient(135deg, rgba(92,232,255,.9), rgba(138,149,255,.88)); color:#02101b; }
-            .hero,.panel,.tile,.notice { position:relative; overflow:hidden; }
-            .hero::after,.panel::after,.tile::after,.notice::after { content:""; position:absolute; inset:0; pointer-events:none; background:radial-gradient(circle at top right, rgba(92,232,255,.15), transparent 34%); }
-            .hero { margin-top:1.25rem; border-radius:2rem; padding:1.4rem; }
-            .hero-grid,.content-grid,.form-grid,.map-grid,.stats-grid { display:grid; gap:1.2rem; }
-            .hero-grid { grid-template-columns:minmax(0,1.1fr) minmax(320px,.9fr); align-items:start; }
-            .content-grid { margin-top:1.25rem; grid-template-columns:minmax(380px,.9fr) minmax(0,1.1fr); }
-            .form-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
-            .map-grid { display:grid; gap:1rem; }
-            .stats-grid { grid-template-columns:repeat(4,minmax(0,1fr)); margin-top:1.1rem; }
-            .kicker,.label { display:inline-flex; align-items:center; gap:.55rem; border-radius:999px; border:1px solid rgba(92,232,255,.16); padding:.46rem .8rem; font:.72rem/1 var(--ops-mono); letter-spacing:.18em; text-transform:uppercase; color:var(--ops-cyan); }
-            .kicker::before { content:""; width:.46rem; height:.46rem; border-radius:999px; background:var(--ops-emerald); box-shadow:0 0 14px rgba(121,255,188,.8); }
-            .hero h2 { margin-top:1rem; font-size:clamp(2.4rem,5vw,4.7rem); line-height:.92; }
-            .hero h2 span { display:block; background:linear-gradient(90deg,var(--ops-cyan),#baf5ff,var(--ops-emerald)); -webkit-background-clip:text; background-clip:text; color:transparent; }
-            .hero p { margin-top:1rem; max-width:48rem; line-height:1.85; }
-            .hero-flow { display:grid; gap:.8rem; }
-            .tile { border-radius:1.3rem; padding:1rem; background:rgba(255,255,255,.04); }
-            .tile strong { display:block; font-size:1rem; }
-            .tile p { margin:.4rem 0 0; color:var(--ops-muted); font-size:.84rem; line-height:1.7; }
-            .panel { border-radius:1.75rem; padding:1.15rem; }
-            .panel-header { display:flex; justify-content:space-between; gap:1rem; align-items:start; margin-bottom:1rem; }
-            .panel-header p { margin:.3rem 0 0; color:var(--ops-muted); }
-            .pill { border-radius:999px; border:1px solid rgba(92,232,255,.14); background:rgba(255,255,255,.04); padding:.5rem .8rem; font:.68rem/1 var(--ops-mono); letter-spacing:.14em; text-transform:uppercase; color:#dce7ff; }
-            .metric { border-radius:1.3rem; border:1px solid var(--ops-line); background:rgba(255,255,255,.04); padding:1rem; }
-            .metric strong { display:block; margin-top:.6rem; font-family:var(--ops-display); font-size:1.8rem; }
-            .notice { margin-top:1rem; border-radius:1.3rem; padding:1rem; background:rgba(121,255,188,.08); }
-            label { display:block; font-size:.9rem; font-weight:700; color:#eef4ff; }
-            input,textarea { width:100%; margin-top:.5rem; border-radius:1rem; border:1px solid rgba(92,232,255,.12); background:rgba(255,255,255,.04); color:var(--ops-text); padding:.9rem 1rem; font:inherit; }
-            input::placeholder,textarea::placeholder { color:#7286a8; }
-            .checkbox-row { display:flex; gap:.7rem; align-items:flex-start; padding:1rem; border-radius:1rem; border:1px solid rgba(92,232,255,.12); background:rgba(255,255,255,.03); }
-            .checkbox-row input { width:auto; margin-top:.15rem; accent-color:var(--ops-cyan); }
-            .actions { display:flex; flex-wrap:wrap; gap:.75rem; margin-top:1rem; }
-            button { border:0; cursor:pointer; }
-            .btn-primary,.btn-secondary,.btn-danger { border-radius:999px; padding:.8rem 1rem; font-weight:800; }
-            .btn-primary { background:linear-gradient(135deg, rgba(92,232,255,.9), rgba(138,149,255,.88)); color:#02101b; }
-            .btn-secondary { background:rgba(255,255,255,.06); color:var(--ops-text); border:1px solid rgba(92,232,255,.14); }
-            .btn-danger { background:rgba(255,141,153,.12); color:var(--ops-rose); border:1px solid rgba(255,141,153,.22); }
-            .map-card { border-radius:1.45rem; border:1px solid var(--ops-line); background:rgba(255,255,255,.03); padding:1rem; }
-            .map-head { display:flex; justify-content:space-between; gap:1rem; align-items:start; }
-            .map-head h4 { margin:0; font-size:1.2rem; color:#f7fbff; }
-            .api-box,.code-box { border-radius:1rem; border:1px solid rgba(92,232,255,.12); padding:1rem; }
-            .api-box { background:rgba(255,255,255,.04); word-break:break-all; font-family:var(--ops-mono); }
-            .code-box { background:rgba(4,9,20,.95); color:#f9fbff; font-family:var(--ops-mono); white-space:pre-wrap; font-size:.82rem; }
-            .status-badge { border-radius:999px; padding:.42rem .75rem; font-size:.72rem; font-weight:800; }
-            .status-on { background:rgba(121,255,188,.14); color:var(--ops-emerald); }
-            .status-off { background:rgba(255,255,255,.08); color:#dce7ff; }
-            table { width:100%; border-collapse:collapse; }
-            th,td { padding:.9rem .8rem; text-align:left; border-bottom:1px solid rgba(255,255,255,.08); }
-            th { color:var(--ops-muted); font:.72rem/1 var(--ops-mono); letter-spacing:.14em; text-transform:uppercase; }
-            td { color:#edf4ff; }
-            @media (max-width:1180px) { .hero-grid,.content-grid { grid-template-columns:1fr; } .stats-grid,.form-grid { grid-template-columns:1fr; } }
+            :root {
+                --studio-accent: #6fe6ff;
+                --studio-accent-2: #7df7c4;
+                --studio-accent-3: #ffc57d;
+                --studio-danger: #ff8c9d;
+            }
+
+            .vip-map-grid {
+                display: grid;
+                gap: 1rem;
+            }
+
+            .vip-map-card {
+                border-radius: 1.45rem;
+                border: 1px solid var(--studio-line);
+                background: rgba(255, 255, 255, 0.035);
+                padding: 1rem;
+            }
+
+            .vip-map-card > * + * {
+                margin-top: 1rem;
+            }
+
+            .vip-map-head {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 1rem;
+            }
+
+            .vip-map-meta {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.6rem;
+                margin-top: 0.7rem;
+            }
+
+            .vip-map-footer {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.75rem;
+            }
         </style>
+        @include('partials.studio-workspace-style')
     </head>
     <body>
-        <div class="shell">
-            <header class="topbar">
-                <div class="brand">
-                    <div class="mark">LY</div>
-                    <div>
-                        <h1>LYVA Studio</h1>
-                        <p>VIP title control panel yang lebih gampang dipakai admin dan lebih enak dilihat.</p>
-                    </div>
-                </div>
-                <nav class="nav">
-                    @foreach ($navLinks as $link)
-                        <a href="{{ $link['href'] }}">{{ $link['label'] }}</a>
-                    @endforeach
-                    <a href="{{ route('vip-title.setup') }}" class="primary">VIP Setup</a>
-                </nav>
-            </header>
+        <div class="studio-shell">
+            <div class="studio-glow-a"></div>
+            <div class="studio-glow-b"></div>
+            <div class="studio-glow-c"></div>
+
+            @include('partials.studio-topbar', [
+                'navLinks' => $navLinks,
+                'activeHref' => route('vip-title.setup'),
+                'ctaHref' => route('vip-title.setup'),
+                'ctaLabel' => 'VIP Setup',
+                'brandTitle' => 'LYVA Studio',
+                'brandCopy' => 'Workspace VIP Title yang sekarang lebih rapih, modern, dan jauh lebih enak dipakai admin.',
+            ])
 
             @if (session('status'))
-                <section class="notice">{{ session('status') }}</section>
+                <section class="studio-notice" data-studio-hover>
+                    {{ session('status') }}
+                </section>
             @endif
 
-            <section class="hero">
-                <div class="hero-grid">
+            <section class="studio-hero" data-studio-hover>
+                <div class="studio-hero-grid">
                     <div>
-                        <span class="kicker">VIP title control</span>
-                        <h2>Setup map <span>sekali jadi</span></h2>
-                        <p>Halaman ini sekarang difokuskan buat admin yang ingin atur map key, gamepass, API key Roblox, dan snippet script dari satu panel yang rapi. User claim title tinggal fokus ke username dan title, tanpa dipaksa lihat konfigurasi mentah.</p>
-                        <div class="stats-grid">
-                            <div class="metric">
-                                <span class="label">Maps</span>
+                        <span class="studio-kicker">VIP Title Control</span>
+                        <h2>Setup map <span>sekali lalu tinggal jalan</span></h2>
+                        <p>Panel ini saya rapikan supaya admin bisa atur map, gamepass, harga, role akses script, dan snippet Roblox dari satu tempat. Flow user di bot tetap sederhana, tapi panel admin sekarang jauh lebih jelas dan nyaman dipindai.</p>
+
+                        <div class="studio-stats-grid">
+                            <article class="studio-stat" data-studio-hover>
+                                <span class="studio-label">Maps</span>
                                 <strong>{{ count($settings) }}</strong>
-                                <span class="muted">Map VIP title yang sudah terdaftar.</span>
-                            </div>
-                            <div class="metric">
-                                <span class="label">Claims</span>
-                                <strong>{{ count($claims) }}</strong>
-                                <span class="muted">Claim terbaru yang tampil di queue.</span>
-                            </div>
-                            <div class="metric">
-                                <span class="label">Active</span>
+                                <p class="studio-copy">Total map VIP Title yang sudah didaftarkan.</p>
+                            </article>
+                            <article class="studio-stat" data-studio-hover>
+                                <span class="studio-label">Active</span>
                                 <strong>{{ collect($settings)->where('is_active', true)->count() }}</strong>
-                                <span class="muted">Map aktif yang siap dipakai.</span>
-                            </div>
-                            <div class="metric">
-                                <span class="label">Script</span>
-                                <strong>Ready</strong>
-                                <span class="muted">Snippet Roblox langsung tersedia.</span>
-                            </div>
+                                <p class="studio-copy">Map aktif yang siap dipakai panel bot sekarang.</p>
+                            </article>
+                            <article class="studio-stat" data-studio-hover>
+                                <span class="studio-label">Claims</span>
+                                <strong>{{ count($claims) }}</strong>
+                                <p class="studio-copy">Claim terbaru yang masih terlihat di queue admin.</p>
+                            </article>
+                            <article class="studio-stat" data-studio-hover>
+                                <span class="studio-label">Scripts</span>
+                                <strong>Sync</strong>
+                                <p class="studio-copy">Snippet config langsung nyambung ke backend project ini.</p>
+                            </article>
                         </div>
                     </div>
-                    <div class="hero-flow">
-                        <div class="tile"><strong>1. Tambah map</strong><p>Isi nama map, map key, gamepass, dan slot title.</p></div>
-                        <div class="tile"><strong>2. Generate API key</strong><p>Setiap map punya token Roblox sendiri yang siap dipakai.</p></div>
-                        <div class="tile"><strong>3. Tempel snippet</strong><p>Copy config ke script map tanpa edit banyak bagian lain.</p></div>
-                        <div class="tile"><strong>4. User tinggal claim</strong><p>Sesudah setup, flow user jadi jauh lebih simpel.</p></div>
-                    </div>
+
+                    <aside class="studio-stack">
+                        <article class="studio-card" data-studio-hover>
+                            <div class="studio-panel-header">
+                                <div>
+                                    <span class="studio-label">Workflow</span>
+                                    <h3 style="margin-top:.75rem;">Alur setup tercepat</h3>
+                                </div>
+                                <span class="studio-pill">4 Step</span>
+                            </div>
+
+                            <div class="studio-list-grid" style="margin-top:0;">
+                                <article class="studio-card" data-studio-hover>
+                                    <strong>1. Tambah map dan map key</strong>
+                                    <p class="studio-copy" style="margin-top:.45rem;">Buat identitas map yang dipakai bot dan Roblox saat claim/pull.</p>
+                                </article>
+                                <article class="studio-card" data-studio-hover>
+                                    <strong>2. Atur gamepass dan harga</strong>
+                                    <p class="studio-copy" style="margin-top:.45rem;">Panel bot bisa otomatis menampilkan Claim Title, Beli Title, atau keduanya.</p>
+                                </article>
+                                <article class="studio-card" data-studio-hover>
+                                    <strong>3. Batasi akses script</strong>
+                                    <p class="studio-copy" style="margin-top:.45rem;">Hanya role Discord tertentu yang bisa ambil file Roblox siap pakai.</p>
+                                </article>
+                                <article class="studio-card" data-studio-hover>
+                                    <strong>4. Copy snippet Roblox</strong>
+                                    <p class="studio-copy" style="margin-top:.45rem;">Admin tinggal tempel config yang sudah kebentuk otomatis di bawah.</p>
+                                </article>
+                            </div>
+                        </article>
+                    </aside>
                 </div>
             </section>
 
-            <div class="content-grid">
-                <section class="panel">
-                    <div class="panel-header">
+            <section class="studio-panel-grid">
+                <section class="studio-panel" data-studio-hover>
+                    <div class="studio-panel-header">
                         <div>
-                            <span class="label">Tambah map</span>
-                            <h3>New VIP title map</h3>
-                            <p>Bikin konfigurasi map baru dari sini dan generate API key otomatis.</p>
+                            <span class="studio-label">Tambah Map</span>
+                            <h3 style="margin-top:.75rem;">Map VIP Title baru</h3>
+                            <p class="studio-copy" style="margin-top:.45rem;">Form tambah map saya rapikan jadi lebih lega, jelas, dan enak dipakai di mobile maupun desktop.</p>
                         </div>
-                        <span class="pill">Create</span>
+                        <span class="studio-pill">Create</span>
                     </div>
-                    <form method="POST" action="{{ route('vip-title.setup.store') }}" style="display:grid; gap:1rem;">
+
+                    <form method="POST" action="{{ route('vip-title.setup.store') }}" class="studio-stack">
                         @csrf
-                        <div>
-                            <label>Nama map</label>
-                            <input name="name" placeholder="Mount Xyra" required>
+
+                        <div class="studio-field">
+                            <label for="name">Nama map</label>
+                            <input id="name" class="studio-input" name="name" value="{{ old('name') }}" placeholder="Mount Xyra" required>
                         </div>
-                        <div>
-                            <label>Map key</label>
-                            <input name="map_key" placeholder="mountxyra" required>
-                            <div class="muted" style="margin-top:.45rem; font-size:.82rem;">Gunakan huruf kecil tanpa spasi. Ini yang dipakai Discord bot dan Roblox.</div>
+
+                        <div class="studio-field">
+                            <label for="map_key">Map key</label>
+                            <input id="map_key" class="studio-input" name="map_key" value="{{ old('map_key') }}" placeholder="mountxyra" required>
+                            <small>Gunakan huruf kecil tanpa spasi. Nilai ini dipakai bot Discord dan script Roblox.</small>
                         </div>
-                        <div class="form-grid">
-                            <div>
-                                <label>Gamepass ID</label>
-                                <input name="gamepass_id" type="number" min="0" placeholder="1700114697" required>
+
+                        <div class="studio-form-grid">
+                            <div class="studio-field">
+                                <label for="gamepass_id">Gamepass ID</label>
+                                <input id="gamepass_id" class="studio-input" name="gamepass_id" type="number" min="0" value="{{ old('gamepass_id') }}" placeholder="1700114697" required>
                             </div>
-                            <div>
+                            <div class="studio-field">
                                 <label>Mode claim</label>
-                                <input value="Otomatis dari harga" readonly>
-                                <div class="muted" style="margin-top:.45rem; font-size:.82rem;">Tombol <code>Claim Title</code> tetap ada untuk user yang sudah punya VIP gamepass. Kalau harga title diisi, bot juga menambah tombol <code>Beli Title</code> via IDR.</div>
+                                <input class="studio-input" value="Otomatis dari harga" readonly>
+                                <small>Claim Title untuk user VIP tetap ada. Kalau harga IDR diisi, bot menambahkan tombol Beli Title.</small>
                             </div>
                         </div>
-                        <div class="form-grid">
-                            <div>
-                                <label>Title slot</label>
-                                <input name="title_slot" type="number" min="1" max="10" value="10" required>
+
+                        <div class="studio-form-grid">
+                            <div class="studio-field">
+                                <label for="title_slot">Title slot</label>
+                                <input id="title_slot" class="studio-input" name="title_slot" type="number" min="1" max="10" value="{{ old('title_slot', 10) }}" required>
                             </div>
-                            <div>
-                                <label>Harga title (IDR)</label>
-                                <input name="title_price_idr" type="number" min="1000" placeholder="15000">
-                            </div>
-                        </div>
-                        <div class="form-grid">
-                            <div>
-                                <label>Expiry pembayaran (menit)</label>
-                                <input name="payment_expiry_minutes" type="number" min="5" max="1440" value="60">
-                            </div>
-                            <div>
-                                <label>Label tombol bot</label>
-                                <input name="button_label" placeholder="Beli Title Sekarang">
+                            <div class="studio-field">
+                                <label for="title_price_idr">Harga title (IDR)</label>
+                                <input id="title_price_idr" class="studio-input" name="title_price_idr" type="number" min="1000" value="{{ old('title_price_idr') }}" placeholder="15000">
                             </div>
                         </div>
-                        <div>
-                            <label>Allowed Place IDs</label>
-                            <textarea name="place_ids" rows="3" placeholder="76880221507840, 1234567890"></textarea>
+
+                        <div class="studio-form-grid">
+                            <div class="studio-field">
+                                <label for="payment_expiry_minutes">Expiry pembayaran (menit)</label>
+                                <input id="payment_expiry_minutes" class="studio-input" name="payment_expiry_minutes" type="number" min="5" max="1440" value="{{ old('payment_expiry_minutes', 60) }}">
+                            </div>
+                            <div class="studio-field">
+                                <label for="button_label">Label tombol bot</label>
+                                <input id="button_label" class="studio-input" name="button_label" value="{{ old('button_label') }}" placeholder="Beli Title Sekarang">
+                            </div>
                         </div>
-                        <div>
-                            <label>Role akses script Discord</label>
-                            <textarea name="script_access_role_ids" rows="3" placeholder="123456789012345678, 987654321098765432"></textarea>
-                            <div class="muted" style="margin-top:.45rem; font-size:.82rem;">Role ID Discord yang boleh klik tombol <code>Script Roblox</code>. Pisahkan dengan koma. Admin tetap bisa akses.</div>
+
+                        <div class="studio-field">
+                            <label for="place_ids">Allowed Place IDs</label>
+                            <textarea id="place_ids" class="studio-textarea" name="place_ids" rows="3" placeholder="76880221507840, 1234567890">{{ old('place_ids') }}</textarea>
                         </div>
-                        <div>
-                            <label>Catatan</label>
-                            <textarea name="notes" rows="3" placeholder="Map utama public release"></textarea>
+
+                        <div class="studio-field">
+                            <label for="script_access_role_ids">Role akses script Discord</label>
+                            <textarea id="script_access_role_ids" class="studio-textarea" name="script_access_role_ids" rows="3" placeholder="123456789012345678, 987654321098765432">{{ old('script_access_role_ids') }}</textarea>
+                            <small>Isi Role ID Discord yang boleh klik tombol <span class="studio-inline-code">Script Roblox</span>. Admin tetap bisa akses.</small>
                         </div>
-                        <label class="checkbox-row">
-                            <input type="checkbox" name="is_active" value="1" checked>
-                            <span>Aktifkan map ini supaya langsung bisa dipakai untuk claim VIP title.</span>
+
+                        <div class="studio-field">
+                            <label for="notes">Catatan</label>
+                            <textarea id="notes" class="studio-textarea" name="notes" rows="3" placeholder="Map utama public release">{{ old('notes') }}</textarea>
+                        </div>
+
+                        <label class="studio-checkbox">
+                            <input type="checkbox" name="is_active" value="1" @checked(old('is_active', true))>
+                            <span>Aktifkan map ini supaya langsung siap dipakai untuk panel bot dan claim VIP Title.</span>
                         </label>
-                        <div class="actions">
-                            <button class="btn-primary">Tambah map dan generate API key</button>
+
+                        <div class="studio-actions">
+                            <button type="submit" class="studio-button">Tambah map dan generate API key</button>
                         </div>
                     </form>
                 </section>
 
-                <section class="panel">
-                    <div class="panel-header">
+                <section class="studio-panel" data-studio-hover>
+                    <div class="studio-panel-header">
                         <div>
-                            <span class="label">Map configs</span>
-                            <h3>Configured VIP title maps</h3>
-                            <p>Update map, regenerate API key, dan copy snippet Roblox langsung dari sini.</p>
+                            <span class="studio-label">Map Configs</span>
+                            <h3 style="margin-top:.75rem;">Map VIP Title yang sudah ada</h3>
+                            <p class="studio-copy" style="margin-top:.45rem;">Setiap kartu saya rapikan biar update field, copy API key, dan ambil snippet terasa lebih cepat dan tidak sumpek.</p>
                         </div>
-                        <span class="pill">{{ count($settings) }} maps</span>
+                        <span class="studio-pill">{{ count($settings) }} Maps</span>
                     </div>
-                    <div class="map-grid">
+
+                    <div class="vip-map-grid">
                         @forelse ($settings as $setting)
-                            <article class="map-card">
-                                <div class="map-head">
+                            <article class="vip-map-card" data-studio-hover>
+                                <div class="vip-map-head">
                                     <div>
-                                        <h4>{{ $setting->name }}</h4>
-                                        <div class="muted" style="margin-top:.35rem; font-size:.85rem;">Map key: <code>{{ $setting->map_key }}</code> · Gamepass: {{ $setting->gamepass_id }}</div>
+                                        <h3 style="font-size:1.3rem;">{{ $setting->name }}</h3>
+                                        <div class="vip-map-meta">
+                                            <span class="studio-chip">Key {{ $setting->map_key }}</span>
+                                            <span class="studio-chip">Gamepass {{ $setting->gamepass_id }}</span>
+                                            <span class="studio-chip">Slot {{ $setting->title_slot }}</span>
+                                            <span class="studio-chip">{{ ($setting->title_price_idr ?? 0) > 0 ? 'Claim + Beli Title' : 'Claim Title' }}</span>
+                                        </div>
                                     </div>
-                                    <span class="status-badge {{ $setting->is_active ? 'status-on' : 'status-off' }}">{{ $setting->is_active ? 'Active' : 'Inactive' }}</span>
+                                    <span class="studio-badge {{ $setting->is_active ? 'studio-badge-ok' : 'studio-badge-off' }}">
+                                        {{ $setting->is_active ? 'Active' : 'Inactive' }}
+                                    </span>
                                 </div>
 
-                                <form method="POST" action="{{ route('vip-title.setup.update', $setting) }}" style="display:grid; gap:1rem; margin-top:1rem;">
+                                <form method="POST" action="{{ route('vip-title.setup.update', $setting) }}" class="studio-stack">
                                     @csrf
                                     @method('PUT')
-                                    <div class="form-grid">
-                                        <div>
+
+                                    <div class="studio-form-grid">
+                                        <div class="studio-field">
                                             <label>Nama map</label>
-                                            <input name="name" value="{{ $setting->name }}" required>
+                                            <input class="studio-input" name="name" value="{{ $setting->name }}" required>
                                         </div>
-                                        <div>
+                                        <div class="studio-field">
                                             <label>Map key</label>
-                                            <input name="map_key" value="{{ $setting->map_key }}" required>
+                                            <input class="studio-input" name="map_key" value="{{ $setting->map_key }}" required>
                                         </div>
                                     </div>
-                                    <div class="form-grid">
-                                        <div>
+
+                                    <div class="studio-form-grid">
+                                        <div class="studio-field">
                                             <label>Gamepass ID</label>
-                                            <input name="gamepass_id" type="number" min="0" value="{{ $setting->gamepass_id }}" required>
+                                            <input class="studio-input" name="gamepass_id" type="number" min="0" value="{{ $setting->gamepass_id }}" required>
                                         </div>
-                                        <div>
+                                        <div class="studio-field">
                                             <label>Mode claim</label>
-                                            <input value="{{ ($setting->title_price_idr ?? 0) > 0 ? 'Hybrid: Claim + Beli Title' : 'Claim Title saja' }}" readonly>
+                                            <input class="studio-input" value="{{ ($setting->title_price_idr ?? 0) > 0 ? 'Hybrid: Claim + Beli Title' : 'Claim Title saja' }}" readonly>
                                         </div>
                                     </div>
-                                    <div class="form-grid">
-                                        <div>
+
+                                    <div class="studio-form-grid">
+                                        <div class="studio-field">
                                             <label>Title slot</label>
-                                            <input name="title_slot" type="number" min="1" max="10" value="{{ $setting->title_slot }}" required>
+                                            <input class="studio-input" name="title_slot" type="number" min="1" max="10" value="{{ $setting->title_slot }}" required>
                                         </div>
-                                        <div>
+                                        <div class="studio-field">
                                             <label>Harga title (IDR)</label>
-                                            <input name="title_price_idr" type="number" min="1000" value="{{ $setting->title_price_idr }}">
+                                            <input class="studio-input" name="title_price_idr" type="number" min="1000" value="{{ $setting->title_price_idr }}">
                                         </div>
                                     </div>
-                                    <div class="form-grid">
-                                        <div>
+
+                                    <div class="studio-form-grid">
+                                        <div class="studio-field">
                                             <label>Expiry pembayaran (menit)</label>
-                                            <input name="payment_expiry_minutes" type="number" min="5" max="1440" value="{{ $setting->payment_expiry_minutes ?? 60 }}">
+                                            <input class="studio-input" name="payment_expiry_minutes" type="number" min="5" max="1440" value="{{ $setting->payment_expiry_minutes ?? 60 }}">
                                         </div>
-                                        <div>
+                                        <div class="studio-field">
                                             <label>Label tombol bot</label>
-                                            <input name="button_label" value="{{ $setting->button_label }}">
+                                            <input class="studio-input" name="button_label" value="{{ $setting->button_label }}">
                                         </div>
                                     </div>
-                                    <div>
+
+                                    <div class="studio-field">
                                         <label>Allowed Place IDs</label>
-                                        <textarea name="place_ids" rows="2">{{ implode(', ', $setting->place_ids ?? []) }}</textarea>
+                                        <textarea class="studio-textarea" name="place_ids" rows="3">{{ implode(', ', $setting->place_ids ?? []) }}</textarea>
                                     </div>
-                                    <div>
+
+                                    <div class="studio-field">
                                         <label>Role akses script Discord</label>
-                                        <textarea name="script_access_role_ids" rows="2">{{ implode(', ', $setting->script_access_role_ids ?? []) }}</textarea>
+                                        <textarea class="studio-textarea" name="script_access_role_ids" rows="3">{{ implode(', ', $setting->script_access_role_ids ?? []) }}</textarea>
                                     </div>
-                                    <div>
+
+                                    <div class="studio-field">
                                         <label>Catatan</label>
-                                        <textarea name="notes" rows="2">{{ $setting->notes }}</textarea>
+                                        <textarea class="studio-textarea" name="notes" rows="3">{{ $setting->notes }}</textarea>
                                     </div>
-                                    <label class="checkbox-row">
+
+                                    <label class="studio-checkbox">
                                         <input type="checkbox" name="is_active" value="1" @checked($setting->is_active)>
-                                        <span>Map ini aktif untuk claim VIP title.</span>
+                                        <span>Map ini aktif untuk panel bot dan claim VIP Title.</span>
                                     </label>
-                                    <div class="api-box">
-                                        <div class="label" style="margin-bottom:.7rem;">API key Roblox</div>
-                                        {{ $setting->api_key }}
+
+                                    <div class="studio-field">
+                                        <label>API key Roblox</label>
+                                        <div class="studio-api studio-surface">{{ $setting->api_key }}</div>
                                     </div>
-                                    <div class="code-box">CLAIM_MODE = "{{ ($setting->title_price_idr ?? 0) > 0 ? 'hybrid' : 'vip_gamepass' }}"
+
+                                    <div class="studio-field">
+                                        <label>Snippet Roblox</label>
+                                        <div class="studio-code">CLAIM_MODE = "{{ ($setting->title_price_idr ?? 0) > 0 ? 'hybrid' : 'vip_gamepass' }}"
 BUTTON_LABEL = "{{ $setting->button_label ?: 'Beli Title' }}"
 TITLE_PRICE_IDR = {{ $setting->title_price_idr ?? 0 }}
 PAYMENT_EXPIRY_MINUTES = {{ $setting->payment_expiry_minutes ?? 60 }}
@@ -308,44 +341,47 @@ VIP_TITLE_BACKEND_URL = "{{ $appUrl }}"
 VIP_TITLE_API_KEY = "{{ $setting->api_key }}"
 VIP_TITLE_SLOT = {{ $setting->title_slot }}
 VIP_TITLE_ALLOWED_PLACE_IDS = [{{ implode(', ', $setting->place_ids ?? []) }}]</div>
-                                    <div class="actions">
-                                        <button class="btn-primary">Simpan perubahan</button>
+                                    </div>
+
+                                    <div class="studio-actions">
+                                        <button type="submit" class="studio-button">Simpan perubahan</button>
                                     </div>
                                 </form>
 
-                                <div class="actions">
+                                <div class="vip-map-footer">
                                     <form method="POST" action="{{ route('vip-title.setup.regenerate-key', $setting) }}">
                                         @csrf
-                                        <button class="btn-secondary">Generate API key baru</button>
+                                        <button type="submit" class="studio-button-ghost">Generate API key baru</button>
                                     </form>
                                     <form method="POST" action="{{ route('vip-title.setup.destroy', $setting) }}" onsubmit="return confirm('Hapus map ini?');">
                                         @csrf
                                         @method('DELETE')
-                                        <button class="btn-danger">Hapus map</button>
+                                        <button type="submit" class="studio-button-danger">Hapus map</button>
                                     </form>
                                 </div>
                             </article>
                         @empty
-                            <div class="tile">
-                                <strong>Belum ada map VIP title</strong>
-                                <p>Tambahkan map pertama dari form di kiri supaya flow claim bisa langsung dipakai.</p>
+                            <div class="studio-empty">
+                                <strong>Belum ada map VIP Title</strong>
+                                <p class="studio-copy" style="margin-top:.45rem;">Tambahkan map pertama dari form sebelah kiri supaya panel bot dan script Roblox langsung punya konfigurasi dasar.</p>
                             </div>
                         @endforelse
                     </div>
                 </section>
-            </div>
+            </section>
 
-            <section class="panel" style="margin-top:1.25rem;">
-                <div class="panel-header">
+            <section class="studio-panel" data-studio-hover style="margin-top:1.2rem;">
+                <div class="studio-panel-header">
                     <div>
-                        <span class="label">Claim queue</span>
-                        <h3>Recent VIP title claims</h3>
-                        <p>Monitor claim terbaru dan status apply dari backend ke Roblox.</p>
+                        <span class="studio-label">Claim Queue</span>
+                        <h3 style="margin-top:.75rem;">Recent VIP Title claims</h3>
+                        <p class="studio-copy" style="margin-top:.45rem;">Queue claim saya rapikan biar admin lebih cepat memantau request terbaru dari Discord dan Roblox.</p>
                     </div>
-                    <span class="pill">Live queue</span>
+                    <span class="studio-pill">Live Queue</span>
                 </div>
-                <div style="overflow-x:auto;">
-                    <table>
+
+                <div class="studio-table-wrap">
+                    <table class="studio-table">
                         <thead>
                             <tr>
                                 <th>Requested</th>
@@ -359,14 +395,18 @@ VIP_TITLE_ALLOWED_PLACE_IDS = [{{ implode(', ', $setting->place_ids ?? []) }}]</
                             @forelse ($claims as $claim)
                                 <tr>
                                     <td>{{ optional($claim->requested_at)->diffForHumans() ?? '-' }}</td>
-                                    <td><code>{{ $claim->map_key }}</code></td>
+                                    <td><span class="studio-inline-code">{{ $claim->map_key }}</span></td>
                                     <td>{{ $claim->roblox_username }}</td>
                                     <td>{{ $claim->requested_title }}</td>
-                                    <td><span class="status-badge status-off">{{ $claim->status }}</span></td>
+                                    <td>
+                                        <span class="studio-badge {{ in_array($claim->status, ['pending', 'applied'], true) ? 'studio-badge-ok' : 'studio-badge-off' }}">
+                                            {{ $claim->status }}
+                                        </span>
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="5" class="muted" style="text-align:center;">Belum ada claim title.</td>
+                                    <td colspan="5" class="studio-muted" style="text-align:center;">Belum ada claim title.</td>
                                 </tr>
                             @endforelse
                         </tbody>
