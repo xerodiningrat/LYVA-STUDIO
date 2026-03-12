@@ -21,35 +21,6 @@
                 color: #eef4ff;
             }
 
-            .ops-main-shell {
-                position: relative;
-                min-height: 100vh;
-                padding: 1rem 1rem 1.4rem;
-                background:
-                    radial-gradient(circle at 16% 0%, rgba(104, 240, 255, 0.08), transparent 24%),
-                    radial-gradient(circle at 82% 0%, rgba(127, 247, 196, 0.08), transparent 24%);
-            }
-
-            .ops-main-shell::before {
-                content: "";
-                position: absolute;
-                inset: 0;
-                pointer-events: none;
-                background-image:
-                    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-                background-size: 56px 56px;
-                opacity: 0.06;
-                mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.95), transparent 97%);
-            }
-
-            .ops-main-inner {
-                position: relative;
-                max-width: 1500px;
-                margin: 0 auto;
-                padding: 0;
-            }
-
             .ops-sidebar-shell [data-flux-sidebar-nav] {
                 gap: 1rem;
             }
@@ -295,10 +266,6 @@
             }
 
             @media (max-width: 768px) {
-                .ops-main-shell {
-                    padding: 0.35rem 0.6rem 1rem;
-                }
-
                 .ops-sidebar-shell {
                     width: min(20.5rem, 90vw);
                     top: max(0.9rem, env(safe-area-inset-top, 0px)) !important;
@@ -360,10 +327,6 @@
             }
 
             @media (min-width: 769px) {
-                .ops-main-shell {
-                    padding: 1rem 1.2rem 1.55rem;
-                }
-
                 .ops-sidebar-shell {
                     padding-top: 1rem !important;
                     padding-bottom: 1.1rem !important;
@@ -492,11 +455,7 @@
             </flux:dropdown>
         </flux:header>
 
-        <div class="ops-main-shell">
-            <div class="ops-main-inner">
-                {{ $slot }}
-            </div>
-        </div>
+        {{ $slot }}
 
         @fluxScripts
     </body>
