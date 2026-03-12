@@ -61,6 +61,7 @@ local CONFIG = {
 
 local SPAWN_SUMMIT_ATTR = "SpawnAtSummit"
 local LAST_CHECKPOINT_ATTR = "MX_LastCheckpoint"
+local RESPAWN_CHECKPOINT_ATTR = "RespawnCheckpoint"
 
 local ROLES = {
 	DEVELOPER      = { 9006398922, 7301115202, 8500880086 },
@@ -247,8 +248,9 @@ local function teleportToSavedCheckpointOrSummit(player:Player, character:Model)
 	end
 
 	local displayCp, _, runCp = ensureLeaderstats(player)
+	local respawnCp = tonumber(player:GetAttribute(RESPAWN_CHECKPOINT_ATTR)) or 0
 	local attrCp = tonumber(player:GetAttribute(LAST_CHECKPOINT_ATTR)) or 0
-	local cpIndex = math.max(tonumber(runCp.Value) or 0, attrCp)
+	local cpIndex = math.max(respawnCp, attrCp, tonumber(runCp.Value) or 0)
 	if cpIndex <= 0 then
 		cpIndex = displayCp.Value
 	end
@@ -606,12 +608,7 @@ local function scheduleCharacterTitleRefresh(player: Player, character: Model, p
 end
 
 local function scheduleRespawnTitleRecovery(player: Player, character: Model, profile: table?)
-	for _, delaySeconds in ipairs({
-		CONFIG.SPAWN_FREEZE_TIME + 0.08,
-		CONFIG.SPAWN_FREEZE_TIME + 0.35,
-		1.1,
-		2.1,
-	}) do
+	for _, delaySeconds in ipairs({ 0.4, 1, 2, 3 }) do
 		task.delay(delaySeconds, function()
 			if not player or not player:IsDescendantOf(Players) then
 				return
@@ -975,6 +972,7 @@ local function onCheckpointTouched(player:Player, cpIndex:number)
 		runCp.Value = 1
 		displayCp.Value = 1
 		player:SetAttribute(LAST_CHECKPOINT_ATTR, 1)
+		player:SetAttribute(RESPAWN_CHECKPOINT_ATTR, 1)
 
 		player:SetAttribute(SPAWN_SUMMIT_ATTR, false)
 		patchCachedProfile(uid, function(cached)
@@ -988,10 +986,13 @@ local function onCheckpointTouched(player:Player, cpIndex:number)
 		return
 	end
 
-	if cpIndex <= runCp.Value then return end
-
 	local expected = runCp.Value + 1
-	if cpIndex ~= expected then
+
+	if cpIndex < expected then
+		return
+	end
+
+	if cpIndex > expected then
 		validRun[player]=false
 		notifyPlayer(player, "CHECKPOINT SEBELUMNYA BELUM DIINJAK!")
 		return
@@ -1000,6 +1001,7 @@ local function onCheckpointTouched(player:Player, cpIndex:number)
 	runCp.Value = cpIndex
 	displayCp.Value = cpIndex
 	player:SetAttribute(LAST_CHECKPOINT_ATTR, cpIndex)
+	player:SetAttribute(RESPAWN_CHECKPOINT_ATTR, cpIndex)
 
 	patchCachedProfile(uid, function(cached)
 		cached.checkpoint = cpIndex
@@ -1026,6 +1028,7 @@ local function finishRun(player:Player)
 	runCp.Value = 0
 	displayCp.Value = sum.Value
 	player:SetAttribute(LAST_CHECKPOINT_ATTR, 0)
+	player:SetAttribute(RESPAWN_CHECKPOINT_ATTR, 0)
 
 	player:SetAttribute(SPAWN_SUMMIT_ATTR, true)
 
@@ -1105,6 +1108,7 @@ local function setupPlayer(player:Player)
 		sum.Value = savedSum
 		runCp.Value = savedCp
 		player:SetAttribute(LAST_CHECKPOINT_ATTR, savedCp)
+		player:SetAttribute(RESPAWN_CHECKPOINT_ATTR, savedCp)
 
 		local spawnSummit = (d.spawnAtSummit == true)
 		player:SetAttribute(SPAWN_SUMMIT_ATTR, spawnSummit)
@@ -1120,6 +1124,7 @@ local function setupPlayer(player:Player)
 		scheduleTitleHydration(player, d)
 	else
 		player:SetAttribute(LAST_CHECKPOINT_ATTR, 0)
+		player:SetAttribute(RESPAWN_CHECKPOINT_ATTR, 0)
 		loadedOk[player.UserId] = nil
 		warn("[MX] DS LOAD FAILED:", player.Name, player.UserId)
 		notifyPlayer(player, "DATA STORE LAG/ERROR. COBA REJOIN.")
@@ -1166,7 +1171,13 @@ local function setupPlayer(player:Player)
 			applyCustomTitlesFromProfile(player, cached)
 			local cachedCheckpoint = math.clamp(tonumber(cached.checkpoint) or 0, 0, TOTAL_CHECKPOINTS)
 			if cachedCheckpoint > 0 then
-				player:SetAttribute(LAST_CHECKPOINT_ATTR, math.max(tonumber(runCp.Value) or 0, cachedCheckpoint))
+				local checkpointToUse = math.max(
+					tonumber(runCp.Value) or 0,
+					tonumber(player:GetAttribute(RESPAWN_CHECKPOINT_ATTR)) or 0,
+					cachedCheckpoint
+				)
+				player:SetAttribute(LAST_CHECKPOINT_ATTR, checkpointToUse)
+				player:SetAttribute(RESPAWN_CHECKPOINT_ATTR, checkpointToUse)
 			end
 			if cached.spawnAtSummit ~= nil then
 				player:SetAttribute(SPAWN_SUMMIT_ATTR, cached.spawnAtSummit == true)
