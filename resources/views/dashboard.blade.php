@@ -1,823 +1,208 @@
 @php
+    use Illuminate\Support\Str;
+
     $title = __('Dashboard');
     $activeGuild = $managedGuild ?? null;
     $serverName = $activeGuild['name'] ?? 'Belum pilih server';
     $guildId = $activeGuild['id'] ?? 'Guild belum dipilih';
-
-    $trackedGamesCount = is_numeric($stats[0]['value'] ?? null) ? (int) $stats[0]['value'] : null;
-    $webhookCountValue = is_numeric($stats[1]['value'] ?? null) ? (int) $stats[1]['value'] : null;
-    $alertCountValue = is_numeric($stats[2]['value'] ?? null) ? (int) $stats[2]['value'] : null;
-    $reportCountValue = is_numeric($stats[3]['value'] ?? null) ? (int) $stats[3]['value'] : null;
-    $raceCountValue = is_numeric($stats[4]['value'] ?? null) ? (int) $stats[4]['value'] : null;
-
-    $alertCount = $alertCountValue ?? 0;
-    $reportCount = $reportCountValue ?? 0;
-    $webhookCount = $webhookCountValue ?? 0;
-    $raceCount = $raceCountValue ?? 0;
-    $activeWebhookCount = collect($webhooks)->where('is_active', true)->count();
-    $hasLiveDashboardData = collect([$trackedGamesCount, $webhookCountValue, $alertCountValue, $reportCountValue, $raceCountValue])
-        ->contains(fn ($value) => $value !== null && $value > 0);
-    $healthScore = $hasLiveDashboardData
-        ? max(52, min(98, 92 - ($alertCount * 6) - ($reportCount * 3) + ($activeWebhookCount * 2)))
-        : null;
-
-    $displayMetric = fn ($value) => ($value === null) ? '0' : str_pad((string) $value, 2, '0', STR_PAD_LEFT);
-
-    $quickLinks = [
-        ['label' => 'Pilih Server', 'href' => route('guilds.select'), 'copy' => 'Pindah guild aktif dan scope modul.', 'tone' => 'cyan'],
-        ['label' => 'Discord Setup', 'href' => route('discord.setup'), 'copy' => 'Rapikan webhook, endpoint, dan sync bot.', 'tone' => 'violet'],
-        ['label' => 'VIP Title Setup', 'href' => route('vip-title.setup'), 'copy' => 'Kelola map key, gamepass, dan API key.', 'tone' => 'emerald'],
-        ['label' => 'Roblox Scripts', 'href' => route('roblox.scripts.index'), 'copy' => 'Ambil file siap tempel ke game.', 'tone' => 'amber'],
-    ];
-
-    $statusCards = [
-        ['label' => 'Bot routing', 'value' => $webhookCount > 0 ? 'Online' : 'Idle', 'copy' => $webhookCount.' webhook siap kirim event.', 'progress' => $webhookCount > 0 ? min(100, max(20, ($webhookCount * 18) + 28)) : 0],
-        ['label' => 'Alert pressure', 'value' => $alertCount > 0 ? 'Monitor' : 'Stable', 'copy' => $alertCount.' alert aktif perlu perhatian.', 'progress' => $alertCount > 0 ? min(100, max(24, ($alertCount * 22) + 16)) : 0],
-        ['label' => 'Reports desk', 'value' => $reportCount > 0 ? 'Active' : 'Quiet', 'copy' => $reportCount.' report menunggu triage.', 'progress' => $reportCount > 0 ? min(100, max(18, ($reportCount * 20) + 14)) : 0],
-    ];
-
-    $primaryAlert = collect($alerts)->first();
-    $primaryReport = collect($reports)->first();
+    $trackedGamesCount = is_numeric($stats[0]['value'] ?? null) ? (int) $stats[0]['value'] : 0;
+    $webhookCount = is_numeric($stats[1]['value'] ?? null) ? (int) $stats[1]['value'] : 0;
+    $alertCount = is_numeric($stats[2]['value'] ?? null) ? (int) $stats[2]['value'] : 0;
+    $reportCount = is_numeric($stats[3]['value'] ?? null) ? (int) $stats[3]['value'] : 0;
+    $raceCount = is_numeric($stats[4]['value'] ?? null) ? (int) $stats[4]['value'] : 0;
     $wallet = $walletSummary ?? [];
     $formatIdr = fn ($value) => 'Rp '.number_format((int) $value, 0, ',', '.');
-    $walletStatusTone = fn ($status) => match ($status) {
-        'ready' => 'emerald',
-        'completed' => 'cyan',
-        'processing' => 'amber',
-        default => 'violet',
-    };
-    $walletStatusLabel = fn ($status) => match ($status) {
-        'ready' => 'Siap ditarik',
-        'completed' => 'Selesai',
-        'processing' => 'Diproses',
-        default => ucfirst((string) $status),
-    };
+    $grossSalesAmount = $formatIdr($wallet['grossSalesTotal'] ?? 0);
+    $adminFeeAmount = $formatIdr($wallet['adminFeeTotal'] ?? 0);
+    $netSalesAmount = $formatIdr($wallet['netSalesTotal'] ?? 0);
+    $frozenBalanceAmount = $formatIdr($wallet['frozenBalance'] ?? 0);
+    $availableBalanceAmount = $formatIdr($wallet['availableBalance'] ?? 0);
     $minimumWithdrawalAmount = max(1, (int) (($wallet['withdrawalFee'] ?? 2500) + 1));
     $maximumWithdrawalAmount = max($minimumWithdrawalAmount, (int) ($wallet['availableBalance'] ?? 0));
+    $healthScore = max(18, min(98, 92 - ($alertCount * 6) - ($reportCount * 3) + ($webhookCount * 2)));
+    $user = auth()->user();
+    $userName = $user?->name ?: 'Workspace User';
+    $initials = collect(preg_split('/\s+/', trim($userName)) ?: [])->filter()->map(fn ($part) => Str::upper(Str::substr($part, 0, 1)))->take(2)->implode('');
+    $cards = [
+        ['title' => 'Roblox Discord Ops', 'subtitle' => 'Control room utama untuk server aktif.', 'value' => $healthScore.'%', 'progress' => $healthScore, 'bg' => '#dbeafe', 'accent' => '#2563eb', 'meta' => $serverName, 'footer' => 'Guild '.$guildId],
+        ['title' => 'Tracked experiences', 'subtitle' => 'Universe dan place yang terhubung.', 'value' => (string) $trackedGamesCount, 'progress' => min(100, 18 + ($trackedGamesCount * 12)), 'bg' => '#fee2e2', 'accent' => '#ef4444', 'meta' => 'Roblox', 'footer' => $stats[0]['hint'] ?? 'Tracked games'],
+        ['title' => 'Active webhooks', 'subtitle' => 'Webhook Discord yang siap kirim event.', 'value' => (string) $webhookCount, 'progress' => min(100, 18 + ($webhookCount * 16)), 'bg' => '#ede9fe', 'accent' => '#7c3aed', 'meta' => 'Discord', 'footer' => $stats[1]['hint'] ?? 'Active webhooks'],
+        ['title' => 'VIP Title Wallet', 'subtitle' => 'Gross '.$grossSalesAmount.' | siap tarik '.$availableBalanceAmount.'.', 'value' => $availableBalanceAmount, 'progress' => min(100, max(10, (int) round((($wallet['availableBalance'] ?? 0) / max(1, ($wallet['netSalesTotal'] ?? 1))) * 100))), 'bg' => '#dcfce7', 'accent' => '#16a34a', 'meta' => 'Wallet', 'footer' => 'VIP Title Wallet'],
+        ['title' => 'Alert pressure', 'subtitle' => 'Insiden operasional yang masih terbuka.', 'value' => (string) $alertCount, 'progress' => min(100, max(10, $alertCount * 20)), 'bg' => '#ffe4e6', 'accent' => '#e11d48', 'meta' => 'Ops', 'footer' => $stats[2]['hint'] ?? 'Open alerts'],
+        ['title' => 'Player and bug reports', 'subtitle' => 'Queue laporan user dan bug terbaru.', 'value' => (string) $reportCount, 'progress' => min(100, max(10, $reportCount * 18)), 'bg' => '#cffafe', 'accent' => '#0891b2', 'meta' => 'Support', 'footer' => $stats[3]['hint'] ?? 'Pending reports'],
+        ['title' => 'Community race desk', 'subtitle' => 'Event balap yang sedang buka registrasi.', 'value' => (string) $raceCount, 'progress' => min(100, max(10, $raceCount * 22)), 'bg' => '#fae8ff', 'accent' => '#a21caf', 'meta' => 'Community', 'footer' => $stats[4]['hint'] ?? 'Race events'],
+    ];
+    $activityItems = collect()
+        ->merge(collect($alerts)->map(fn ($alert) => ['initials' => 'AL', 'name' => 'Alert: '.$alert->title, 'line' => Str::limit((string) $alert->message, 110), 'time' => optional($alert->occurred_at)->diffForHumans() ?? 'baru saja']))
+        ->merge(collect($reports)->map(fn ($report) => ['initials' => 'RP', 'name' => 'Report: '.$report->reported_player_name, 'line' => Str::limit((string) $report->summary, 110), 'time' => optional($report->created_at)->diffForHumans() ?? 'baru saja']))
+        ->merge(collect($webhooks)->map(fn ($webhook) => ['initials' => 'WH', 'name' => 'Webhook: '.$webhook->name, 'line' => 'Channel '.$webhook->channel_name.' | '.($webhook->is_active ? 'active' : 'paused'), 'time' => optional($webhook->updated_at)->diffForHumans() ?? 'baru saja']))
+        ->merge(collect($wallet['recentWithdrawals'] ?? [])->map(fn ($withdrawal) => ['initials' => 'WD', 'name' => 'Withdrawal: '.$formatIdr($withdrawal['grossAmount'] ?? 0), 'line' => 'Status '.($withdrawal['status'] ?? 'unknown').' | net '.$formatIdr($withdrawal['netAmount'] ?? 0), 'time' => optional($withdrawal['requestedAt'] ?? null)->diffForHumans() ?? 'baru saja']))
+        ->take(7)
+        ->values();
 @endphp
 
 <x-layouts::app :title="$title">
     <style>
-        @import url('https://fonts.bunny.net/css?family=space-grotesk:500,700|jetbrains-mono:400,600,700');
-
-        .dash {
-            --bg: rgba(8, 20, 39, 0.84);
-            --bg2: rgba(10, 24, 46, 0.94);
-            --line: rgba(123, 223, 255, 0.14);
-            --line2: rgba(123, 223, 255, 0.3);
-            --text: #eef6ff;
-            --muted: #8ea6c8;
-            --cyan: #7bdfff;
-            --violet: #9da7ff;
-            --emerald: #7ff7c4;
-            --amber: #ffca7b;
-            --rose: #ff8f9d;
-            position: relative;
-            overflow: hidden;
-            padding: .45rem 1rem 1rem;
-            color: var(--text);
-            font-family: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
-        }
-
-        .dash > :not(.orb):not(.particlefield) {
-            position: relative;
-            z-index: 1;
-        }
-
-        .dash::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            opacity: 0.11;
-            background-image:
-                linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
-            background-size: 48px 48px;
-            mask-image: linear-gradient(180deg, rgba(0,0,0,.9), transparent 98%);
-        }
-
-        .dash .orb {
-            position: absolute;
-            border-radius: 999px;
-            filter: blur(18px);
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        .dash .orb.a { top: -3rem; left: -2rem; width: 14rem; height: 14rem; background: radial-gradient(circle, rgba(123,223,255,.22), transparent 70%); }
-        .dash .orb.b { top: 9rem; right: -5rem; width: 18rem; height: 18rem; background: radial-gradient(circle, rgba(157,167,255,.2), transparent 70%); }
-        .dash .orb.c { bottom: 10rem; left: 22%; width: 12rem; height: 12rem; background: radial-gradient(circle, rgba(127,247,196,.12), transparent 70%); }
-
-        .dash .particlefield {
-            position: absolute;
-            inset: 0;
-            overflow: hidden;
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        .dash .spark {
-            position: absolute;
-            width: .2rem;
-            height: .2rem;
-            border-radius: 999px;
-            background: rgba(214, 243, 255, .78);
-            box-shadow: 0 0 12px rgba(123,223,255,.42);
-            opacity: 0;
-            animation: driftStar linear infinite;
-        }
-
-        .dash .hero,
-        .dash .panel,
-        .dash .metric,
-        .dash .mini,
-        .dash .cta,
-        .dash .banner {
-            position: relative;
-            overflow: hidden;
-            border: 1px solid var(--line);
-            background: linear-gradient(180deg, var(--bg), rgba(5,12,24,.94));
-            box-shadow: 0 28px 70px rgba(0,0,0,.3);
-            backdrop-filter: blur(18px);
-        }
-
-        .dash .hero::after,
-        .dash .panel::after,
-        .dash .metric::after,
-        .dash .mini::after,
-        .dash .cta::after,
-        .dash .banner::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            background:
-                radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(123,223,255,.18), transparent 34%),
-                radial-gradient(circle at top right, rgba(157,167,255,.08), transparent 28%);
-        }
-
-        .dash .banner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; padding: 1rem 1.1rem; border-radius: 1.6rem; background: linear-gradient(135deg, rgba(39,20,20,.74), rgba(16,19,35,.94)); }
-        .dash .hero { display: grid; grid-template-columns: minmax(0,1.18fr) minmax(320px,.92fr); align-items: start; gap: 1rem; padding: 1rem 1.15rem 1.15rem; border-radius: 2rem; background: radial-gradient(circle at top left, rgba(123,223,255,.14), transparent 32%), radial-gradient(circle at bottom right, rgba(157,167,255,.12), transparent 32%), linear-gradient(135deg, rgba(5,16,32,.98), rgba(6,16,31,.92)); }
-        .dash .panel, .dash .metric, .dash .mini { border-radius: 1.5rem; }
-        .dash .panel, .dash .metric, .dash .mini, .dash .cta { padding: 1rem; }
-        .dash .cta { border-radius: 1.2rem; text-decoration: none; transition: transform .18s ease, border-color .18s ease; }
-        .dash .cta:hover, .dash .metric:hover, .dash .mini:hover, .dash .item:hover { transform: translateY(-4px); border-color: var(--line2); }
-
-        .dash .kicker, .dash .chip, .dash .tag, .dash .meta, .dash .label, .dash .note, .dash .pill {
-            font-family: "JetBrains Mono", ui-monospace, monospace;
-            text-transform: uppercase;
-            letter-spacing: .14em;
-        }
-
-        .dash .kicker { display: inline-flex; align-items: center; gap: .55rem; border-radius: 999px; border: 1px solid rgba(123,223,255,.18); background: rgba(255,255,255,.04); padding: .48rem .82rem; color: var(--cyan); font-size: .68rem; font-weight: 700; }
-        .dash .kicker::before { content: ""; width: .5rem; height: .5rem; border-radius: 999px; background: var(--emerald); box-shadow: 0 0 16px rgba(127,247,196,.9); }
-        .dash h1, .dash h2, .dash h3 { margin: 0; font-family: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif; letter-spacing: -.03em; }
-        .dash h1 { margin-top: .75rem; max-width: 12ch; font-size: clamp(2.7rem, 5vw, 4.8rem); line-height: .9; }
-        .dash h1 span { display: block; background: linear-gradient(90deg, var(--cyan), #d9f7ff 52%, var(--emerald)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        .dash p { margin: 0; color: var(--muted); line-height: 1.8; }
-        .dash .lead { margin-top: .85rem; max-width: 44rem; }
-        .dash .hero-copy { display: grid; gap: 0; }
-        .dash .hero-orbit {
-            position: relative;
-            display: grid;
-            grid-template-columns: minmax(0, 1.2fr) minmax(9rem, .8fr);
-            gap: 1rem;
-            align-items: center;
-            margin-top: 1rem;
-            padding: 1rem 1.05rem;
-            border-radius: 1.45rem;
-            border: 1px solid rgba(123,223,255,.1);
-            background: linear-gradient(135deg, rgba(9,24,47,.74), rgba(6,14,28,.88));
-        }
-        .dash .hero-orbit-copy { display: grid; gap: .28rem; }
-        .dash .hero-orbit-copy strong { font-family: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif; font-size: 1.15rem; letter-spacing: -.02em; }
-        .dash .hero-orbit-copy p { font-size: .92rem; line-height: 1.65; }
-        .dash .row, .dash .stats, .dash .grid, .dash .actions, .dash .twins, .dash .subgrid { display: grid; gap: 1rem; }
-        .dash .row { margin-top: 1.1rem; display: flex; flex-wrap: wrap; gap: .7rem; }
-        .dash .chip, .dash .tag, .dash .pill { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: .45rem .76rem; font-size: .66rem; font-weight: 700; }
-        .dash .chip { border: 1px solid rgba(123,223,255,.12); background: rgba(255,255,255,.04); color: #dcebff; }
-        .dash .stats { grid-template-columns: repeat(3, minmax(0,1fr)); margin-top: 1.2rem; }
-        .dash .label { font-size: .66rem; color: var(--muted); font-weight: 700; }
-        .dash .value { display: block; margin-top: .75rem; font-family: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif; font-size: 1.8rem; font-weight: 700; }
-        .dash .copy { margin-top: .45rem; font-size: .86rem; }
-        .dash .bar { margin-top: .85rem; height: .45rem; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.06); }
-        .dash .bar span { display: block; height: 100%; width: var(--fill, 0%); border-radius: inherit; background: linear-gradient(90deg, var(--cyan), var(--emerald)); box-shadow: 0 0 18px rgba(123,223,255,.35); animation: fill .9s ease both; transform-origin: left center; }
-        .dash .stack { display: grid; gap: 1rem; }
-        .dash .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-        .dash .button, .dash .ghost { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; border-radius: 999px; font-weight: 700; transition: transform .18s ease; }
-        .dash .button { padding: .75rem 1rem; color: #04111f; background: linear-gradient(135deg, rgba(123,223,255,.92), rgba(157,167,255,.88)); border: 1px solid rgba(123,223,255,.18); }
-        .dash .ghost { padding: .62rem .95rem; color: var(--text); background: rgba(255,255,255,.04); border: 1px solid rgba(123,223,255,.16); }
-        .dash .button:hover, .dash .ghost:hover { transform: translateY(-2px); }
-        .dash .server { display: grid; grid-template-columns: 6.9rem minmax(0,1fr); gap: 1.1rem; align-items: center; padding: 1rem; border-radius: 1.35rem; border: 1px solid rgba(123,223,255,.1); background: linear-gradient(145deg, rgba(255,255,255,.05), rgba(255,255,255,.02)); }
-        .dash .radar {
-            --orbit-time: 10s;
-            position: relative;
-            width: 6.9rem;
-            height: 6.9rem;
-            margin: 0 auto;
-            border-radius: 999px;
-            border: 1px solid rgba(123,223,255,.18);
-            background:
-                radial-gradient(circle at center, rgba(123,223,255,.28), rgba(123,223,255,.07) 26%, transparent 27%),
-                radial-gradient(circle at center, rgba(127,247,196,.12), transparent 66%);
-            box-shadow:
-                inset 0 0 34px rgba(123,223,255,.14),
-                0 0 40px rgba(123,223,255,.08);
-        }
-        .dash .radar::before, .dash .radar::after { content: ""; position: absolute; border-radius: 999px; }
-        .dash .radar::before { inset: .8rem; border: 1px solid rgba(123,223,255,.14); }
-        .dash .radar::after { inset: 1.65rem; border: 1px solid rgba(157,167,255,.16); }
-        .dash .core {
-            position: absolute;
-            inset: 2rem;
-            border-radius: 999px;
-            background: radial-gradient(circle, rgba(137, 231, 255, .28), rgba(84, 161, 209, .18) 52%, rgba(14, 29, 53, .8) 72%);
-            box-shadow: 0 0 26px rgba(123,223,255,.22);
-        }
-        .dash .orbit {
-            position: absolute;
-            inset: 0;
-            animation: spin linear infinite;
-            transform-origin: center;
-        }
-        .dash .orbit::before {
-            content: "";
-            position: absolute;
-            top: 50%;
-            right: -.22rem;
-            width: .82rem;
-            height: .82rem;
-            border-radius: 999px;
-            transform: translateY(-50%);
-            background: radial-gradient(circle, rgba(191,255,227,1), rgba(127,247,196,.85) 62%, rgba(127,247,196,0) 68%);
-            box-shadow: 0 0 18px rgba(127,247,196,.84);
-        }
-        .dash .orbit.one { inset: .55rem; animation-duration: 7.8s; }
-        .dash .orbit.two { inset: 1.35rem; animation-duration: 10.5s; animation-direction: reverse; }
-        .dash .orbit.three { inset: 2.15rem; animation-duration: 6.8s; }
-        .dash .orbit.two::before { width: .48rem; height: .48rem; opacity: .76; box-shadow: 0 0 14px rgba(123,223,255,.62); background: radial-gradient(circle, rgba(194,234,255,1), rgba(123,223,255,.8) 60%, rgba(123,223,255,0) 68%); }
-        .dash .orbit.three::before { width: .36rem; height: .36rem; opacity: .62; background: radial-gradient(circle, rgba(255,255,255,.94), rgba(157,167,255,.72) 60%, rgba(157,167,255,0) 68%); box-shadow: 0 0 10px rgba(157,167,255,.56); }
-        .dash .meta { margin-top: .45rem; font-size: .68rem; color: var(--muted); font-weight: 700; }
-        .dash .score { margin-top: .55rem; display: grid; gap: .3rem; }
-        .dash .score strong { font-family: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif; font-size: 2.2rem; line-height: 1; }
-        .dash .subgrid { grid-template-columns: repeat(3, minmax(0,1fr)); }
-        .dash .box { padding: .9rem; border-radius: 1.1rem; border: 1px solid rgba(123,223,255,.08); background: rgba(255,255,255,.03); }
-        .dash .actions { grid-template-columns: repeat(2, minmax(0,1fr)); }
-        .dash .metrics { display: grid; gap: 1rem; grid-template-columns: repeat(5, minmax(0,1fr)); margin-top: 1.2rem; }
-        .dash .metric .value { font-size: clamp(2rem, 3vw, 2.5rem); line-height: 1; }
-        .dash .grid { grid-template-columns: repeat(2, minmax(0,1fr)); margin-top: 1.2rem; }
-        .dash .item { padding: 1rem; border-radius: 1.2rem; border: 1px solid rgba(123,223,255,.09); background: rgba(255,255,255,.035); transition: transform .18s ease, border-color .18s ease; }
-        .dash .itemtop { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-        .dash .listcopy { margin-top: .4rem; font-size: .88rem; }
-        .dash .note { display: inline-flex; margin-top: .72rem; font-size: .63rem; color: #abc2e7; font-weight: 700; }
-        .dash .tag { color: #f1f7ff; background: rgba(255,255,255,.08); }
-        .dash .tag.cyan { background: rgba(123,223,255,.12); color: var(--cyan); }
-        .dash .tag.violet { background: rgba(157,167,255,.16); color: #cad0ff; }
-        .dash .tag.emerald { background: rgba(127,247,196,.12); color: var(--emerald); }
-        .dash .tag.amber { background: rgba(255,202,123,.14); color: var(--amber); }
-        .dash .tag.rose { background: rgba(255,143,157,.14); color: var(--rose); }
-        .dash .twins { grid-template-columns: repeat(2, minmax(0,1fr)); margin-top: 1rem; }
-        .dash .wallet-grid { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr); margin-top: 1.2rem; }
-        .dash .wallet-metrics { display: grid; gap: 1rem; grid-template-columns: repeat(4, minmax(0,1fr)); margin-top: 1rem; }
-        .dash .wallet-list { display: grid; gap: .9rem; margin-top: 1rem; }
-        .dash .wallet-form { display: grid; gap: .9rem; margin-top: 1rem; }
-        .dash .wallet-form label { display: grid; gap: .45rem; }
-        .dash .wallet-form input {
-            width: 100%;
-            border-radius: 1rem;
-            border: 1px solid rgba(123,223,255,.16);
-            background: rgba(255,255,255,.04);
-            color: var(--text);
-            padding: .9rem 1rem;
-        }
-        .dash .wallet-form button {
-            border: 0;
-            cursor: pointer;
-        }
-        .dash .alertline {
-            margin-top: 1rem;
-            padding: .85rem 1rem;
-            border-radius: 1rem;
-            border: 1px solid rgba(127,247,196,.16);
-            background: rgba(127,247,196,.08);
-            color: #dffbf0;
-        }
-        .dash .errorline {
-            margin-top: .9rem;
-            padding: .85rem 1rem;
-            border-radius: 1rem;
-            border: 1px solid rgba(255,143,157,.16);
-            background: rgba(255,143,157,.08);
-            color: #ffe7eb;
-        }
-
-        @keyframes fill { from { transform: scaleX(.25); opacity: .45; } to { transform: scaleX(1); opacity: 1; } }
-        @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes driftStar {
-            0% { transform: translate3d(0, 105%, 0) scale(.65); opacity: 0; }
-            14%, 82% { opacity: .68; }
-            100% { transform: translate3d(28px, -18%, 0) scale(1); opacity: 0; }
-        }
-
-        @media (max-width: 1180px) {
-            .dash .hero, .dash .grid { grid-template-columns: 1fr; }
-            .dash .metrics, .dash .stats, .dash .subgrid, .dash .wallet-metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
-            .dash .wallet-grid { grid-template-columns: 1fr; }
-        }
-
-        @media (max-width: 760px) {
-            .dash { padding: .7rem 0 1rem; }
-            .dash .banner, .dash .top, .dash .itemtop { flex-direction: column; }
-            .dash h1 { max-width: none; font-size: clamp(2.3rem, 14vw, 3.2rem); }
-            .dash .hero-orbit, .dash .server { grid-template-columns: 1fr; }
-            .dash .stats, .dash .actions, .dash .metrics, .dash .subgrid, .dash .twins, .dash .wallet-grid, .dash .wallet-metrics { grid-template-columns: 1fr; }
-            .dash .radar { margin: 0 auto; }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            .dash .spark,
-            .dash .orbit,
-            .dash .dot,
-            .dash .bar span,
-            .dash .cta,
-            .dash .metric,
-            .dash .mini,
-            .dash .item {
-                animation: none !important;
-                transition: none !important;
-            }
-        }
+        @import url("https://fonts.bunny.net/css?family=dm-sans:400,500,700|space-grotesk:500,700");
+        .portfolio-dashboard{--app-bg:#111827;--panel:#1f2937;--panel-2:#172131;--text:#fff;--muted:rgba(255,255,255,.76);--line:rgba(255,255,255,.08);--soft:rgba(255,255,255,.06);--hover:rgba(195,207,244,.16);--active:rgba(195,207,244,.2);width:100%;min-height:calc(100vh - 2rem);background:radial-gradient(circle at top left,rgba(59,130,246,.15),transparent 26%),radial-gradient(circle at 100% 0%,rgba(16,185,129,.12),transparent 22%),var(--app-bg);border-radius:32px;overflow:hidden;color:var(--text);font-family:"DM Sans",sans-serif;box-shadow:0 24px 60px rgba(2,6,23,.35)}
+        .portfolio-dashboard.is-light{--app-bg:#edf3fb;--panel:#fff;--panel-2:#f8fbff;--text:#1f1c2e;--muted:#60697b;--line:#e5eaf2;--soft:rgba(31,28,46,.04);--hover:#dbe4ff;--active:#1f1c2e}
+        .portfolio-dashboard *{box-sizing:border-box}.dash-app{display:flex;flex-direction:column;min-height:calc(100vh - 2rem)}
+        .dash-header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:20px 24px;border-bottom:1px solid var(--line)}
+        .dash-header-left,.dash-header-right{display:flex;align-items:center;gap:.75rem}.dash-header-left{flex:1 1 auto;min-width:0}
+        .dash-icon{width:28px;height:3px;border-radius:999px;background:linear-gradient(90deg,#3b82f6,#0ea5e9);position:relative;display:inline-block;flex-shrink:0}.dash-icon:before,.dash-icon:after{content:"";position:absolute;left:50%;transform:translateX(-50%);width:14px;height:3px;border-radius:999px;background:currentColor;color:var(--text)}.dash-icon:before{top:-7px}.dash-icon:after{bottom:-7px}
+        .dash-name{margin:0 .8rem 0 .2rem;font:700 1.2rem/1 "Space Grotesk",sans-serif;color:var(--text);flex-shrink:0}
+        .search-wrap{display:flex;align-items:center;gap:.7rem;height:46px;max-width:520px;width:100%;padding:0 14px 0 18px;border-radius:999px;background:var(--panel);border:1px solid var(--line);box-shadow:0 10px 28px rgba(15,23,42,.18)}
+        .search-wrap input{flex:1;border:0;outline:0;background:transparent;color:var(--text);font:inherit}.search-wrap input::placeholder{color:var(--muted)}
+        .icon-btn,.add-btn{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border:0;border-radius:50%;background:var(--soft);color:var(--text);text-decoration:none;transition:transform .18s ease}.icon-btn:hover,.add-btn:hover,.profile-btn:hover{transform:translateY(-2px)}
+        .add-btn{background:linear-gradient(135deg,#2563eb,#0ea5e9);color:#fff;box-shadow:0 12px 24px rgba(37,99,235,.24)}
+        .profile-btn{display:flex;align-items:center;gap:.7rem;padding:6px 12px 6px 6px;border:0;background:transparent;border-left:1px solid var(--line);color:var(--text)}
+        .profile-avatar{width:38px;height:38px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1d4ed8,#14b8a6);font-size:.88rem;font-weight:700;color:#fff}
+        .dash-content{display:flex;height:100%;overflow:hidden;padding:18px 24px 24px 0}.dash-sidebar{padding:26px 16px;display:flex;flex-direction:column;align-items:center;gap:1rem}
+        .dash-sidebar a{display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:16px;background:var(--soft);color:var(--text);text-decoration:none;transition:.2s}.dash-sidebar a:hover{background:var(--hover);color:#fff}.dash-sidebar a.active{background:var(--active);color:#fff;box-shadow:0 10px 24px rgba(31,28,46,.2)}
+        .projects-section,.messages-section{background:var(--panel);border-radius:30px;box-shadow:0 20px 55px rgba(15,23,42,.16)}
+        .projects-section{flex:2;padding:30px 30px 0;display:flex;flex-direction:column;overflow:hidden}.messages-section{flex:1;margin-left:24px;position:relative;overflow:auto;padding-bottom:24px}
+        .section-header,.section-line{display:flex;justify-content:space-between;align-items:center;gap:1rem}.section-header{margin-bottom:24px}.section-header p{margin:0;font-size:1.45rem;font-weight:700;color:var(--text)}.section-header .time{font-size:1rem;font-weight:500;color:var(--muted)}
+        .section-line{padding-bottom:28px}.projects-status{display:flex;flex-wrap:wrap;gap:1rem}.item-status{position:relative;padding-right:18px;display:flex;flex-direction:column}.item-status:not(:last-child):after{content:"";position:absolute;right:0;top:50%;transform:translateY(-50%);width:1px;height:60%;background:var(--line)}.status-number{font-size:1.4rem;font-weight:700}.status-type{margin-top:.2rem;font-size:.88rem;color:var(--muted)}
+        .view-actions{display:flex;gap:.5rem}.view-btn{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border:0;border-radius:12px;background:transparent;color:var(--text)}.view-btn.active{background:var(--active);color:#fff}.view-btn:not(.active):hover{background:var(--hover);color:#fff}
+        .project-boxes{margin:0 -8px;padding-bottom:28px;overflow-y:auto}.project-boxes.jsGridView{display:flex;flex-wrap:wrap}.project-boxes.jsGridView .project-box-wrapper{width:33.3333%}.project-boxes.jsListView .project-box-wrapper{width:100%}.project-box-wrapper{padding:8px}.project-box{display:flex;flex-direction:column;min-height:260px;padding:18px;border-radius:28px;background:var(--project-bg,#e2e8f0);color:#111827;box-shadow:0 14px 32px rgba(15,23,42,.08)}.project-box-header,.project-box-footer{display:flex;justify-content:space-between;align-items:center;gap:1rem}.project-box-header{margin-bottom:18px}.project-box-header span{font-size:.78rem;opacity:.72}.project-title{margin:0;font-size:1.05rem;line-height:1.35;font-weight:700}.project-subtitle{margin:.35rem 0 0;font-size:.88rem;line-height:1.7;opacity:.82}
+        .box-progress-wrapper{margin-top:16px}.box-progress-header{margin:0;font-size:.82rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.8}.box-progress-bar{width:100%;height:7px;margin:10px 0 8px;background:rgba(255,255,255,.7);border-radius:999px;overflow:hidden}.box-progress{display:block;height:100%;background:var(--progress-accent,#2563eb)}.box-progress-percentage{margin:0;text-align:right;font-size:.82rem;font-weight:700}.project-box-footer{margin-top:auto;padding-top:16px;border-top:1px solid rgba(255,255,255,.48)}
+        .participants{display:flex;align-items:center}.participant-chip{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;margin-right:-8px;font-size:.7rem;font-weight:700;color:#fff;background:rgba(15,23,42,.46);border:2px solid rgba(255,255,255,.6)}.participant-add{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin-left:10px;border-radius:50%;background:rgba(255,255,255,.66);color:var(--progress-accent,#2563eb)}.project-footer-label{padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.66);font-size:.76rem;font-weight:700;color:var(--progress-accent,#2563eb)}
+        .project-link{display:inline-flex;align-items:center;gap:.45rem;margin-top:.9rem;font-size:.85rem;font-weight:700;color:inherit;text-decoration:none}.mini-form{display:grid;gap:.7rem;margin-top:.9rem}.mini-form input{padding:.9rem 1rem;border:0;border-radius:14px;background:rgba(255,255,255,.7);font:inherit;color:#111827}.mini-form button{padding:.92rem 1rem;border:0;border-radius:14px;background:rgba(15,23,42,.88);font:inherit;font-weight:700;color:#fff}.mini-help,.flash-note{font-size:.78rem;line-height:1.6;opacity:.82}.flash-note{padding:.85rem 1rem;border-radius:14px;background:rgba(255,255,255,.6)}.flash-note.error{background:rgba(225,29,72,.16);color:#881337}
+        .messages-section .section-header{position:sticky;top:0;padding:30px 24px 18px;background:var(--panel);z-index:1}.summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem;padding:0 24px 18px}.summary-card{padding:14px;border-radius:18px;background:var(--panel-2)}.summary-card strong{display:block;margin-bottom:.3rem;font-size:1rem;color:var(--text)}.summary-card span{font-size:.82rem;line-height:1.6;color:var(--muted)}
+        .messages{padding-bottom:12px}.message-box{display:flex;gap:14px;padding:16px;border-top:1px solid var(--line)}.message-box:hover{background:var(--panel-2)}.message-avatar{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#1d4ed8,#38bdf8);font-size:.78rem;font-weight:700;color:#fff;flex-shrink:0}.message-content{width:100%;min-width:0}.message-header{display:flex;justify-content:space-between;align-items:center;gap:1rem}.message-name{margin:0;font-size:.96rem;font-weight:700;color:var(--text)}.message-line{margin:8px 0;font-size:.86rem;line-height:1.7;color:var(--muted)}.message-line.time{text-align:right;margin-bottom:0;font-size:.75rem}.messages-close,.messages-btn{display:none}
+        @media (max-width:1180px){.project-boxes.jsGridView .project-box-wrapper{width:50%}}
+        @media (max-width:880px){.messages-section{position:absolute;top:0;right:0;z-index:4;width:min(100%,420px);height:100%;margin-left:0;opacity:0;transform:translateX(100%);transition:.3s}.messages-section.show{opacity:1;transform:translateX(0)}.messages-close,.messages-btn{display:flex}.messages-close{position:absolute;top:12px;right:12px;z-index:5;width:38px;height:38px;border:0;border-radius:50%;background:var(--soft);color:var(--text)}.messages-btn{position:absolute;right:0;top:72px;align-items:center;justify-content:center;width:40px;height:40px;border:0;border-radius:12px 0 0 12px;background:var(--soft);color:var(--text)}}
+        @media (max-width:720px){.dash-header{padding:16px;flex-wrap:wrap}.dash-header-left,.dash-header-right{width:100%}.dash-name,.profile-btn span{display:none}.search-wrap{max-width:none}.dash-header-right{justify-content:flex-end}}
+        @media (max-width:520px){.portfolio-dashboard{min-height:calc(100vh - 1rem);border-radius:24px}.dash-sidebar,.dash-icon{display:none}.dash-content{padding:12px}.projects-section{padding:22px 16px 0}.section-header p,.section-header .time{font-size:1rem}.section-line{flex-direction:column;align-items:flex-start}.project-boxes.jsGridView .project-box-wrapper{width:100%}.summary-grid{grid-template-columns:1fr}.messages-btn{top:56px}}
     </style>
 
-    <div class="dash">
-        <div class="orb a"></div>
-        <div class="orb b"></div>
-        <div class="orb c"></div>
-        <div class="particlefield" id="dashParticles" aria-hidden="true"></div>
-
-        <section class="hero" data-glow-card>
-            <div>
-                <div class="hero-copy">
-                <span class="kicker">Roblox Discord Ops</span>
-                <h1>Control room yang <span>lebih rapi dan lebih fokus.</span></h1>
-                <p class="lead">Halaman ini saya susun ulang supaya kondisi server aktif, quick action, alert, dan report lebih gampang dipindai. Blok besar yang terasa kosong sekarang dipecah jadi panel kerja yang punya prioritas jelas.</p>
-                </div>
-
-                <div class="hero-orbit" data-glow-card>
-                    <div class="hero-orbit-copy">
-                        <span class="label" style="color:var(--cyan)">Orbital signal</span>
-                        <strong>Surface server aktif sekarang terasa lebih hidup.</strong>
-                        <p>Saya tambahkan sistem orbit dan partikel supaya dashboard punya gerak halus, tapi tetap fokus ke data dan tombol aksi.</p>
-                    </div>
-                    <div class="radar" aria-hidden="true">
-                        <span class="core"></span>
-                        <span class="orbit one"></span>
-                        <span class="orbit two"></span>
-                        <span class="orbit three"></span>
+    <div class="portfolio-dashboard is-dark" id="portfolioDashboard">
+        <div class="dash-app">
+            <div class="dash-header">
+                <div class="dash-header-left">
+                    <span class="dash-icon"></span>
+                    <p class="dash-name">Portfolio</p>
+                    <div class="search-wrap">
+                        <input id="dashboardSearch" type="text" placeholder="Search">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>
                     </div>
                 </div>
-
-                <div class="row">
-                    <span class="chip">Server aktif: {{ $serverName }}</span>
-                    <span class="chip">Guild ID: {{ $guildId }}</span>
-                    <span class="chip">Tracked game: {{ $trackedGamesCount ?? 0 }}</span>
-                    <span class="chip">Webhook aktif: {{ $activeWebhookCount }}</span>
+                <div class="dash-header-right">
+                    <button class="icon-btn" id="themeSwitch" title="Switch Theme"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" width="22" height="22" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path></svg></button>
+                    <a href="{{ route('vip-title.setup') }}" class="add-btn" title="VIP Title Setup"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg></a>
+                    <button class="icon-btn" title="Workspace pulse"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg></button>
+                    <button class="profile-btn" title="{{ $userName }}"><span class="profile-avatar">{{ $initials !== '' ? $initials : 'LY' }}</span><span>{{ $userName }}</span></button>
                 </div>
-
-                <div class="stats">
-                    @foreach ($statusCards as $card)
-                        <article class="mini" data-glow-card>
-                            <span class="label">{{ $card['label'] }}</span>
-                            <strong class="value">{{ $card['value'] }}</strong>
-                            <p class="copy">{{ $card['copy'] }}</p>
-                            <div class="bar" style="--fill: {{ $card['progress'] }}%;">
-                                <span></span>
-                            </div>
-                        </article>
-                    @endforeach
-                </div>
+                <button class="messages-btn" id="messagesBtn"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg></button>
             </div>
 
-            <aside class="stack">
-                <div class="panel" data-glow-card>
-                    <div class="top">
-                        <div>
-                            <span class="label" style="color:var(--cyan)">Server spotlight</span>
-                            <h2 style="margin-top:.35rem;">Interactive command deck</h2>
-                            <p class="copy">Panel kanan sekarang jadi pusat konteks dan aksi cepat, bukan kartu besar yang terasa kosong.</p>
+            <div class="dash-content">
+                <div class="dash-sidebar">
+                    <a href="#overview" class="active" title="Overview"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg></a>
+                    <a href="#wallet-card" title="Wallet"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"></path><path d="M16 12h5"></path><path d="M19 9v6"></path></svg></a>
+                    <a href="#activity-panel" title="Activity"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" /></svg></a>
+                    <a href="{{ route('discord.setup') }}" title="Discord Setup"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg></a>
+                </div>
+
+                <div class="projects-section" id="overview">
+                    <div class="section-header"><p>Roblox Discord Ops</p><p class="time">{{ now()->translatedFormat('F d') }}</p></div>
+                    <div class="section-line">
+                        <div class="projects-status">
+                            <div class="item-status"><span class="status-number">{{ $alertCount + $reportCount }}</span><span class="status-type">In Progress</span></div>
+                            <div class="item-status"><span class="status-number">{{ $raceCount + collect($wallet['recentWithdrawals'] ?? [])->where('status', 'ready')->count() }}</span><span class="status-type">Upcoming</span></div>
+                            <div class="item-status"><span class="status-number">{{ $trackedGamesCount + $webhookCount + $alertCount + $reportCount + $raceCount }}</span><span class="status-type">Total Projects</span></div>
                         </div>
-                        <a href="{{ route('guilds.select') }}" class="ghost">Ganti server</a>
+                        <div class="view-actions">
+                            <button class="view-btn list-view" title="List View"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg></button>
+                            <button class="view-btn grid-view active" title="Grid View"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg></button>
+                        </div>
                     </div>
 
-                    <div class="server" style="margin-top:1rem;">
-                        <div class="radar" aria-hidden="true">
-                            <span class="core"></span>
-                            <span class="orbit one"></span>
-                            <span class="orbit two"></span>
-                            <span class="orbit three"></span>
-                        </div>
-                        <div>
-                            <h3 style="font-size:1.35rem;">{{ $serverName }}</h3>
-                            <div class="meta">Guild ID &middot; {{ $guildId }}</div>
-                            <div class="score">
-                                <span class="label">Workspace health</span>
-                                <strong>{{ $healthScore ?? '0' }}</strong>
-                                <p class="copy">
-                                    @if ($healthScore)
-                                        Skor ini diringkas dari webhook aktif, alert terbuka, dan antrean report yang masih berjalan.
-                                    @else
-                                        Belum ada sinyal operasional yang cukup untuk menghitung health score.
+                    <div class="project-boxes jsGridView" id="dashboardCards">
+                        @foreach ($cards as $card)
+                            <div class="project-box-wrapper" data-search="{{ Str::lower($card['title'].' '.$card['subtitle'].' '.$card['footer'].' '.$card['meta']) }}">
+                                <div class="project-box" style="--project-bg: {{ $card['bg'] }}; --progress-accent: {{ $card['accent'] }};">
+                                    <div class="project-box-header"><span>{{ $card['meta'] }}</span><button class="view-btn" type="button" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg></button></div>
+                                    <div><p class="project-title">{{ $card['title'] }}</p><p class="project-subtitle">{{ $card['subtitle'] }}</p></div>
+                                    <div class="box-progress-wrapper"><p class="box-progress-header">Progress</p><div class="box-progress-bar"><span class="box-progress" style="width: {{ max(8, min(100, (int) $card['progress'])) }}%"></span></div><p class="box-progress-percentage">{{ $card['value'] }}</p></div>
+                                    <div class="project-box-footer"><div class="participants"><span class="participant-chip">{{ $initials !== '' ? $initials : 'LY' }}</span><span class="participant-chip">SV</span><span class="participant-add">+</span></div><div class="project-footer-label">{{ $card['footer'] }}</div></div>
+                                    @if ($card['title'] === 'VIP Title Wallet')
+                                        <a href="#wallet-card" class="project-link">Request Penarikan <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg></a>
                                     @endif
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="subgrid" style="margin-top:1rem;">
-                        <div class="box">
-                            <span class="label">Scope</span>
-                            <strong style="display:block;margin-top:.4rem;">{{ $activeGuild ? 'Locked' : 'Unset' }}</strong>
-                        </div>
-                        <div class="box">
-                            <span class="label">Alerts</span>
-                            <strong style="display:block;margin-top:.4rem;">{{ $alertCount }}</strong>
-                        </div>
-                        <div class="box">
-                            <span class="label">Reports</span>
-                            <strong style="display:block;margin-top:.4rem;">{{ $reportCount }}</strong>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="actions">
-                    @foreach ($quickLinks as $link)
-                        <a href="{{ $link['href'] }}" class="cta" data-glow-card>
-                            <span class="tag {{ $link['tone'] }}">Open</span>
-                            <h3 style="margin-top:.8rem;font-size:1.02rem;">{{ $link['label'] }}</h3>
-                            <p class="copy">{{ $link['copy'] }}</p>
-                        </a>
-                    @endforeach
-                </div>
-            </aside>
-        </section>
-
-        <section class="wallet-grid">
-            <section class="panel" data-glow-card>
-                <div class="top">
-                    <div>
-                        <span class="label" style="color:var(--emerald)">VIP Title Wallet</span>
-                        <h2 style="margin-top:.35rem;">Saldo penjualan title per server</h2>
-                        <p class="copy">Setiap pembayaran title yang masuk dari bot Discord sekarang diringkas per guild aktif. Fee admin per pembelian {{ $formatIdr($wallet['adminFeePerSale'] ?? 0) }}, saldo beku {{ $wallet['freezeDays'] ?? 2 }} hari, dan request penarikan diproses {{ $wallet['withdrawalProcessingDays'] ?? 1 }} hari dengan biaya tarik {{ $formatIdr($wallet['withdrawalFee'] ?? 0) }}.</p>
-                    </div>
-                    <span class="tag emerald">{{ $wallet['buyersCount'] ?? 0 }} buyer</span>
-                </div>
-
-                @if (session('wallet_status'))
-                    <div class="alertline">{{ session('wallet_status') }}</div>
-                @endif
-
-                @if ($errors->has('amount'))
-                    <div class="errorline">{{ $errors->first('amount') }}</div>
-                @endif
-
-                <div class="wallet-metrics">
-                    <article class="mini" data-glow-card>
-                        <span class="label">Transaksi masuk</span>
-                        <strong class="value">{{ $displayMetric($wallet['paidTransactionsCount'] ?? 0) }}</strong>
-                        <p class="copy">Jumlah invoice title yang sudah lunas untuk server ini.</p>
-                    </article>
-                    <article class="mini" data-glow-card>
-                        <span class="label">Gross sales</span>
-                        <strong class="value" style="font-size:1.5rem;">{{ $formatIdr($wallet['grossSalesTotal'] ?? 0) }}</strong>
-                        <p class="copy">Total pembayaran buyer sebelum potongan admin.</p>
-                    </article>
-                    <article class="mini" data-glow-card>
-                        <span class="label">Saldo beku</span>
-                        <strong class="value" style="font-size:1.5rem;">{{ $formatIdr($wallet['frozenBalance'] ?? 0) }}</strong>
-                        <p class="copy">Dana yang masih menunggu masa tahan 2 hari selesai.</p>
-                    </article>
-                    <article class="mini" data-glow-card>
-                        <span class="label">Saldo siap tarik</span>
-                        <strong class="value" style="font-size:1.5rem;">{{ $formatIdr($wallet['availableBalance'] ?? 0) }}</strong>
-                        <p class="copy">Saldo bersih yang bisa diajukan penarikan sekarang.</p>
-                    </article>
-                </div>
-
-                <div class="twins">
-                    <article class="mini" data-glow-card>
-                        <span class="label">Fee admin terkumpul</span>
-                        <strong class="value" style="font-size:1.4rem;">{{ $formatIdr($wallet['adminFeeTotal'] ?? 0) }}</strong>
-                        <p class="copy">Akumulasi potongan Rp5.000 dari setiap pembelian title.</p>
-                    </article>
-                    <article class="mini" data-glow-card>
-                        <span class="label">Antrian penarikan</span>
-                        <strong class="value" style="font-size:1.4rem;">{{ $formatIdr(($wallet['processingWithdrawalBalance'] ?? 0) + ($wallet['readyWithdrawalBalance'] ?? 0)) }}</strong>
-                        <p class="copy">Saldo yang sudah diminta tarik dan sedang diproses atau sudah siap dicairkan.</p>
-                    </article>
-                </div>
-
-                <div class="wallet-list">
-                    @forelse ($wallet['recentPayments'] ?? [] as $payment)
-                        <article class="item" data-glow-card>
-                            <div class="itemtop">
-                                <div>
-                                    <h3 style="font-size:1rem;">{{ $payment['buyer'] }}</h3>
-                                    <p class="listcopy">{{ $payment['mapKey'] }} &middot; {{ $formatIdr($payment['amount']) }} gross &middot; {{ $formatIdr($payment['sellerNetAmount']) }} net</p>
                                 </div>
-                                <span class="tag {{ optional($payment['frozenUntil'])->isFuture() ? 'amber' : 'emerald' }}">
-                                    {{ optional($payment['frozenUntil'])->isFuture() ? 'Beku sampai '.optional($payment['frozenUntil'])->format('d M H:i') : 'Sudah cair' }}
-                                </span>
                             </div>
-                            <span class="note">{{ $payment['merchantOrderId'] }} &middot; {{ optional($payment['paidAt'])->diffForHumans() ?? 'baru saja' }}</span>
-                        </article>
-                    @empty
-                        <p class="copy">Belum ada pembayaran title yang tercatat untuk server aktif ini.</p>
-                    @endforelse
+                        @endforeach
+
+                        <div class="project-box-wrapper" data-search="request penarikan vip title wallet saldo tarik">
+                            <div class="project-box" style="--project-bg:#fef3c7;--progress-accent:#d97706" id="wallet-card">
+                                <div class="project-box-header"><span>Wallet Action</span><button class="view-btn" type="button" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg></button></div>
+                                <div><p class="project-title">Request Penarikan</p><p class="project-subtitle">Total jual {{ $grossSalesAmount }}, saldo siap tarik {{ $availableBalanceAmount }}, biaya tarik {{ $formatIdr($wallet['withdrawalFee'] ?? 0) }}.</p></div>
+                                <div class="box-progress-wrapper"><p class="box-progress-header">Ready balance</p><div class="box-progress-bar"><span class="box-progress" style="width: {{ min(100, max(8, (int) round((($wallet['availableBalance'] ?? 0) / max(1, ($wallet['maturedBalance'] ?? 1))) * 100))) }}%"></span></div><p class="box-progress-percentage">{{ $formatIdr($wallet['availableBalance'] ?? 0) }}</p></div>
+                                @if (session('wallet_status'))<div class="flash-note">{{ session('wallet_status') }}</div>@endif
+                                @if ($errors->has('amount'))<div class="flash-note error">{{ $errors->first('amount') }}</div>@endif
+                                <form method="POST" action="{{ route('dashboard.wallet.withdrawals.store') }}" class="mini-form">@csrf
+                                    <input type="number" name="amount" min="{{ $minimumWithdrawalAmount }}" max="{{ $maximumWithdrawalAmount }}" step="1" value="{{ old('amount', max(0, (int) ($wallet['availableBalance'] ?? 0))) }}" placeholder="Contoh 50000">
+                                    <button type="submit" @disabled(($wallet['availableBalance'] ?? 0) <= ($wallet['withdrawalFee'] ?? 0))>Ajukan penarikan</button>
+                                    <p class="mini-help">VIP Title Wallet akan diproses 1 hari, lalu statusnya masuk siap ditarik manual.</p>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </section>
 
-            <aside class="stack">
-                <section class="panel" data-glow-card>
-                    <div class="top">
-                        <div>
-                            <span class="label" style="color:var(--amber)">Request Penarikan</span>
-                            <h2 style="margin-top:.35rem;">Tarik saldo dari penjualan title</h2>
-                            <p class="copy">Masukkan nominal yang mau ditarik dari saldo siap tarik. Nominal akan dikunci, diproses 1 hari, lalu pindah ke status siap ditarik manual.</p>
-                        </div>
-                        <span class="tag amber">{{ $formatIdr($wallet['withdrawalFee'] ?? 0) }} fee</span>
+                <div class="messages-section" id="activity-panel">
+                    <button class="messages-close" id="messagesClose"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg></button>
+                    <div class="section-header"><p>Player and bug reports</p></div>
+                    <div class="summary-grid">
+                        <div class="summary-card"><strong>VIP Title Wallet</strong><span>Total penjualan {{ $grossSalesAmount }}, fee admin {{ $adminFeeAmount }}, net {{ $netSalesAmount }}</span></div>
+                        <div class="summary-card"><strong>Request Penarikan</strong><span>{{ count($wallet['recentWithdrawals'] ?? []) }} request terakhir | siap {{ collect($wallet['recentWithdrawals'] ?? [])->where('status', 'ready')->count() }} | beku {{ $frozenBalanceAmount }}</span></div>
                     </div>
-
-                    <form method="POST" action="{{ route('dashboard.wallet.withdrawals.store') }}" class="wallet-form">
-                        @csrf
-                        <label>
-                            <span class="label">Nominal penarikan</span>
-                            <input type="number" name="amount" min="{{ $minimumWithdrawalAmount }}" max="{{ $maximumWithdrawalAmount }}" step="1" value="{{ old('amount', max(0, (int) ($wallet['availableBalance'] ?? 0))) }}" placeholder="Contoh 50000">
-                        </label>
-                        <div class="subgrid" style="margin-top:0;">
-                            <div class="box">
-                                <span class="label">Saldo tersedia</span>
-                                <strong style="display:block;margin-top:.4rem;">{{ $formatIdr($wallet['availableBalance'] ?? 0) }}</strong>
-                            </div>
-                            <div class="box">
-                                <span class="label">Biaya tarik</span>
-                                <strong style="display:block;margin-top:.4rem;">{{ $formatIdr($wallet['withdrawalFee'] ?? 0) }}</strong>
-                            </div>
-                            <div class="box">
-                                <span class="label">Matured</span>
-                                <strong style="display:block;margin-top:.4rem;">{{ $formatIdr($wallet['maturedBalance'] ?? 0) }}</strong>
-                            </div>
-                        </div>
-                        <button type="submit" class="button" @disabled(($wallet['availableBalance'] ?? 0) <= ($wallet['withdrawalFee'] ?? 0))>Ajukan penarikan</button>
-                    </form>
-                </section>
-
-                <section class="panel" data-glow-card>
-                    <div class="top">
-                        <div>
-                            <span class="label" style="color:var(--violet)">Riwayat Penarikan</span>
-                            <h2 style="margin-top:.35rem;">Status proses saldo keluar</h2>
-                            <p class="copy">Begitu request dibuat, saldo langsung dikunci. Setelah 1 hari statusnya otomatis berubah jadi siap ditarik.</p>
-                        </div>
-                        <span class="tag violet">{{ count($wallet['recentWithdrawals'] ?? []) }} item</span>
-                    </div>
-
-                    <div class="wallet-list">
-                        @forelse ($wallet['recentWithdrawals'] ?? [] as $withdrawal)
-                            <article class="item" data-glow-card>
-                                <div class="itemtop">
-                                    <div>
-                                        <h3 style="font-size:1rem;">{{ $formatIdr($withdrawal['grossAmount']) }}</h3>
-                                        <p class="listcopy">Net {{ $formatIdr($withdrawal['netAmount']) }} setelah biaya tarik {{ $formatIdr($withdrawal['withdrawalFeeAmount']) }}</p>
-                                    </div>
-                                    <span class="tag {{ $walletStatusTone($withdrawal['status']) }}">{{ $walletStatusLabel($withdrawal['status']) }}</span>
+                    <div class="messages">
+                        @forelse ($activityItems as $item)
+                            <div class="message-box">
+                                <span class="message-avatar">{{ $item['initials'] }}</span>
+                                <div class="message-content">
+                                    <div class="message-header"><p class="message-name">{{ $item['name'] }}</p><button class="view-btn" type="button" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg></button></div>
+                                    <p class="message-line">{{ $item['line'] }}</p>
+                                    <p class="message-line time">{{ $item['time'] }}</p>
                                 </div>
-                                <span class="note">
-                                    {{ $withdrawal['requesterName'] ?: 'User dashboard' }}
-                                    &middot;
-                                    Request {{ optional($withdrawal['requestedAt'])->diffForHumans() ?? '-' }}
-                                    &middot;
-                                    Ready {{ optional($withdrawal['readyAt'])->format('d M Y H:i') ?? '-' }}
-                                </span>
-                            </article>
+                            </div>
                         @empty
-                            <p class="copy">Belum ada request penarikan untuk server aktif ini.</p>
+                            <div class="message-box">
+                                <span class="message-avatar">LY</span>
+                                <div class="message-content">
+                                    <div class="message-header"><p class="message-name">Belum ada activity</p></div>
+                                    <p class="message-line">Saat alert, report, webhook, race, atau withdrawal mulai bergerak, panel ini akan otomatis terisi.</p>
+                                </div>
+                            </div>
                         @endforelse
                     </div>
-                </section>
-            </aside>
-        </section>
-
-        <section class="metrics">
-            @foreach ($stats as $stat)
-                <article class="metric" data-glow-card>
-                    <span class="label">{{ $stat['label'] === 'Tracked games' ? 'Tracked experiences' : $stat['label'] }}</span>
-                    <strong class="value">{{ $displayMetric($stat['value']) }}</strong>
-                    <p class="copy">{{ $stat['hint'] }}</p>
-                </article>
-            @endforeach
-        </section>
-
-        <div class="grid">
-            <section class="panel" data-glow-card>
-                <div class="top" style="margin-bottom:1rem;">
-                    <div>
-                        <span class="label" style="color:var(--cyan)">Ops alerts</span>
-                        <h2 style="margin-top:.35rem;">Stream insiden yang paling butuh perhatian</h2>
-                        <p class="copy">Severity, status, dan waktu kejadian sekarang dipadatkan supaya bisa dibaca dalam sekali scan.</p>
-                    </div>
-                    <span class="tag {{ $alertCount > 0 ? 'rose' : 'violet' }}">{{ $alertCount > 0 ? 'Need review' : '0 open' }}</span>
                 </div>
-
-                @if ($primaryAlert)
-                    <article class="mini" data-glow-card style="margin-bottom:1rem;">
-                        <div class="itemtop">
-                            <div>
-                                <span class="label" style="color:var(--cyan)">Primary incident</span>
-                                <h3 style="margin-top:.45rem;font-size:1.15rem;">{{ $primaryAlert->title }}</h3>
-                                <p class="copy">{{ $primaryAlert->message }}</p>
-                            </div>
-                            <span class="tag {{ $primaryAlert->severity === 'critical' ? 'rose' : ($primaryAlert->severity === 'warning' ? 'amber' : 'cyan') }}">{{ strtoupper($primaryAlert->severity) }}</span>
-                        </div>
-                        <div class="row" style="margin-top:.9rem;">
-                            <span class="chip">Source: {{ $primaryAlert->source }}</span>
-                            <span class="chip">Status: {{ ucfirst($primaryAlert->status) }}</span>
-                            <span class="chip">{{ optional($primaryAlert->occurred_at)->diffForHumans() }}</span>
-                        </div>
-                    </article>
-                @endif
-
-                <div class="stack">
-                    @forelse ($alerts as $alert)
-                        <article class="item" data-glow-card>
-                            <div class="itemtop">
-                                <div>
-                                    <h3 style="font-size:1rem;">{{ $alert->title }}</h3>
-                                    <p class="listcopy">{{ $alert->message }}</p>
-                                </div>
-                                <span class="tag {{ $alert->severity === 'critical' ? 'rose' : ($alert->severity === 'warning' ? 'amber' : 'cyan') }}">{{ ucfirst($alert->severity) }}</span>
-                            </div>
-                            <span class="note">{{ $alert->source }} &middot; {{ ucfirst($alert->status) }} &middot; {{ optional($alert->occurred_at)->diffForHumans() }}</span>
-                        </article>
-                    @empty
-                        <p class="copy">Belum ada alert aktif saat ini.</p>
-                    @endforelse
-                </div>
-            </section>
-
-            <section class="panel" data-glow-card>
-                <div class="top" style="margin-bottom:1rem;">
-                    <div>
-                        <span class="label" style="color:var(--emerald)">Reports desk</span>
-                        <h2 style="margin-top:.35rem;">Player and bug reports</h2>
-                        <p class="copy">Nama pelapor, target, prioritas, dan status kini lebih jelas tanpa blok yang saling bertabrakan.</p>
-                    </div>
-                    <span class="tag {{ $reportCount > 0 ? 'amber' : 'violet' }}">{{ $reportCount > 0 ? 'Active queue' : '0 queue' }}</span>
-                </div>
-
-                @if ($primaryReport)
-                    <article class="mini" data-glow-card style="margin-bottom:1rem;">
-                        <div class="itemtop">
-                            <div>
-                                <span class="label" style="color:var(--emerald)">Top priority</span>
-                                <h3 style="margin-top:.45rem;font-size:1.15rem;">{{ $primaryReport->reported_player_name }}</h3>
-                                <p class="copy">{{ $primaryReport->summary }}</p>
-                            </div>
-                            <span class="tag {{ $primaryReport->priority === 'high' ? 'rose' : ($primaryReport->priority === 'medium' ? 'amber' : 'cyan') }}">{{ strtoupper($primaryReport->priority) }}</span>
-                        </div>
-                        <div class="row" style="margin-top:.9rem;">
-                            <span class="chip">Reporter: {{ $primaryReport->reporter_name }}</span>
-                            <span class="chip">Category: {{ $primaryReport->category }}</span>
-                            <span class="chip">Status: {{ ucfirst($primaryReport->status) }}</span>
-                        </div>
-                    </article>
-                @endif
-
-                <div class="stack">
-                    @forelse ($reports as $report)
-                        <article class="item" data-glow-card>
-                            <div class="itemtop">
-                                <div>
-                                    <h3 style="font-size:1rem;">{{ $report->reported_player_name }}</h3>
-                                    <p class="listcopy">{{ $report->summary }}</p>
-                                </div>
-                                <span class="tag {{ $report->priority === 'high' ? 'rose' : ($report->priority === 'medium' ? 'amber' : 'cyan') }}">{{ ucfirst($report->priority) }}</span>
-                            </div>
-                            <span class="note">{{ $report->reporter_name }} &middot; {{ $report->category }} &middot; {{ ucfirst($report->status) }}</span>
-                        </article>
-                    @empty
-                        <p class="copy">Belum ada report yang masuk.</p>
-                    @endforelse
-                </div>
-            </section>
-        </div>
-
-        <div class="grid">
-            <section class="panel" data-glow-card>
-                <div class="top" style="margin-bottom:1rem;">
-                    <div>
-                        <span class="label" style="color:var(--violet)">Discord delivery</span>
-                        <h2 style="margin-top:.35rem;">Webhook dan pulse distribusi</h2>
-                        <p class="copy">Feed aktif, channel tujuan, dan last delivery sekarang tampil lebih ringkas dan rapih.</p>
-                    </div>
-                    <span class="tag violet">{{ $activeWebhookCount.' active' }}</span>
-                </div>
-
-                <div class="stack">
-                    @forelse ($webhooks as $webhook)
-                        <article class="item" data-glow-card>
-                            <div class="itemtop">
-                                <div>
-                                    <h3 style="font-size:1rem;">{{ $webhook->name }}</h3>
-                                    <p class="listcopy">{{ $webhook->channel_name }}</p>
-                                </div>
-                                <span class="tag {{ $webhook->is_active ? 'emerald' : 'violet' }}">{{ $webhook->is_active ? 'Active' : 'Paused' }}</span>
-                            </div>
-                            <span class="note">Last delivery &middot; {{ optional($webhook->last_delivered_at)->diffForHumans() ?? 'belum pernah kirim' }}</span>
-                        </article>
-                    @empty
-                        <p class="copy">Belum ada webhook yang tersimpan.</p>
-                    @endforelse
-                </div>
-            </section>
-
-            <section class="panel" data-glow-card>
-                <div class="top" style="margin-bottom:1rem;">
-                    <div>
-                        <span class="label" style="color:var(--amber)">Community flow</span>
-                        <h2 style="margin-top:.35rem;">Race desk dan langkah berikutnya</h2>
-                        <p class="copy">Bagian bawah kanan sekarang diisi event aktif dan next action supaya panel tidak terasa kosong.</p>
-                    </div>
-                    <span class="tag amber">{{ $raceCount.' open' }}</span>
-                </div>
-
-                <div class="stack">
-                    @forelse ($races as $race)
-                        <article class="item" data-glow-card>
-                            <div class="itemtop">
-                                <div>
-                                    <h3 style="font-size:1rem;">#{{ $race->id }} {{ $race->title }}</h3>
-                                    <p class="listcopy">{{ $race->participants_count }}/{{ $race->max_players }} player &middot; Entry {{ $race->entry_fee_robux }} R$</p>
-                                </div>
-                                <span class="tag {{ $race->status === 'registration_open' ? 'emerald' : 'violet' }}">{{ str_replace('_', ' ', ucfirst($race->status)) }}</span>
-                            </div>
-                            <span class="note">Race queue</span>
-                        </article>
-                    @empty
-                        <p class="copy">Belum ada race event yang aktif.</p>
-                    @endforelse
-                </div>
-
-                <div class="twins">
-                    <article class="mini" data-glow-card>
-                        <span class="label" style="color:var(--cyan)">Next move</span>
-                        <h3 style="margin-top:.45rem;font-size:1rem;">Buka setup yang relevan lebih cepat</h3>
-                        <p class="copy">Kartu aksi di atas sudah saya buat lebih seimbang supaya alur pindah dari dashboard ke setup terasa mulus.</p>
-                    </article>
-                    <article class="mini" data-glow-card>
-                        <span class="label" style="color:var(--emerald)">Server-aware</span>
-                        <h3 style="margin-top:.45rem;font-size:1rem;">Semua modul tetap nyambung ke guild aktif</h3>
-                        <p class="copy">Begitu server dipilih, konteks halaman ini tetap jelas dan tidak terasa seperti panel generik.</p>
-                    </article>
-                </div>
-            </section>
+            </div>
         </div>
     </div>
 
     <script>
-        document.querySelectorAll('[data-glow-card]').forEach((card) => {
-            const reset = () => {
-                card.style.setProperty('--mx', '50%');
-                card.style.setProperty('--my', '50%');
-            };
-
-            reset();
-
-            card.addEventListener('pointermove', (event) => {
-                const rect = card.getBoundingClientRect();
-                const x = ((event.clientX - rect.left) / rect.width) * 100;
-                const y = ((event.clientY - rect.top) / rect.height) * 100;
-
-                card.style.setProperty('--mx', `${x}%`);
-                card.style.setProperty('--my', `${y}%`);
+        (() => {
+            const root = document.getElementById('portfolioDashboard');
+            const themeSwitch = document.getElementById('themeSwitch');
+            const listView = root?.querySelector('.list-view');
+            const gridView = root?.querySelector('.grid-view');
+            const cards = document.getElementById('dashboardCards');
+            const search = document.getElementById('dashboardSearch');
+            const messagesPanel = document.getElementById('activity-panel');
+            document.getElementById('messagesBtn')?.addEventListener('click', () => messagesPanel?.classList.add('show'));
+            document.getElementById('messagesClose')?.addEventListener('click', () => messagesPanel?.classList.remove('show'));
+            themeSwitch?.addEventListener('click', () => { root.classList.toggle('is-dark'); root.classList.toggle('is-light'); });
+            listView?.addEventListener('click', () => { listView.classList.add('active'); gridView?.classList.remove('active'); cards?.classList.remove('jsGridView'); cards?.classList.add('jsListView'); });
+            gridView?.addEventListener('click', () => { gridView.classList.add('active'); listView?.classList.remove('active'); cards?.classList.remove('jsListView'); cards?.classList.add('jsGridView'); });
+            search?.addEventListener('input', (event) => {
+                const query = String(event.target.value || '').trim().toLowerCase();
+                cards?.querySelectorAll('.project-box-wrapper').forEach((card) => {
+                    const haystack = String(card.getAttribute('data-search') || '').toLowerCase();
+                    card.style.display = query === '' || haystack.includes(query) ? '' : 'none';
+                });
             });
-
-            card.addEventListener('pointerleave', reset);
-        });
-
-        const particleRoot = document.getElementById('dashParticles');
-        if (particleRoot) {
-            for (let i = 0; i < 26; i += 1) {
-                const particle = document.createElement('span');
-                particle.className = 'spark';
-                particle.style.left = `${Math.random() * 100}%`;
-                particle.style.top = `${55 + (Math.random() * 45)}%`;
-                particle.style.animationDuration = `${9 + Math.random() * 8}s`;
-                particle.style.animationDelay = `${Math.random() * 7}s`;
-                particle.style.opacity = `${0.18 + Math.random() * 0.34}`;
-                particleRoot.appendChild(particle);
-            }
-        }
+        })();
     </script>
 </x-layouts::app>
