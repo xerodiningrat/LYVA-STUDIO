@@ -3,12 +3,13 @@
 use Laravel\Fortify\Actions\DisableTwoFactorAuthentication;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
+use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Symfony\Component\HttpFoundation\Response;
 
-new #[Title('Two-factor authentication')] class extends Component {
+new #[Layout('layouts.settings-workspace')] #[Title('Two-factor authentication')] class extends Component {
     public bool $twoFactorEnabled;
 
     public bool $requiresConfirmation;
@@ -49,8 +50,6 @@ new #[Title('Two-factor authentication')] class extends Component {
 } ?>
 
 <section class="w-full">
-    @include('partials.settings-heading')
-
     <flux:heading class="sr-only">{{ __('Two-factor authentication settings') }}</flux:heading>
 
     <x-pages::settings.layout

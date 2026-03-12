@@ -1,23 +1,42 @@
-<div class="flex items-start max-md:flex-col">
-    <div class="me-10 w-full pb-4 md:w-[220px]">
-        <flux:navlist aria-label="{{ __('Settings') }}">
-            <flux:navlist.item :href="route('profile.edit')" wire:navigate>{{ __('Profile') }}</flux:navlist.item>
-            <flux:navlist.item :href="route('user-password.edit')" wire:navigate>{{ __('Password') }}</flux:navlist.item>
-            @if (Laravel\Fortify\Features::canManageTwoFactorAuthentication())
-                <flux:navlist.item :href="route('two-factor.show')" wire:navigate>{{ __('Two-factor auth') }}</flux:navlist.item>
-            @endif
-            <flux:navlist.item :href="route('appearance.edit')" wire:navigate>{{ __('Appearance') }}</flux:navlist.item>
-        </flux:navlist>
+@php
+    $settingsTabs = [
+        ['label' => __('Profile'), 'href' => route('profile.edit'), 'active' => request()->routeIs('profile.edit')],
+        ['label' => __('Password'), 'href' => route('user-password.edit'), 'active' => request()->routeIs('user-password.edit')],
+        ['label' => __('Appearance'), 'href' => route('appearance.edit'), 'active' => request()->routeIs('appearance.edit')],
+    ];
+
+    if (Laravel\Fortify\Features::canManageTwoFactorAuthentication()) {
+        array_splice($settingsTabs, 2, 0, [[
+            'label' => __('Two-factor auth'),
+            'href' => route('two-factor.show'),
+            'active' => request()->routeIs('two-factor.show'),
+        ]]);
+    }
+@endphp
+
+<div class="studio-panel" data-studio-hover>
+    <div class="studio-panel-header">
+        <div>
+            <span class="studio-label">Account Settings</span>
+            <h3 style="margin-top:.75rem;">{{ $heading ?? '' }}</h3>
+            <p class="studio-copy" style="margin-top:.45rem;">{{ $subheading ?? '' }}</p>
+        </div>
+        <span class="studio-pill">Workspace</span>
     </div>
 
-    <flux:separator class="md:hidden" />
+    <div class="studio-actions" style="margin-top:0;">
+        @foreach ($settingsTabs as $tab)
+            <a
+                href="{{ $tab['href'] }}"
+                wire:navigate
+                class="{{ $tab['active'] ? 'studio-button' : 'studio-button-ghost' }}"
+            >
+                {{ $tab['label'] }}
+            </a>
+        @endforeach
+    </div>
 
-    <div class="flex-1 self-stretch max-md:pt-6">
-        <flux:heading>{{ $heading ?? '' }}</flux:heading>
-        <flux:subheading>{{ $subheading ?? '' }}</flux:subheading>
-
-        <div class="mt-5 w-full max-w-lg">
-            {{ $slot }}
-        </div>
+    <div class="studio-card" data-studio-hover style="margin-top:1rem;">
+        {{ $slot }}
     </div>
 </div>
