@@ -44,37 +44,36 @@ new #[Layout('layouts.settings-workspace')] #[Title('Password settings')] class 
     <flux:heading class="sr-only">{{ __('Password settings') }}</flux:heading>
 
     <x-pages::settings.layout :heading="__('Update password')" :subheading="__('Ensure your account is using a long, random password to stay secure')">
-        <form method="POST" wire:submit="updatePassword" class="mt-6 space-y-6">
-            <flux:input
-                wire:model="current_password"
-                :label="__('Current password')"
-                type="password"
-                required
-                autocomplete="current-password"
-            />
-            <flux:input
-                wire:model="password"
-                :label="__('New password')"
-                type="password"
-                required
-                autocomplete="new-password"
-            />
-            <flux:input
-                wire:model="password_confirmation"
-                :label="__('Confirm password')"
-                type="password"
-                required
-                autocomplete="new-password"
-            />
-
-            <div class="flex items-center gap-4">
-                <div class="flex items-center justify-end">
-                    <flux:button variant="primary" type="submit" class="w-full" data-test="update-password-button">
-                        {{ __('Save') }}
-                    </flux:button>
+        <form method="POST" wire:submit="updatePassword" class="settings-form-shell">
+            <div class="settings-form-grid">
+                <div class="studio-field">
+                    <label for="current_password">{{ __('Current password') }}</label>
+                    <input id="current_password" wire:model="current_password" class="studio-input" type="password" required autocomplete="current-password">
+                    @error('current_password')
+                        <span class="settings-error">{{ $message }}</span>
+                    @enderror
                 </div>
 
-                <x-action-message class="me-3" on="password-updated">
+                <div class="studio-field">
+                    <label for="new_password">{{ __('New password') }}</label>
+                    <input id="new_password" wire:model="password" class="studio-input" type="password" required autocomplete="new-password">
+                    @error('password')
+                        <span class="settings-error">{{ $message }}</span>
+                    @enderror
+                </div>
+
+                <div class="studio-field">
+                    <label for="password_confirmation">{{ __('Confirm password') }}</label>
+                    <input id="password_confirmation" wire:model="password_confirmation" class="studio-input" type="password" required autocomplete="new-password">
+                </div>
+            </div>
+
+            <div class="settings-form-actions">
+                <button type="submit" class="studio-button" data-test="update-password-button">
+                    {{ __('Save password') }}
+                </button>
+
+                <x-action-message class="settings-status" on="password-updated">
                     {{ __('Saved.') }}
                 </x-action-message>
             </div>

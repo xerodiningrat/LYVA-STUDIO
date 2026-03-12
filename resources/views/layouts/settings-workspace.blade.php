@@ -13,6 +13,57 @@
                 gap: 1.25rem;
             }
 
+            .settings-form-shell {
+                display: grid;
+                gap: 1rem;
+            }
+
+            .settings-form-grid {
+                display: grid;
+                gap: 1rem;
+            }
+
+            .settings-form-actions {
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: .85rem;
+                margin-top: .25rem;
+            }
+
+            .settings-status {
+                display: inline-flex;
+                align-items: center;
+                gap: .45rem;
+                padding: .5rem .8rem;
+                border-radius: 999px;
+                background: rgba(130, 255, 191, .1);
+                color: #82ffbf;
+                font-size: .8rem;
+                font-weight: 700;
+            }
+
+            .settings-status::before {
+                content: "";
+                width: .48rem;
+                height: .48rem;
+                border-radius: 999px;
+                background: currentColor;
+                box-shadow: 0 0 12px currentColor;
+            }
+
+            .settings-error {
+                color: var(--studio-danger);
+                font-size: .82rem;
+                line-height: 1.55;
+            }
+
+            .settings-danger-panel {
+                margin-top: 1.2rem;
+                padding-top: 1.2rem;
+                border-top: 1px solid rgba(255,255,255,.08);
+            }
+
             .settings-shell-top {
                 display: grid;
                 gap: 1rem;

@@ -80,39 +80,51 @@ new #[Layout('layouts.settings-workspace')] #[Title('Profile settings')] class e
     <flux:heading class="sr-only">{{ __('Profile settings') }}</flux:heading>
 
     <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Update your name and email address')">
-        <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
-            <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
+        <form wire:submit="updateProfileInformation" class="settings-form-shell">
+            <div class="settings-form-grid">
+                <div class="studio-field">
+                    <label for="profile_name">{{ __('Name') }}</label>
+                    <input id="profile_name" wire:model="name" class="studio-input" type="text" required autofocus autocomplete="name">
+                    @error('name')
+                        <span class="settings-error">{{ $message }}</span>
+                    @enderror
+                </div>
 
-            <div>
-                <flux:input wire:model="email" :label="__('Email')" type="email" required autocomplete="email" />
+                <div class="studio-field">
+                    <label for="profile_email">{{ __('Email') }}</label>
+                    <input id="profile_email" wire:model="email" class="studio-input" type="email" required autocomplete="email">
+                    @error('email')
+                        <span class="settings-error">{{ $message }}</span>
+                    @enderror
+                </div>
+            </div>
 
+            <div class="studio-field">
                 @if ($this->hasUnverifiedEmail)
-                    <div>
-                        <flux:text class="mt-4">
+                    <div class="studio-notice" data-studio-hover>
+                        <p class="studio-copy" style="margin:0;">
                             {{ __('Your email address is unverified.') }}
 
-                            <flux:link class="text-sm cursor-pointer" wire:click.prevent="resendVerificationNotification">
+                            <button type="button" class="studio-button-ghost" wire:click.prevent="resendVerificationNotification" style="margin-left:.65rem;">
                                 {{ __('Click here to re-send the verification email.') }}
-                            </flux:link>
-                        </flux:text>
+                            </button>
+                        </p>
 
                         @if (session('status') === 'verification-link-sent')
-                            <flux:text class="mt-2 font-medium !dark:text-green-400 !text-green-600">
+                            <p class="studio-copy" style="margin:.75rem 0 0;color:#82ffbf;">
                                 {{ __('A new verification link has been sent to your email address.') }}
-                            </flux:text>
+                            </p>
                         @endif
                     </div>
                 @endif
             </div>
 
-            <div class="flex items-center gap-4">
-                <div class="flex items-center justify-end">
-                    <flux:button variant="primary" type="submit" class="w-full" data-test="update-profile-button">
-                        {{ __('Save') }}
-                    </flux:button>
-                </div>
+            <div class="settings-form-actions">
+                <button type="submit" class="studio-button" data-test="update-profile-button">
+                    {{ __('Save changes') }}
+                </button>
 
-                <x-action-message class="me-3" on="profile-updated">
+                <x-action-message class="settings-status" on="profile-updated">
                     {{ __('Saved.') }}
                 </x-action-message>
             </div>
