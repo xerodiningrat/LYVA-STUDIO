@@ -341,6 +341,33 @@ export async function createLaravelVipTitleCheckout(config, payload) {
   return response.json();
 }
 
+export async function fetchLaravelVipTitlePaymentMethods(config, params = {}) {
+  if (!config.internalToken) {
+    return null;
+  }
+
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      query.set(key, String(value));
+    }
+  }
+
+  const response = await requestLaravel(`${config.botApiUrl}/api/bot/vip-title-payment-methods?${query.toString()}`, {
+    headers: {
+      'Accept': 'application/json',
+      'X-Bot-Token': config.internalToken,
+    },
+  }, 'mengambil metode pembayaran VIP title');
+
+  if (!response.ok) {
+    const message = await readLaravelErrorMessage(response, 'Laravel metode pembayaran VIP title gagal.');
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
 export async function fetchLaravelVipTitleMaps(config) {
   if (!config.internalToken) {
     return null;

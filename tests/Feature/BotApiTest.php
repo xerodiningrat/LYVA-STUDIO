@@ -195,6 +195,7 @@ test('bot can create duitku vip title checkout', function () {
         'requested_title' => 'Sky King',
         'discord_user_id' => '777',
         'discord_tag' => 'Buyer#1234',
+        'payment_method' => 'VC',
     ]);
 
     $response
@@ -206,6 +207,59 @@ test('bot can create duitku vip title checkout', function () {
 
     expect(VipTitleClaim::query()->count())->toBe(1);
     expect(VipTitlePayment::query()->count())->toBe(1);
+});
+
+test('bot can fetch duitku payment methods for vip title', function () {
+    config()->set('services.discord.internal_token', 'shared-secret');
+    config()->set('services.duitku.merchant_code', 'D1234');
+    config()->set('services.duitku.api_key', 'secret-key');
+    config()->set('services.duitku.sandbox', true);
+
+    Http::fake([
+        'https://sandbox.duitku.com/webapi/api/merchant/paymentmethod/getpaymentmethod' => Http::response([
+            'paymentFee' => [
+                [
+                    'paymentMethod' => 'VC',
+                    'paymentName' => 'Virtual Account',
+                    'paymentFee' => '4000',
+                    'totalFee' => '19000',
+                ],
+                [
+                    'paymentMethod' => 'QRIS',
+                    'paymentName' => 'QRIS',
+                    'paymentFee' => '1500',
+                    'totalFee' => '16500',
+                ],
+            ],
+        ]),
+    ]);
+
+    VipTitleMapSetting::query()->create([
+        'name' => 'Mount Xyra Paid',
+        'map_key' => 'mountxyra-paid',
+        'gamepass_id' => 0,
+        'claim_mode' => 'duitku',
+        'api_key' => 'lyva_paid_secret',
+        'title_slot' => 10,
+        'title_price_idr' => 15000,
+        'payment_expiry_minutes' => 90,
+        'button_label' => 'Beli Title',
+        'place_ids' => ['76880221507840'],
+        'script_access_role_ids' => [],
+        'is_active' => true,
+    ]);
+
+    $response = $this->withHeaders([
+        'X-Bot-Token' => 'shared-secret',
+    ])->getJson(route('api.bot.vip-title-payment-methods.index', [
+        'map_key' => 'mountxyra-paid',
+    ]));
+
+    $response
+        ->assertOk()
+        ->assertJsonPath('amount', 15000)
+        ->assertJsonPath('items.0.paymentMethod', 'VC')
+        ->assertJsonPath('items.1.paymentMethod', 'QRIS');
 });
 
 test('bot can still create vip title claim when map also has idr price', function () {

@@ -29,6 +29,7 @@ Route::patch('/bot/races/{event}', [BotRaceEventController::class, 'update'])->n
 Route::post('/bot/races/{event}/join', [BotRaceRegistrationController::class, 'store'])->name('api.bot.races.join');
 Route::get('/bot/vip-title-maps', [VipTitleClaimController::class, 'maps'])->name('api.bot.vip-title-maps.index');
 Route::get('/bot/vip-title-claims', [VipTitleClaimController::class, 'index'])->name('api.bot.vip-title-claims.index');
+Route::get('/bot/vip-title-payment-methods', [VipTitleClaimController::class, 'paymentMethods'])->name('api.bot.vip-title-payment-methods.index');
 Route::post('/bot/vip-title-claims', [VipTitleClaimController::class, 'store'])->name('api.bot.vip-title-claims.store');
 Route::post('/bot/vip-title-checkouts', [VipTitleClaimController::class, 'checkout'])->name('api.bot.vip-title-checkouts.store');
 Route::post('/roblox/vip-title-claims/pull', [VipTitleClaimController::class, 'pull'])->name('api.roblox.vip-title-claims.pull');

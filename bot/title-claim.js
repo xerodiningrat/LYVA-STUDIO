@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -14,7 +15,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from 'discord.js';
-import { createLaravelVipTitleCheckout, createLaravelVipTitleClaim, fetchLaravelVipTitleClaims, fetchLaravelVipTitleMaps } from './laravel-api.js';
+import { createLaravelVipTitleCheckout, createLaravelVipTitleClaim, fetchLaravelVipTitleClaims, fetchLaravelVipTitleMaps, fetchLaravelVipTitlePaymentMethods } from './laravel-api.js';
 
 const TITLE_PANEL_BUTTON_PREFIX = 'title_claim_open:';
 const TITLE_BUY_BUTTON_PREFIX = 'title_buy_open:';
@@ -22,6 +23,7 @@ const TITLE_SCRIPT_BUTTON_PREFIX = 'title_claim_script:';
 const TITLE_CLAIM_MODAL_PREFIX = 'title_claim_modal:';
 const TITLE_BUY_MODAL_PREFIX = 'title_buy_modal:';
 const TITLE_SETUP_SELECT_PREFIX = 'title_setup_map_select:';
+const TITLE_PAYMENT_SELECT_PREFIX = 'title_payment_select:';
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(MODULE_DIR, '..');
 const CLAIMS_PATH = path.join(PROJECT_ROOT, 'data', 'vip-title-claims.json');
@@ -31,6 +33,8 @@ const USER_LOOKUP_CACHE_TTL_MS = 5 * 60 * 1000;
 const VIP_CHECK_CACHE_TTL_MS = 2 * 60 * 1000;
 const userLookupCache = new Map();
 const vipOwnershipCache = new Map();
+const paymentMethodSessionCache = new Map();
+const PAYMENT_METHOD_SESSION_TTL_MS = 10 * 60 * 1000;
 
 function canManage(interaction) {
   return (
@@ -101,6 +105,12 @@ function setCached(map, key, value, ttlMs) {
     value,
     expiresAt: Date.now() + ttlMs,
   });
+}
+
+function createPaymentMethodSession(payload) {
+  const sessionId = randomUUID().replace(/-/g, '').slice(0, 24);
+  setCached(paymentMethodSessionCache, sessionId, payload, PAYMENT_METHOD_SESSION_TTL_MS);
+  return sessionId;
 }
 
 async function fetchWithRetry(url, options = {}, label = 'request') {
@@ -225,12 +235,24 @@ function buildTitleSetupSelectId(channelId) {
   return `${TITLE_SETUP_SELECT_PREFIX}${channelId}`;
 }
 
+function buildTitlePaymentSelectId(sessionId) {
+  return `${TITLE_PAYMENT_SELECT_PREFIX}${sessionId}`;
+}
+
 function parseTitleSetupSelectChannelId(customId) {
   if (!String(customId || '').startsWith(TITLE_SETUP_SELECT_PREFIX)) {
     return '';
   }
 
   return String(customId).slice(TITLE_SETUP_SELECT_PREFIX.length);
+}
+
+function parseTitlePaymentSelectId(customId) {
+  if (!String(customId || '').startsWith(TITLE_PAYMENT_SELECT_PREFIX)) {
+    return '';
+  }
+
+  return String(customId).slice(TITLE_PAYMENT_SELECT_PREFIX.length);
 }
 
 function normalizeMapConfig(rawMap = {}) {
@@ -474,6 +496,44 @@ function buildPaymentCheckoutEmbed(username, title, mapConfig, payment) {
       { name: 'Status', value: 'Menunggu pembayaran', inline: true },
     )
     .setFooter({ text: 'Setelah pembayaran sukses, title akan masuk otomatis ke antrian Roblox.' });
+}
+
+function normalizePaymentMethodOption(method = {}, baseAmount = 0) {
+  const paymentMethod = String(method.paymentMethod || '').trim();
+  if (!paymentMethod) {
+    return null;
+  }
+
+  const totalFee = Number(method.totalFee ?? method.paymentAmount ?? baseAmount);
+  const fee = Number(method.paymentFee ?? 0);
+
+  return {
+    paymentMethod,
+    paymentName: String(method.paymentName || paymentMethod).trim() || paymentMethod,
+    totalFee: Number.isFinite(totalFee) && totalFee > 0 ? totalFee : baseAmount,
+    fee: Number.isFinite(fee) && fee >= 0 ? fee : 0,
+  };
+}
+
+function buildPaymentMethodSelectEmbed(mapConfig, username, title, amount, methods, warning = null) {
+  const lines = methods.slice(0, 10).map((method, index) => (
+    `${index + 1}. **${method.paymentName}** - ${formatIdr(method.totalFee)}`
+  ));
+
+  return new EmbedBuilder()
+    .setColor(0x0ea5e9)
+    .setTitle('Pilih Metode Pembayaran')
+    .setDescription(
+      [
+        `Checkout untuk **@${username}** di map **${mapConfig.name}**.`,
+        `Custom title: **${title}**`,
+        `Harga dasar: **${formatIdr(amount)}**`,
+        warning || 'Pilih salah satu metode pembayaran Duitku di bawah ini.',
+        '',
+        ...lines,
+      ].join('\n'),
+    )
+    .setFooter({ text: 'Daftar metode berasal dari channel pembayaran aktif di Duitku.' });
 }
 
 function getRobloxTemplatePaths() {
@@ -821,6 +881,74 @@ export async function handleTitileComponent(interaction, config) {
     return true;
   }
 
+  if (interaction.isStringSelectMenu() && interaction.customId.startsWith(TITLE_PAYMENT_SELECT_PREFIX)) {
+    const sessionId = parseTitlePaymentSelectId(interaction.customId);
+    const session = getCached(paymentMethodSessionCache, sessionId);
+    if (!session) {
+      await interaction.update({
+        content: 'Sesi pembayaran sudah kadaluarsa. Klik `Beli Title` lagi dari panel.',
+        embeds: [],
+        components: [],
+      });
+      return true;
+    }
+
+    const paymentMethod = String(interaction.values?.[0] || '').trim();
+    const selectedMethod = (session.methods || []).find((method) => method.paymentMethod === paymentMethod);
+    if (!selectedMethod) {
+      await interaction.update({
+        content: 'Metode pembayaran tidak valid. Coba pilih ulang dari panel.',
+        embeds: [],
+        components: [],
+      });
+      return true;
+    }
+
+    try {
+      const checkout = await createLaravelVipTitleCheckout(config, {
+        map_key: session.mapKey,
+        roblox_user_id: session.robloxUserId,
+        roblox_username: session.robloxUsername,
+        requested_title: session.requestedTitle,
+        discord_user_id: session.discordUserId,
+        discord_tag: session.discordTag,
+        payment_method: paymentMethod,
+        meta: {
+          source: 'discord-bot',
+          payment_method_name: selectedMethod.paymentName,
+        },
+      });
+
+      const paymentUrl = checkout?.payment?.paymentUrl;
+      if (!paymentUrl) {
+        throw new Error('Duitku belum mengembalikan payment URL.');
+      }
+
+      paymentMethodSessionCache.delete(sessionId);
+
+      await interaction.update({
+        content: session.lookupWarning ?? null,
+        embeds: [buildPaymentCheckoutEmbed(session.robloxUsername, session.requestedTitle, session.mapConfig, {
+          ...checkout.payment,
+          amount: selectedMethod.totalFee || checkout.payment.amount,
+        })],
+        components: [
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setLabel(`Bayar via ${selectedMethod.paymentName}`).setStyle(ButtonStyle.Link).setURL(paymentUrl),
+          ),
+        ],
+      });
+    } catch (error) {
+      await interaction.update({
+        content: truncateDiscordContent(`Gagal buat checkout pembayaran: ${error.message}`),
+        embeds: [],
+        components: [],
+      });
+    }
+
+    return true;
+  }
+
   if (!interaction.isButton()) {
     return false;
   }
@@ -1005,36 +1133,57 @@ export async function handleTitileModal(interaction, config) {
       });
       return true;
     }
-    const lookupWarning = robloxUser.userId === 0
-      ? 'Lookup Roblox sedang timeout dari server, jadi checkout lanjut pakai username yang kamu isi. Pastikan username Roblox benar.'
-      : null;
-
     try {
-      const checkout = await createLaravelVipTitleCheckout(config, {
+      const paymentMethodResponse = await fetchLaravelVipTitlePaymentMethods(config, {
         map_key: mapKey,
-        roblox_user_id: robloxUser.userId,
-        roblox_username: robloxUser.username,
-        requested_title: titleCheck.title,
-        discord_user_id: interaction.user.id,
-        discord_tag: interaction.user.tag,
-        meta: {
-          source: 'discord-bot',
-        },
       });
 
-      const paymentUrl = checkout?.payment?.paymentUrl;
-      if (!paymentUrl) {
-        throw new Error('Duitku belum mengembalikan payment URL.');
+      const methods = (paymentMethodResponse?.items || [])
+        .map((item) => normalizePaymentMethodOption(item, mapConfig.titlePriceIdr))
+        .filter(Boolean)
+        .slice(0, 25);
+
+      if (methods.length === 0) {
+        throw new Error('Metode pembayaran Duitku untuk nominal ini belum tersedia.');
       }
 
+      const sessionId = createPaymentMethodSession({
+        mapKey,
+        mapConfig,
+        robloxUserId: robloxUser.userId,
+        robloxUsername: robloxUser.username,
+        requestedTitle: titleCheck.title,
+        discordUserId: interaction.user.id,
+        discordTag: interaction.user.tag,
+        lookupWarning: robloxUser.userId === 0
+          ? 'Lookup Roblox sedang timeout dari server, jadi checkout lanjut pakai username yang kamu isi. Pastikan username Roblox benar.'
+          : null,
+        methods,
+      });
+
+      const select = new StringSelectMenuBuilder()
+        .setCustomId(buildTitlePaymentSelectId(sessionId))
+        .setPlaceholder('Pilih metode pembayaran Duitku')
+        .addOptions(methods.map((method) =>
+          new StringSelectMenuOptionBuilder()
+            .setLabel(truncateForComponent(method.paymentName))
+            .setDescription(truncateForComponent(`${formatIdr(method.totalFee)} | Kode: ${method.paymentMethod}`))
+            .setValue(method.paymentMethod),
+        ));
+
       await interaction.editReply({
-        content: lookupWarning ?? undefined,
-        embeds: [buildPaymentCheckoutEmbed(robloxUser.username, titleCheck.title, mapConfig, checkout.payment)],
-        components: [
-          new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setLabel('Bayar via Duitku').setStyle(ButtonStyle.Link).setURL(paymentUrl),
-          ),
-        ],
+        content: undefined,
+        embeds: [buildPaymentMethodSelectEmbed(
+          mapConfig,
+          robloxUser.username,
+          titleCheck.title,
+          mapConfig.titlePriceIdr,
+          methods,
+          robloxUser.userId === 0
+            ? 'Lookup Roblox sedang timeout dari server, jadi checkout akan lanjut pakai username yang kamu isi.'
+            : null,
+        )],
+        components: [new ActionRowBuilder().addComponents(select)],
       });
     } catch (error) {
       await interaction.editReply({

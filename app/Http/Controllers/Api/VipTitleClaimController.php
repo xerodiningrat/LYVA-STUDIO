@@ -84,6 +84,7 @@ class VipTitleClaimController extends Controller
             'discord_user_id' => ['nullable', 'string', 'max:255'],
             'discord_tag' => ['nullable', 'string', 'max:255'],
             'buyer_email' => ['nullable', 'email:rfc,dns', 'max:255'],
+            'payment_method' => ['required', 'string', 'max:32'],
             'meta' => ['nullable', 'array'],
         ]);
 
@@ -142,6 +143,7 @@ class VipTitleClaimController extends Controller
         try {
             $checkout = $duitku->createTransaction([
                 'paymentAmount' => $amount,
+                'paymentMethod' => $validated['payment_method'],
                 'merchantOrderId' => $merchantOrderId,
                 'productDetails' => sprintf('VIP Title %s - %s', $mapSetting->name, $title),
                 'merchantUserInfo' => $validated['discord_tag'] ?? $validated['roblox_username'],
@@ -193,10 +195,44 @@ class VipTitleClaimController extends Controller
                 'merchantOrderId' => $merchantOrderId,
                 'amount' => $payment->amount,
                 'paymentUrl' => $payment->payment_url,
+                'paymentMethod' => $payment->payment_method,
                 'reference' => $payment->duitku_reference,
                 'expiresAt' => $payment->expires_at,
             ],
         ], 201);
+    }
+
+    public function paymentMethods(Request $request, DuitkuService $duitku): JsonResponse
+    {
+        abort_unless($this->hasBotToken($request), 401);
+
+        $validated = $request->validate([
+            'map_key' => ['required', 'string', 'max:64'],
+        ]);
+
+        $mapSetting = $this->resolveActiveMapSetting($validated['map_key']);
+        if (! $mapSetting) {
+            return response()->json([
+                'message' => sprintf('Map key "%s" belum aktif di dashboard VIP Title.', $this->normalizeMapKey($validated['map_key'])),
+            ], 422);
+        }
+
+        if (! $this->usesPaidCheckout($mapSetting)) {
+            return response()->json([
+                'message' => 'Map ini belum mengaktifkan pembelian title via Duitku.',
+            ], 422);
+        }
+
+        $amount = (int) ($mapSetting->title_price_idr ?? 0);
+        $response = $duitku->getPaymentMethods($amount);
+
+        return response()->json([
+            'amount' => $amount,
+            'items' => collect($response['paymentFee'])
+                ->filter(fn ($item) => is_array($item) && ! empty($item['paymentMethod']))
+                ->values()
+                ->all(),
+        ]);
     }
 
     public function store(Request $request): JsonResponse

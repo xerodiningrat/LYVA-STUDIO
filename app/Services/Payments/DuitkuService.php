@@ -54,6 +54,32 @@ class DuitkuService
         return $json;
     }
 
+    public function getPaymentMethods(int $amount): array
+    {
+        if ($amount <= 0) {
+            throw new RuntimeException('Nominal pembayaran tidak valid.');
+        }
+
+        $merchantCode = $this->merchantCode();
+        $apiKey = $this->apiKey();
+        $datetime = now('Asia/Jakarta')->format('Y-m-d H:i:s');
+
+        $response = $this->request($this->paymentMethodUrl(), [
+            'merchantcode' => $merchantCode,
+            'amount' => $amount,
+            'datetime' => $datetime,
+            'signature' => hash('sha256', $merchantCode.$amount.$datetime.$apiKey),
+        ]);
+
+        $json = $response->json();
+
+        if (! is_array($json) || ! isset($json['paymentFee']) || ! is_array($json['paymentFee'])) {
+            throw new RuntimeException('Duitku tidak mengembalikan daftar payment method yang valid.');
+        }
+
+        return $json;
+    }
+
     public function checkTransaction(string $merchantOrderId): array
     {
         $merchantCode = $this->merchantCode();
@@ -124,6 +150,13 @@ class DuitkuService
         return $this->isSandbox()
             ? 'https://sandbox.duitku.com/webapi/api/merchant/transactionStatus'
             : 'https://passport.duitku.com/webapi/api/merchant/transactionStatus';
+    }
+
+    private function paymentMethodUrl(): string
+    {
+        return $this->isSandbox()
+            ? 'https://sandbox.duitku.com/webapi/api/merchant/paymentmethod/getpaymentmethod'
+            : 'https://passport.duitku.com/webapi/api/merchant/paymentmethod/getpaymentmethod';
     }
 
     private function merchantCode(): string
