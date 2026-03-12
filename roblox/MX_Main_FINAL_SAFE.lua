@@ -60,6 +60,7 @@ local CONFIG = {
 }
 
 local SPAWN_SUMMIT_ATTR = "SpawnAtSummit"
+local LAST_CHECKPOINT_ATTR = "MX_LastCheckpoint"
 
 local ROLES = {
 	DEVELOPER      = { 9006398922, 7301115202, 8500880086 },
@@ -246,7 +247,8 @@ local function teleportToSavedCheckpointOrSummit(player:Player, character:Model)
 	end
 
 	local displayCp, _, runCp = ensureLeaderstats(player)
-	local cpIndex = tonumber(runCp.Value) or 0
+	local attrCp = tonumber(player:GetAttribute(LAST_CHECKPOINT_ATTR)) or 0
+	local cpIndex = math.max(tonumber(runCp.Value) or 0, attrCp)
 	if cpIndex <= 0 then
 		cpIndex = displayCp.Value
 	end
@@ -509,6 +511,15 @@ local function applyCustomTitlesFromData(player: Player)
 	end
 end
 
+local function patchCachedProfile(userId: number, patcher: (table) -> ())
+	local cached = Data:GetCached(userId)
+	if typeof(cached) ~= "table" then
+		return
+	end
+
+	patcher(cached)
+end
+
 local rgbRefreshCooldown = {}
 local applyRgbMetaToPlayer
 
@@ -590,6 +601,41 @@ local function scheduleCharacterTitleRefresh(player: Player, character: Model, p
 			end
 
 			hydratePlayerTitle(player, profile)
+		end)
+	end
+end
+
+local function scheduleRespawnTitleRecovery(player: Player, character: Model, profile: table?)
+	for _, delaySeconds in ipairs({
+		CONFIG.SPAWN_FREEZE_TIME + 0.08,
+		CONFIG.SPAWN_FREEZE_TIME + 0.35,
+		1.1,
+		2.1,
+	}) do
+		task.delay(delaySeconds, function()
+			if not player or not player:IsDescendantOf(Players) then
+				return
+			end
+
+			if player.Character ~= character or not character.Parent then
+				return
+			end
+
+			local head = character:FindFirstChild("Head")
+			local hrp = character:FindFirstChild("HumanoidRootPart")
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			if not head or not hrp or not humanoid or humanoid.Health <= 0 then
+				return
+			end
+
+			if typeof(profile) == "table" then
+				applyCustomTitlesFromProfile(player, profile)
+			else
+				applyCustomTitlesFromData(player)
+			end
+
+			applyRgbMetaToPlayer(player)
+			safeRefreshTitle(player)
 		end)
 	end
 end
@@ -928,8 +974,13 @@ local function onCheckpointTouched(player:Player, cpIndex:number)
 
 		runCp.Value = 1
 		displayCp.Value = 1
+		player:SetAttribute(LAST_CHECKPOINT_ATTR, 1)
 
 		player:SetAttribute(SPAWN_SUMMIT_ATTR, false)
+		patchCachedProfile(uid, function(cached)
+			cached.checkpoint = 1
+			cached.spawnAtSummit = false
+		end)
 		Data:Save(uid, { checkpoint=1, spawnAtSummit=false })
 
 		lastPopupForCp[uid]=0
@@ -948,7 +999,12 @@ local function onCheckpointTouched(player:Player, cpIndex:number)
 
 	runCp.Value = cpIndex
 	displayCp.Value = cpIndex
+	player:SetAttribute(LAST_CHECKPOINT_ATTR, cpIndex)
 
+	patchCachedProfile(uid, function(cached)
+		cached.checkpoint = cpIndex
+		cached.spawnAtSummit = false
+	end)
 	Data:Save(uid, { checkpoint=cpIndex })
 	tryPopupCP(player, cpIndex)
 end
@@ -969,9 +1025,15 @@ local function finishRun(player:Player)
 	sum.Value += 250
 	runCp.Value = 0
 	displayCp.Value = sum.Value
+	player:SetAttribute(LAST_CHECKPOINT_ATTR, 0)
 
 	player:SetAttribute(SPAWN_SUMMIT_ATTR, true)
 
+	patchCachedProfile(uid, function(cached)
+		cached.summits = sum.Value
+		cached.checkpoint = 0
+		cached.spawnAtSummit = true
+	end)
 	Data:Save(uid, {
 		summits = sum.Value,
 		checkpoint = 0,
@@ -1042,6 +1104,7 @@ local function setupPlayer(player:Player)
 
 		sum.Value = savedSum
 		runCp.Value = savedCp
+		player:SetAttribute(LAST_CHECKPOINT_ATTR, savedCp)
 
 		local spawnSummit = (d.spawnAtSummit == true)
 		player:SetAttribute(SPAWN_SUMMIT_ATTR, spawnSummit)
@@ -1056,6 +1119,7 @@ local function setupPlayer(player:Player)
 		applyCustomTitlesFromProfile(player, d)
 		scheduleTitleHydration(player, d)
 	else
+		player:SetAttribute(LAST_CHECKPOINT_ATTR, 0)
 		loadedOk[player.UserId] = nil
 		warn("[MX] DS LOAD FAILED:", player.Name, player.UserId)
 		notifyPlayer(player, "DATA STORE LAG/ERROR. COBA REJOIN.")
@@ -1077,6 +1141,7 @@ local function setupPlayer(player:Player)
 		if player.Character then
 			scheduleTitleHydration(player, d)
 			scheduleCharacterTitleRefresh(player, player.Character, d)
+			scheduleRespawnTitleRecovery(player, player.Character, d)
 		end
 	end)
 
@@ -1099,6 +1164,10 @@ local function setupPlayer(player:Player)
 		local cached = Data:GetCached(player.UserId)
 		if cached then
 			applyCustomTitlesFromProfile(player, cached)
+			local cachedCheckpoint = math.clamp(tonumber(cached.checkpoint) or 0, 0, TOTAL_CHECKPOINTS)
+			if cachedCheckpoint > 0 then
+				player:SetAttribute(LAST_CHECKPOINT_ATTR, math.max(tonumber(runCp.Value) or 0, cachedCheckpoint))
+			end
 			if cached.spawnAtSummit ~= nil then
 				player:SetAttribute(SPAWN_SUMMIT_ATTR, cached.spawnAtSummit == true)
 			end
@@ -1106,6 +1175,7 @@ local function setupPlayer(player:Player)
 
 		scheduleTitleHydration(player, cached)
 		scheduleCharacterTitleRefresh(player, char, cached)
+		scheduleRespawnTitleRecovery(player, char, cached)
 
 		if player:GetAttribute(SPAWN_SUMMIT_ATTR) ~= true and runCp.Value > 0 then
 			task.delay(0.25, function()
@@ -1126,6 +1196,7 @@ local function setupPlayer(player:Player)
 		local cached = Data:GetCached(player.UserId)
 		scheduleTitleHydration(player, cached)
 		scheduleCharacterTitleRefresh(player, char, cached)
+		scheduleRespawnTitleRecovery(player, char, cached)
 	end)
 end
 
