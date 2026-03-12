@@ -47,3 +47,17 @@ test('guild picker blocks selecting a guild when the bot has not joined yet', fu
 
     $response->assertForbidden();
 });
+
+test('guild picker restores the previously selected guild when session guilds are missing', function () {
+    $user = User::factory()->create([
+        'discord_user_id' => 'discord-123',
+        'selected_guild_id' => '999',
+    ]);
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('guilds.select'));
+
+    $response->assertRedirect(route('dashboard'));
+    $this->assertSame('999', session('managed_guild.id'));
+});

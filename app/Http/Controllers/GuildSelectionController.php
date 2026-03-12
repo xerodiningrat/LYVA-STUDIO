@@ -11,6 +11,12 @@ class GuildSelectionController extends Controller
     public function index(Request $request): View|RedirectResponse
     {
         $guilds = collect($request->session()->get('discord_managed_guilds', []))->values();
+
+        if ($guilds->isEmpty() && $request->user()?->selected_guild_id) {
+            $guilds = collect([$this->storedGuild((string) $request->user()->selected_guild_id)]);
+            $request->session()->put('discord_managed_guilds', $guilds->all());
+        }
+
         $selectableGuilds = $guilds->where('bot_joined', true)->values();
 
         if ($selectableGuilds->count() === 1) {
@@ -39,5 +45,17 @@ class GuildSelectionController extends Controller
         $request->user()?->forceFill(['selected_guild_id' => $guild['id']])->save();
 
         return redirect()->route('dashboard');
+    }
+
+    private function storedGuild(string $guildId): array
+    {
+        return [
+            'id' => $guildId,
+            'name' => 'Server tersimpan sebelumnya',
+            'icon_url' => null,
+            'owner' => false,
+            'bot_joined' => true,
+            'persisted' => true,
+        ];
     }
 }

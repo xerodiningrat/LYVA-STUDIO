@@ -87,13 +87,18 @@
                             <div class="guild-meta">
                                 <span class="badge">Manageable</span>
                                 <span class="badge {{ $guild['bot_joined'] ? '' : 'owner' }}">{{ $guild['bot_joined'] ? 'Bot Joined' : 'Bot Missing' }}</span>
+                                @if (! empty($guild['persisted']))
+                                    <span class="badge">Restored</span>
+                                @endif
                                 @if ($guild['owner'])
                                     <span class="badge owner">Owner</span>
                                 @endif
                             </div>
 
                             <p class="guild-copy">
-                                @if ($guild['bot_joined'])
+                                @if (! empty($guild['persisted']))
+                                    Server ini dipulihkan dari pilihan terakhir yang tersimpan di akunmu. Kalau daftar guild Discord belum muncul lagi, login ulang Discord nanti akan menyegarkan nama dan daftar server terbarunya.
+                                @elseif ($guild['bot_joined'])
                                     Pilih server ini untuk membuka dashboard, setup Discord bot, VIP title tools, dan workflow Roblox yang terkait langsung dengan guild ini.
                                 @else
                                     Kamu punya akses kelola di server ini, tapi bot LYVA belum terdeteksi masuk. Masukkan bot dulu supaya server ini bisa dipilih dari dashboard.

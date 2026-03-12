@@ -7,16 +7,36 @@ use App\Models\PlatformAlert;
 use App\Models\PlayerReport;
 use App\Models\RaceEvent;
 use App\Models\RobloxGame;
+use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): View|RedirectResponse
+    public function __invoke(Request $request): View|RedirectResponse
     {
-        if (auth()->user()?->discord_user_id && ! session()->has('managed_guild')) {
-            return redirect()->route('guilds.select');
+        if (auth()->user()?->discord_user_id && ! $request->session()->has('managed_guild')) {
+            $selectedGuildId = (string) (auth()->user()?->selected_guild_id ?? '');
+
+            if ($selectedGuildId !== '') {
+                $restoredGuild = [
+                    'id' => $selectedGuildId,
+                    'name' => 'Server tersimpan sebelumnya',
+                    'icon_url' => null,
+                    'owner' => false,
+                    'bot_joined' => true,
+                    'persisted' => true,
+                ];
+
+                $request->session()->put('managed_guild', $restoredGuild);
+
+                if (! $request->session()->has('discord_managed_guilds')) {
+                    $request->session()->put('discord_managed_guilds', [$restoredGuild]);
+                }
+            } else {
+                return redirect()->route('guilds.select');
+            }
         }
 
         $hasBotTables = Schema::hasTable('roblox_games')
@@ -232,7 +252,7 @@ class DashboardController extends Controller
             'webhooks' => $webhooks,
             'races' => $races,
             'hasBotTables' => $hasBotTables,
-            'managedGuild' => session('managed_guild'),
+            'managedGuild' => $request->session()->get('managed_guild'),
         ]);
     }
 }
