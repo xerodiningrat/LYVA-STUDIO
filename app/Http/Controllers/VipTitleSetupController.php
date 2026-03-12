@@ -12,24 +12,44 @@ use Illuminate\View\View;
 
 class VipTitleSetupController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
-        $settings = VipTitleMapSetting::query()->latest('updated_at')->get();
-        $claims = VipTitleClaim::query()->latest('requested_at')->take(10)->get();
+        $workspace = $this->workspaceContext($request);
+        $this->claimLegacySettings($request, $workspace);
+
+        $settings = $this->workspaceSettingsQuery($request, $workspace)
+            ->latest('updated_at')
+            ->get();
+
+        $claims = VipTitleClaim::query()
+            ->when(
+                $settings->isNotEmpty(),
+                fn ($query) => $query->whereIn('map_key', $settings->pluck('map_key')->all()),
+                fn ($query) => $query->whereRaw('1 = 0')
+            )
+            ->latest('requested_at')
+            ->take(10)
+            ->get();
 
         return view('vip-title.setup', [
             'settings' => $settings,
             'claims' => $claims,
             'appUrl' => rtrim((string) config('app.url'), '/'),
+            'managedGuild' => $workspace,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
+        $workspace = $this->workspaceContext($request);
         $validated = $this->validatePayload($request);
         $price = $this->normalizePrice($validated['title_price_idr'] ?? null);
 
         VipTitleMapSetting::query()->create([
+            'guild_id' => $workspace['id'],
+            'guild_name' => $workspace['name'],
+            'owner_user_id' => $request->user()?->id,
+            'owner_discord_user_id' => (string) ($request->user()?->discord_user_id ?? ''),
             'name' => $validated['name'],
             'map_key' => $this->normalizeMapKey($validated['map_key']),
             'gamepass_id' => $validated['gamepass_id'],
@@ -50,10 +70,17 @@ class VipTitleSetupController extends Controller
 
     public function update(Request $request, VipTitleMapSetting $setting): RedirectResponse
     {
+        $workspace = $this->workspaceContext($request);
+        $this->authorizeSettingAccess($request, $setting, $workspace);
+
         $validated = $this->validatePayload($request, $setting->id);
         $price = $this->normalizePrice($validated['title_price_idr'] ?? null);
 
         $setting->update([
+            'guild_id' => $workspace['id'],
+            'guild_name' => $workspace['name'],
+            'owner_user_id' => $request->user()?->id,
+            'owner_discord_user_id' => (string) ($request->user()?->discord_user_id ?? ''),
             'name' => $validated['name'],
             'map_key' => $this->normalizeMapKey($validated['map_key']),
             'gamepass_id' => $validated['gamepass_id'],
@@ -71,8 +98,11 @@ class VipTitleSetupController extends Controller
         return back()->with('status', "Map {$setting->map_key} berhasil diperbarui.");
     }
 
-    public function regenerateKey(VipTitleMapSetting $setting): RedirectResponse
+    public function regenerateKey(Request $request, VipTitleMapSetting $setting): RedirectResponse
     {
+        $workspace = $this->workspaceContext($request);
+        $this->authorizeSettingAccess($request, $setting, $workspace);
+
         $setting->update([
             'api_key' => $this->generateApiKey(),
         ]);
@@ -80,12 +110,64 @@ class VipTitleSetupController extends Controller
         return back()->with('status', "API key untuk {$setting->map_key} berhasil diganti.");
     }
 
-    public function destroy(VipTitleMapSetting $setting): RedirectResponse
+    public function destroy(Request $request, VipTitleMapSetting $setting): RedirectResponse
     {
+        $workspace = $this->workspaceContext($request);
+        $this->authorizeSettingAccess($request, $setting, $workspace);
+
         $mapKey = $setting->map_key;
         $setting->delete();
 
         return back()->with('status', "Map {$mapKey} berhasil dihapus.");
+    }
+
+    private function workspaceContext(Request $request): array
+    {
+        $guild = $request->session()->get('managed_guild');
+        $guildId = trim((string) data_get($guild, 'id'));
+        $guildName = trim((string) data_get($guild, 'name', 'Server aktif'));
+        $discordUserId = trim((string) ($request->user()?->discord_user_id ?? ''));
+
+        abort_if($guildId === '', 403, 'Pilih server Discord dulu sebelum membuka config VIP Title.');
+        abort_if($discordUserId === '', 403, 'Login lewat Discord dulu sebelum membuka config VIP Title.');
+
+        return [
+            'id' => $guildId,
+            'name' => $guildName !== '' ? $guildName : 'Server aktif',
+        ];
+    }
+
+    private function workspaceSettingsQuery(Request $request, array $workspace)
+    {
+        $discordUserId = trim((string) ($request->user()?->discord_user_id ?? ''));
+
+        return VipTitleMapSetting::query()
+            ->where('guild_id', $workspace['id'])
+            ->where('owner_discord_user_id', $discordUserId);
+    }
+
+    private function claimLegacySettings(Request $request, array $workspace): void
+    {
+        VipTitleMapSetting::query()
+            ->whereNull('guild_id')
+            ->whereNull('owner_discord_user_id')
+            ->update([
+                'guild_id' => $workspace['id'],
+                'guild_name' => $workspace['name'],
+                'owner_user_id' => $request->user()?->id,
+                'owner_discord_user_id' => (string) ($request->user()?->discord_user_id ?? ''),
+            ]);
+    }
+
+    private function authorizeSettingAccess(Request $request, VipTitleMapSetting $setting, array $workspace): void
+    {
+        $discordUserId = trim((string) ($request->user()?->discord_user_id ?? ''));
+
+        abort_unless(
+            (string) ($setting->guild_id ?? '') === $workspace['id']
+                && (string) ($setting->owner_discord_user_id ?? '') === $discordUserId,
+            404
+        );
     }
 
     private function validatePayload(Request $request, ?int $ignoreId = null): array

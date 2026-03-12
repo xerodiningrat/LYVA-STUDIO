@@ -7,6 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 class VipTitleMapSetting extends Model
 {
     protected $fillable = [
+        'guild_id',
+        'guild_name',
+        'owner_user_id',
+        'owner_discord_user_id',
         'name',
         'map_key',
         'gamepass_id',
@@ -25,6 +29,7 @@ class VipTitleMapSetting extends Model
     protected function casts(): array
     {
         return [
+            'owner_user_id' => 'integer',
             'gamepass_id' => 'integer',
             'title_slot' => 'integer',
             'title_price_idr' => 'integer',

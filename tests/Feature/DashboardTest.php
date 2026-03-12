@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\VipTitleClaim;
+use App\Models\VipTitleMapSetting;
 use App\Models\VipTitlePayment;
 use App\Models\VipTitleWithdrawal;
 use App\Models\User;
@@ -327,16 +328,137 @@ test('authenticated users can visit the roblox scripts page', function () {
 });
 
 test('authenticated users can visit the vip title setup page', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create([
+        'discord_user_id' => '9001',
+        'selected_guild_id' => 'guild-1',
+    ]);
     $this->actingAs($user);
 
-    $response = $this->get(route('vip-title.setup'));
+    VipTitleMapSetting::query()->create([
+        'guild_id' => 'guild-1',
+        'guild_name' => 'Lyva Community',
+        'owner_user_id' => $user->id,
+        'owner_discord_user_id' => '9001',
+        'name' => 'Mount Xyra',
+        'map_key' => 'mountxyra',
+        'gamepass_id' => 1700114697,
+        'api_key' => 'lyva_test_map_key_1',
+        'title_slot' => 10,
+        'is_active' => true,
+    ]);
+
+    $response = $this
+        ->withSession([
+            'managed_guild' => [
+                'id' => 'guild-1',
+                'name' => 'Lyva Community',
+            ],
+        ])
+        ->get(route('vip-title.setup'));
 
     $response
         ->assertOk()
         ->assertSee('VIP Title Control')
         ->assertSee('Map VIP Title baru')
-        ->assertSee('Recent VIP Title claims');
+        ->assertSee('Recent VIP Title claims')
+        ->assertSee('Lyva Community');
+});
+
+test('vip title setup only shows maps owned by the active discord workspace', function () {
+    $owner = User::factory()->create([
+        'discord_user_id' => '9001',
+        'selected_guild_id' => 'guild-1',
+    ]);
+
+    $other = User::factory()->create([
+        'discord_user_id' => '9002',
+        'selected_guild_id' => 'guild-2',
+    ]);
+
+    VipTitleMapSetting::query()->create([
+        'guild_id' => 'guild-1',
+        'guild_name' => 'Lyva Community',
+        'owner_user_id' => $owner->id,
+        'owner_discord_user_id' => '9001',
+        'name' => 'Mount Xyra',
+        'map_key' => 'mountxyra',
+        'gamepass_id' => 1700114697,
+        'api_key' => 'lyva_owner_map_key_1',
+        'title_slot' => 10,
+        'is_active' => true,
+    ]);
+
+    VipTitleMapSetting::query()->create([
+        'guild_id' => 'guild-2',
+        'guild_name' => 'Other Guild',
+        'owner_user_id' => $other->id,
+        'owner_discord_user_id' => '9002',
+        'name' => 'Other Peak',
+        'map_key' => 'otherpeak',
+        'gamepass_id' => 1800000000,
+        'api_key' => 'lyva_owner_map_key_2',
+        'title_slot' => 10,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($owner);
+
+    $response = $this
+        ->withSession([
+            'managed_guild' => [
+                'id' => 'guild-1',
+                'name' => 'Lyva Community',
+            ],
+        ])
+        ->get(route('vip-title.setup'));
+
+    $response
+        ->assertOk()
+        ->assertSee('Mount Xyra')
+        ->assertDontSee('Other Peak')
+        ->assertDontSee('otherpeak');
+});
+
+test('vip title setup stores new map under active discord workspace owner', function () {
+    $user = User::factory()->create([
+        'discord_user_id' => '9001',
+        'selected_guild_id' => 'guild-1',
+    ]);
+
+    $this->actingAs($user);
+
+    $response = $this
+        ->withSession([
+            'managed_guild' => [
+                'id' => 'guild-1',
+                'name' => 'Lyva Community',
+            ],
+        ])
+        ->post(route('vip-title.setup.store'), [
+            'name' => 'Mount Xyra',
+            'map_key' => 'mountxyra',
+            'gamepass_id' => 1700114697,
+            'title_slot' => 10,
+            'title_price_idr' => null,
+            'payment_expiry_minutes' => 60,
+            'button_label' => 'Claim Title',
+            'place_ids' => '1234567890',
+            'script_access_role_ids' => '111222333',
+            'notes' => 'Primary map',
+            'is_active' => '1',
+        ]);
+
+    $response
+        ->assertRedirect()
+        ->assertSessionHas('status');
+
+    $setting = VipTitleMapSetting::query()->first();
+
+    expect($setting)->not->toBeNull();
+    expect($setting?->guild_id)->toBe('guild-1');
+    expect($setting?->guild_name)->toBe('Lyva Community');
+    expect($setting?->owner_user_id)->toBe($user->id);
+    expect($setting?->owner_discord_user_id)->toBe('9001');
 });
 
 test('authenticated users can download a roblox script template', function () {

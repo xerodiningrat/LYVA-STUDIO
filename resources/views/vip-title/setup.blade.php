@@ -1,5 +1,6 @@
 @php
     $title = __('VIP Title Setup');
+    $workspaceName = $managedGuild['name'] ?? 'Server aktif';
     $activeMaps = collect($settings)->where('is_active', true)->count();
     $paidMaps = collect($settings)->filter(fn ($setting) => (int) ($setting->title_price_idr ?? 0) > 0)->count();
     $scriptProtectedMaps = collect($settings)->filter(fn ($setting) => count($setting->script_access_role_ids ?? []) > 0)->count();
@@ -300,6 +301,11 @@
                         <span class="studio-label">Scripts</span>
                         <strong>Sync</strong>
                         <p class="studio-copy">Snippet config langsung nyambung ke backend project ini.</p>
+                    </article>
+                    <article class="studio-stat" data-studio-hover>
+                        <span class="studio-label">Workspace</span>
+                        <strong>{{ $workspaceName }}</strong>
+                        <p class="studio-copy">Config di halaman ini sekarang terkunci ke guild aktif milik akun Discord kamu.</p>
                     </article>
                 </div>
             </div>
