@@ -167,8 +167,29 @@
                                 <input name="gamepass_id" type="number" min="0" placeholder="1700114697" required>
                             </div>
                             <div>
+                                <label>Mode claim</label>
+                                <input name="claim_mode" placeholder="vip_gamepass atau duitku" value="vip_gamepass" required>
+                                <div class="muted" style="margin-top:.45rem; font-size:.82rem;">Isi <code>vip_gamepass</code> untuk VIP biasa atau <code>duitku</code> untuk title berbayar.</div>
+                            </div>
+                        </div>
+                        <div class="form-grid">
+                            <div>
                                 <label>Title slot</label>
                                 <input name="title_slot" type="number" min="1" max="10" value="10" required>
+                            </div>
+                            <div>
+                                <label>Harga title (IDR)</label>
+                                <input name="title_price_idr" type="number" min="1000" placeholder="15000">
+                            </div>
+                        </div>
+                        <div class="form-grid">
+                            <div>
+                                <label>Expiry pembayaran (menit)</label>
+                                <input name="payment_expiry_minutes" type="number" min="5" max="1440" value="60">
+                            </div>
+                            <div>
+                                <label>Label tombol bot</label>
+                                <input name="button_label" placeholder="Beli Title Sekarang">
                             </div>
                         </div>
                         <div>
@@ -233,8 +254,28 @@
                                             <input name="gamepass_id" type="number" min="0" value="{{ $setting->gamepass_id }}" required>
                                         </div>
                                         <div>
+                                            <label>Mode claim</label>
+                                            <input name="claim_mode" value="{{ $setting->claim_mode ?? 'vip_gamepass' }}" required>
+                                        </div>
+                                    </div>
+                                    <div class="form-grid">
+                                        <div>
                                             <label>Title slot</label>
                                             <input name="title_slot" type="number" min="1" max="10" value="{{ $setting->title_slot }}" required>
+                                        </div>
+                                        <div>
+                                            <label>Harga title (IDR)</label>
+                                            <input name="title_price_idr" type="number" min="1000" value="{{ $setting->title_price_idr }}">
+                                        </div>
+                                    </div>
+                                    <div class="form-grid">
+                                        <div>
+                                            <label>Expiry pembayaran (menit)</label>
+                                            <input name="payment_expiry_minutes" type="number" min="5" max="1440" value="{{ $setting->payment_expiry_minutes ?? 60 }}">
+                                        </div>
+                                        <div>
+                                            <label>Label tombol bot</label>
+                                            <input name="button_label" value="{{ $setting->button_label }}">
                                         </div>
                                     </div>
                                     <div>
@@ -257,7 +298,11 @@
                                         <div class="label" style="margin-bottom:.7rem;">API key Roblox</div>
                                         {{ $setting->api_key }}
                                     </div>
-                                    <div class="code-box">VIP_GAMEPASS_ID = {{ $setting->gamepass_id }}
+                                    <div class="code-box">CLAIM_MODE = "{{ $setting->claim_mode ?? 'vip_gamepass' }}"
+BUTTON_LABEL = "{{ $setting->button_label ?: ($setting->claim_mode === 'duitku' ? 'Beli Title' : 'Claim Title') }}"
+TITLE_PRICE_IDR = {{ $setting->title_price_idr ?? 0 }}
+PAYMENT_EXPIRY_MINUTES = {{ $setting->payment_expiry_minutes ?? 60 }}
+VIP_GAMEPASS_ID = {{ $setting->gamepass_id }}
 VIP_TITLE_MAP_KEY = "{{ $setting->map_key }}"
 VIP_TITLE_BACKEND_URL = "{{ $appUrl }}"
 VIP_TITLE_API_KEY = "{{ $setting->api_key }}"

@@ -32,8 +32,12 @@ class VipTitleSetupController extends Controller
             'name' => $validated['name'],
             'map_key' => $this->normalizeMapKey($validated['map_key']),
             'gamepass_id' => $validated['gamepass_id'],
+            'claim_mode' => $validated['claim_mode'],
             'api_key' => $this->generateApiKey(),
             'title_slot' => $validated['title_slot'],
+            'title_price_idr' => $this->normalizePrice($validated['title_price_idr'] ?? null),
+            'payment_expiry_minutes' => $validated['payment_expiry_minutes'] ?? 60,
+            'button_label' => $validated['button_label'] ?? null,
             'place_ids' => $this->parsePlaceIds($validated['place_ids'] ?? ''),
             'script_access_role_ids' => $this->parseRoleIds($validated['script_access_role_ids'] ?? ''),
             'is_active' => $request->boolean('is_active', true),
@@ -51,7 +55,11 @@ class VipTitleSetupController extends Controller
             'name' => $validated['name'],
             'map_key' => $this->normalizeMapKey($validated['map_key']),
             'gamepass_id' => $validated['gamepass_id'],
+            'claim_mode' => $validated['claim_mode'],
             'title_slot' => $validated['title_slot'],
+            'title_price_idr' => $this->normalizePrice($validated['title_price_idr'] ?? null),
+            'payment_expiry_minutes' => $validated['payment_expiry_minutes'] ?? 60,
+            'button_label' => $validated['button_label'] ?? null,
             'place_ids' => $this->parsePlaceIds($validated['place_ids'] ?? ''),
             'script_access_role_ids' => $this->parseRoleIds($validated['script_access_role_ids'] ?? ''),
             'is_active' => $request->boolean('is_active', false),
@@ -90,7 +98,11 @@ class VipTitleSetupController extends Controller
                 Rule::unique('vip_title_map_settings', 'map_key')->ignore($ignoreId),
             ],
             'gamepass_id' => ['required', 'integer', 'min:0'],
+            'claim_mode' => ['required', 'string', Rule::in(['vip_gamepass', 'duitku'])],
             'title_slot' => ['required', 'integer', 'min:1', 'max:10'],
+            'title_price_idr' => ['nullable', 'required_if:claim_mode,duitku', 'integer', 'min:1000', 'max:100000000'],
+            'payment_expiry_minutes' => ['nullable', 'integer', 'min:5', 'max:1440'],
+            'button_label' => ['nullable', 'string', 'max:100'],
             'place_ids' => ['nullable', 'string', 'max:2000'],
             'script_access_role_ids' => ['nullable', 'string', 'max:2000'],
             'notes' => ['nullable', 'string', 'max:1000'],
@@ -120,6 +132,15 @@ class VipTitleSetupController extends Controller
     private function normalizeMapKey(string $value): string
     {
         return strtolower(trim($value));
+    }
+
+    private function normalizePrice(int|string|null $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return max(0, (int) $value);
     }
 
     private function generateApiKey(): string

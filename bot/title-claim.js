@@ -14,7 +14,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from 'discord.js';
-import { createLaravelVipTitleClaim, fetchLaravelVipTitleClaims, fetchLaravelVipTitleMaps } from './laravel-api.js';
+import { createLaravelVipTitleCheckout, createLaravelVipTitleClaim, fetchLaravelVipTitleClaims, fetchLaravelVipTitleMaps } from './laravel-api.js';
 
 const TITLE_PANEL_BUTTON_PREFIX = 'title_claim_open:';
 const TITLE_SCRIPT_BUTTON_PREFIX = 'title_claim_script:';
@@ -218,8 +218,12 @@ function normalizeMapConfig(rawMap = {}) {
     mapKey,
     name: String(rawMap.name || mapKey).trim() || mapKey,
     gamepassId: Number(rawMap.gamepass_id ?? rawMap.gamepassId ?? 0),
+    claimMode: String(rawMap.claim_mode ?? rawMap.claimMode ?? 'vip_gamepass').trim() || 'vip_gamepass',
     apiKey: String(rawMap.api_key ?? rawMap.apiKey ?? '').trim(),
     titleSlot: Number(rawMap.title_slot ?? rawMap.titleSlot ?? 0),
+    titlePriceIdr: Number(rawMap.title_price_idr ?? rawMap.titlePriceIdr ?? 0),
+    paymentExpiryMinutes: Number(rawMap.payment_expiry_minutes ?? rawMap.paymentExpiryMinutes ?? 60),
+    buttonLabel: String(rawMap.button_label ?? rawMap.buttonLabel ?? '').trim(),
     placeIds: Array.isArray(rawMap.place_ids ?? rawMap.placeIds)
       ? (rawMap.place_ids ?? rawMap.placeIds).map((item) => String(item).trim()).filter(Boolean)
       : [],
@@ -254,6 +258,8 @@ async function resolveMapConfig(config, rawMapKey) {
 }
 
 function buildTitlePanelEmbed(mapConfig) {
+  const isPaidFlow = mapConfig.claimMode === 'duitku';
+
   return new EmbedBuilder()
     .setColor(0xf97316)
     .setTitle('VIP Title Center')
@@ -262,18 +268,39 @@ function buildTitlePanelEmbed(mapConfig) {
         'Panel claim custom title untuk member VIP.',
         '',
         `Panel ini sudah terhubung ke map **${mapConfig.name}** dari dashboard.`,
-        'Klik `Claim Title` lalu isi username Roblox dan custom title.',
-        'Bot akan ambil map key + gamepass otomatis dari setup dashboard.',
+        isPaidFlow
+          ? `Klik \`${resolvePrimaryButtonLabel(mapConfig)}\` lalu isi username Roblox dan custom title.`
+          : 'Klik `Claim Title` lalu isi username Roblox dan custom title.',
+        isPaidFlow
+          ? `Setelah form dikirim, bot akan buat invoice Duitku sebesar **${formatIdr(mapConfig.titlePriceIdr)}**.`
+          : 'Bot akan ambil map key + gamepass otomatis dari setup dashboard.',
         'Klik `Script Roblox` kalau admin butuh file yang harus ditaruh di game.',
       ].join('\n'),
     )
     .addFields(
       { name: 'Map', value: mapConfig.name, inline: true },
-      { name: 'Akses', value: 'VIP User', inline: true },
-      { name: 'Output', value: 'Claim tersimpan', inline: true },
+      { name: 'Mode', value: isPaidFlow ? 'Pembayaran Duitku' : 'VIP Gamepass', inline: true },
+      { name: 'Output', value: isPaidFlow ? 'Invoice bayar + title otomatis' : 'Claim tersimpan', inline: true },
       { name: 'Filter', value: 'Reserved title + profanity diblok', inline: true },
     )
     .setFooter({ text: 'ProjectBotDC | VIP Title Panel' });
+}
+
+function formatIdr(value) {
+  const amount = Number(value || 0);
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function resolvePrimaryButtonLabel(mapConfig) {
+  if (mapConfig.buttonLabel) {
+    return truncateForComponent(mapConfig.buttonLabel, 80);
+  }
+
+  return mapConfig.claimMode === 'duitku' ? 'Beli Title' : 'Claim Title';
 }
 
 function canAccessRobloxScript(interaction, mapConfig) {
@@ -369,6 +396,9 @@ function buildScriptEmbed(mapConfig) {
   const roleInfo = mapConfig.scriptAccessRoleIds?.length
     ? mapConfig.scriptAccessRoleIds.map((roleId) => `<@&${roleId}>`).join(', ')
     : 'Admin only';
+  const gamepassInfo = mapConfig.claimMode === 'duitku'
+    ? 'Tidak dipakai (mode bayar)'
+    : String(mapConfig.gamepassId || 0);
 
   return new EmbedBuilder()
     .setColor(0x60a5fa)
@@ -385,7 +415,7 @@ function buildScriptEmbed(mapConfig) {
     )
     .addFields(
       { name: 'Map Key', value: mapConfig.mapKey, inline: true },
-      { name: 'Gamepass', value: String(mapConfig.gamepassId || 0), inline: true },
+      { name: 'Gamepass', value: gamepassInfo, inline: true },
       { name: 'Akses Script', value: roleInfo, inline: false },
     );
 }
@@ -401,6 +431,22 @@ function buildClaimSuccessEmbed(username, title, mapConfig) {
       { name: 'Status', value: 'Pending review / apply', inline: true },
     )
     .setFooter({ text: 'Admin bisa cek daftar claim dengan /titile list' });
+}
+
+function buildPaymentCheckoutEmbed(username, title, mapConfig, payment) {
+  return new EmbedBuilder()
+    .setColor(0x22c55e)
+    .setTitle('Checkout Title Siap')
+    .setDescription(`Invoice untuk **@${username}** sudah dibuat. Lanjutkan pembayaran lewat Duitku agar title diproses otomatis.`)
+    .addFields(
+      { name: 'Custom Title', value: title, inline: true },
+      { name: 'Map', value: mapConfig.name, inline: true },
+      { name: 'Nominal', value: formatIdr(payment.amount), inline: true },
+      { name: 'Order ID', value: payment.merchantOrderId, inline: false },
+      { name: 'Expired', value: payment.expiresAt ? `<t:${Math.floor(new Date(payment.expiresAt).getTime() / 1000)}:R>` : `${mapConfig.paymentExpiryMinutes} menit`, inline: true },
+      { name: 'Status', value: 'Menunggu pembayaran', inline: true },
+    )
+    .setFooter({ text: 'Setelah pembayaran sukses, title akan masuk otomatis ke antrian Roblox.' });
 }
 
 function getRobloxTemplatePaths() {
@@ -430,9 +476,15 @@ function buildLuaAllowedPlaceIds(placeIds) {
     .join('\n');
 }
 
+function effectiveGamepassId(mapConfig) {
+  return mapConfig.claimMode === 'duitku'
+    ? 0
+    : Number(mapConfig.gamepassId || 0);
+}
+
 function buildRobloxConfigSnippet(mapConfig, appUrl) {
   return [
-    `VIP_GAMEPASS_ID = ${Number(mapConfig.gamepassId || 0)}`,
+    `VIP_GAMEPASS_ID = ${effectiveGamepassId(mapConfig)}`,
     `VIP_TITLE_MAP_KEY = "${escapeLuaString(mapConfig.mapKey)}"`,
     `VIP_TITLE_BACKEND_URL = "${escapeLuaString(appUrl)}"`,
     `VIP_TITLE_API_KEY = "${escapeLuaString(mapConfig.apiKey || '')}"`,
@@ -449,7 +501,7 @@ function buildRobloxPatchContent(mapConfig, appUrl) {
   return [
     'local VIPClaimModule = require(ModFolder:WaitForChild("MX_VIPTitleClaim"))',
     '',
-    `CONFIG.VIP_GAMEPASS_ID = ${Number(mapConfig.gamepassId || 0)}`,
+    `CONFIG.VIP_GAMEPASS_ID = ${effectiveGamepassId(mapConfig)}`,
     `CONFIG.VIP_TITLE_MAP_KEY = "${escapeLuaString(mapConfig.mapKey)}"`,
     `CONFIG.VIP_TITLE_BACKEND_URL = "${escapeLuaString(appUrl)}"`,
     `CONFIG.VIP_TITLE_API_KEY = "${escapeLuaString(mapConfig.apiKey || '')}"`,
@@ -484,7 +536,7 @@ function buildRobloxPatchContent(mapConfig, appUrl) {
 
 function injectRobloxConfigIntoFullScript(content, mapConfig, appUrl) {
   return String(content)
-    .replace(/VIP_GAMEPASS_ID = .*?,/, `VIP_GAMEPASS_ID = ${Number(mapConfig.gamepassId || 0)},`)
+    .replace(/VIP_GAMEPASS_ID = .*?,/, `VIP_GAMEPASS_ID = ${effectiveGamepassId(mapConfig)},`)
     .replace(/VIP_TITLE_MAP_KEY = ".*?",/, `VIP_TITLE_MAP_KEY = "${escapeLuaString(mapConfig.mapKey)}",`)
     .replace(/VIP_TITLE_BACKEND_URL = ".*?",/, `VIP_TITLE_BACKEND_URL = "${escapeLuaString(appUrl)}",`)
     .replace(/VIP_TITLE_API_KEY = ".*?",/, `VIP_TITLE_API_KEY = "${escapeLuaString(mapConfig.apiKey || '')}",`)
@@ -505,9 +557,11 @@ function buildRobloxSetupGuide(mapConfig, appUrl) {
     '',
     `Map: ${mapConfig.name}`,
     `Map key: ${mapConfig.mapKey}`,
+    `Mode claim: ${mapConfig.claimMode === 'duitku' ? 'Pembayaran Duitku' : 'VIP Gamepass'}`,
     `Backend URL: ${appUrl}`,
-    `Gamepass ID: ${Number(mapConfig.gamepassId || 0)}`,
+    `Gamepass ID: ${effectiveGamepassId(mapConfig)}`,
     `Title slot: ${Number(mapConfig.titleSlot || 10)}`,
+    `Harga title: ${mapConfig.claimMode === 'duitku' ? formatIdr(mapConfig.titlePriceIdr) : '-'}`,
     `Allowed Place IDs: ${mapConfig.placeIds?.length ? mapConfig.placeIds.join(', ') : 'Semua place diizinkan'}`,
     '',
     '## Langkah setup',
@@ -581,7 +635,7 @@ async function publishTitlePanel(channel, mapConfig) {
     embeds: [buildTitlePanelEmbed(mapConfig)],
     components: [
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(buildTitlePanelButtonId(mapConfig.mapKey)).setLabel('Claim Title').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(buildTitlePanelButtonId(mapConfig.mapKey)).setLabel(resolvePrimaryButtonLabel(mapConfig)).setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId(buildTitleScriptButtonId(mapConfig.mapKey)).setLabel('Script Roblox').setStyle(ButtonStyle.Secondary),
       ),
     ],
@@ -737,7 +791,10 @@ export async function handleTitileComponent(interaction, config) {
 
   const panelMapKey = parseTitlePanelButtonId(interaction.customId);
   if (panelMapKey) {
-    const modal = new ModalBuilder().setCustomId(buildTitleClaimModalId(panelMapKey)).setTitle('Claim VIP Title');
+    const mapConfig = await resolveMapConfig(config, panelMapKey);
+    const modal = new ModalBuilder()
+      .setCustomId(buildTitleClaimModalId(panelMapKey))
+      .setTitle(mapConfig?.claimMode === 'duitku' ? 'Beli VIP Title' : 'Claim VIP Title');
 
     const usernameInput = new TextInputBuilder()
       .setCustomId('roblox_username')
@@ -851,6 +908,42 @@ export async function handleTitileModal(interaction, config) {
     await interaction.editReply({
       content: 'Username Roblox tidak ditemukan.',
     });
+    return true;
+  }
+
+  if (mapConfig.claimMode === 'duitku') {
+    try {
+      const checkout = await createLaravelVipTitleCheckout(config, {
+        map_key: mapKey,
+        roblox_user_id: robloxUser.userId,
+        roblox_username: robloxUser.username,
+        requested_title: titleCheck.title,
+        discord_user_id: interaction.user.id,
+        discord_tag: interaction.user.tag,
+        meta: {
+          source: 'discord-bot',
+        },
+      });
+
+      const paymentUrl = checkout?.payment?.paymentUrl;
+      if (!paymentUrl) {
+        throw new Error('Duitku belum mengembalikan payment URL.');
+      }
+
+      await interaction.editReply({
+        embeds: [buildPaymentCheckoutEmbed(robloxUser.username, titleCheck.title, mapConfig, checkout.payment)],
+        components: [
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setLabel('Bayar via Duitku').setStyle(ButtonStyle.Link).setURL(paymentUrl),
+          ),
+        ],
+      });
+    } catch (error) {
+      await interaction.editReply({
+        content: truncateDiscordContent(`Gagal buat checkout pembayaran: ${error.message}`),
+      });
+    }
+
     return true;
   }
 

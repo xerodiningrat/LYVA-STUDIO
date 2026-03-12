@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\VipTitleClaim;
 use App\Models\VipTitleMapSetting;
+use App\Models\VipTitlePayment;
+use App\Services\Payments\DuitkuService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class VipTitleClaimController extends Controller
 {
@@ -25,8 +28,12 @@ class VipTitleClaimController extends Controller
                 'name',
                 'map_key',
                 'gamepass_id',
+                'claim_mode',
                 'api_key',
                 'title_slot',
+                'title_price_idr',
+                'payment_expiry_minutes',
+                'button_label',
                 'place_ids',
                 'script_access_role_ids',
                 'is_active',
@@ -65,6 +72,133 @@ class VipTitleClaimController extends Controller
         ]);
     }
 
+    public function checkout(Request $request, DuitkuService $duitku): JsonResponse
+    {
+        abort_unless($this->hasBotToken($request), 401);
+
+        $validated = $request->validate([
+            'map_key' => ['required', 'string', 'max:64'],
+            'roblox_user_id' => ['required', 'integer', 'min:1'],
+            'roblox_username' => ['required', 'string', 'max:255'],
+            'requested_title' => ['required', 'string', 'min:3', 'max:28'],
+            'discord_user_id' => ['nullable', 'string', 'max:255'],
+            'discord_tag' => ['nullable', 'string', 'max:255'],
+            'buyer_email' => ['nullable', 'email:rfc,dns', 'max:255'],
+            'meta' => ['nullable', 'array'],
+        ]);
+
+        $mapSetting = $this->resolveActiveMapSetting($validated['map_key']);
+        if (! $mapSetting) {
+            return response()->json([
+                'message' => sprintf('Map key "%s" belum aktif di dashboard VIP Title.', $this->normalizeMapKey($validated['map_key'])),
+            ], 422);
+        }
+
+        if ($mapSetting->claim_mode !== 'duitku') {
+            return response()->json([
+                'message' => 'Map ini tidak memakai flow pembayaran Duitku.',
+            ], 422);
+        }
+
+        $amount = (int) ($mapSetting->title_price_idr ?? 0);
+        if ($amount <= 0) {
+            return response()->json([
+                'message' => 'Harga title untuk map ini belum diatur di dashboard.',
+            ], 422);
+        }
+
+        $title = $this->sanitizeTitle($validated['requested_title']);
+        $reason = $this->validateTitle($title);
+
+        if ($reason !== null) {
+            return response()->json([
+                'message' => $reason,
+            ], 422);
+        }
+
+        $claim = VipTitleClaim::query()->create([
+            'map_key' => $mapSetting->map_key,
+            'gamepass_id' => 0,
+            'roblox_user_id' => $validated['roblox_user_id'],
+            'roblox_username' => $validated['roblox_username'],
+            'requested_title' => $title,
+            'discord_user_id' => $validated['discord_user_id'] ?? null,
+            'discord_tag' => $validated['discord_tag'] ?? null,
+            'status' => 'awaiting_payment',
+            'requested_at' => now(),
+            'meta' => array_filter([
+                ...($validated['meta'] ?? []),
+                'claim_mode' => 'duitku',
+                'price_idr' => $amount,
+            ], static fn ($value) => $value !== null),
+        ]);
+
+        $merchantOrderId = sprintf('VIPTITLE-%s-%s', $claim->id, Str::upper(Str::random(8)));
+        $buyerEmail = $validated['buyer_email']
+            ?? $duitku->buildSyntheticEmail((string) ($validated['discord_user_id'] ?? $validated['roblox_user_id']));
+        $expiryMinutes = max(5, (int) ($mapSetting->payment_expiry_minutes ?? 60));
+        $baseUrl = rtrim((string) config('app.url'), '/');
+
+        try {
+            $checkout = $duitku->createTransaction([
+                'paymentAmount' => $amount,
+                'merchantOrderId' => $merchantOrderId,
+                'productDetails' => sprintf('VIP Title %s - %s', $mapSetting->name, $title),
+                'merchantUserInfo' => $validated['discord_tag'] ?? $validated['roblox_username'],
+                'customerVaName' => $validated['roblox_username'],
+                'email' => $buyerEmail,
+                'phoneNumber' => (string) config('services.duitku.default_phone_number', ''),
+                'itemDetails' => [[
+                    'name' => sprintf('VIP Title %s', $mapSetting->name),
+                    'price' => $amount,
+                    'quantity' => 1,
+                ]],
+                'callbackUrl' => $baseUrl.route('payments.duitku.callback', absolute: false),
+                'returnUrl' => $baseUrl.route('payments.duitku.return', ['merchantOrderId' => $merchantOrderId], false),
+                'expiryPeriod' => $expiryMinutes,
+            ]);
+        } catch (\Throwable $exception) {
+            $claim->update([
+                'status' => 'payment_failed',
+                'meta' => array_filter([
+                    ...($claim->meta ?? []),
+                    'payment_error' => $exception->getMessage(),
+                ], static fn ($value) => $value !== null),
+            ]);
+
+            throw $exception;
+        }
+
+        $payment = VipTitlePayment::query()->create([
+            'vip_title_claim_id' => $claim->id,
+            'map_key' => $mapSetting->map_key,
+            'merchant_order_id' => $merchantOrderId,
+            'duitku_reference' => $checkout['reference'] ?? null,
+            'amount' => $amount,
+            'status' => 'pending',
+            'payment_url' => $checkout['paymentUrl'] ?? null,
+            'payment_method' => $checkout['paymentMethod'] ?? config('services.duitku.payment_method'),
+            'expires_at' => now()->addMinutes($expiryMinutes),
+            'buyer_email' => $buyerEmail,
+            'callback_payload' => [
+                'create_transaction_response' => $checkout,
+            ],
+        ]);
+
+        return response()->json([
+            'flow' => 'duitku',
+            'claim' => $claim,
+            'payment' => [
+                'id' => $payment->id,
+                'merchantOrderId' => $merchantOrderId,
+                'amount' => $payment->amount,
+                'paymentUrl' => $payment->payment_url,
+                'reference' => $payment->duitku_reference,
+                'expiresAt' => $payment->expires_at,
+            ],
+        ], 201);
+    }
+
     public function store(Request $request): JsonResponse
     {
         abort_unless($this->hasBotToken($request), 401);
@@ -81,14 +215,17 @@ class VipTitleClaimController extends Controller
         ]);
 
         $mapKey = $this->normalizeMapKey($validated['map_key']);
-        $mapSetting = VipTitleMapSetting::query()
-            ->where('map_key', $mapKey)
-            ->where('is_active', true)
-            ->first();
+        $mapSetting = $this->resolveActiveMapSetting($mapKey);
 
         if (! $mapSetting) {
             return response()->json([
                 'message' => sprintf('Map key "%s" belum aktif di dashboard VIP Title.', $mapKey),
+            ], 422);
+        }
+
+        if ($mapSetting->claim_mode === 'duitku') {
+            return response()->json([
+                'message' => 'Map ini memakai flow pembayaran Duitku. Gunakan endpoint checkout.',
             ], 422);
         }
 
@@ -226,6 +363,14 @@ class VipTitleClaimController extends Controller
         return is_string($token)
             && $token !== ''
             && hash_equals($token, (string) $request->header('X-Bot-Token'));
+    }
+
+    private function resolveActiveMapSetting(string $mapKey): ?VipTitleMapSetting
+    {
+        return VipTitleMapSetting::query()
+            ->where('map_key', $this->normalizeMapKey($mapKey))
+            ->where('is_active', true)
+            ->first();
     }
 
     private function hasRobloxApiKey(Request $request): bool

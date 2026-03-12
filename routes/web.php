@@ -4,6 +4,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DiscordAuthController;
 use App\Http\Controllers\DiscordInteractionController;
 use App\Http\Controllers\DiscordSetupController;
+use App\Http\Controllers\DuitkuPaymentController;
 use App\Http\Controllers\GuildSelectionController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\RobloxScriptController;
@@ -17,6 +18,7 @@ Route::get('/auth/discord/callback', [DiscordAuthController::class, 'callback'])
 Route::post('/discord/interactions', DiscordInteractionController::class)
     ->withoutMiddleware(VerifyCsrfToken::class)
     ->name('discord.interactions');
+Route::get('/payments/duitku/return', [DuitkuPaymentController::class, 'return'])->name('payments.duitku.return');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('guilds/select', [GuildSelectionController::class, 'index'])->name('guilds.select');

@@ -6,7 +6,9 @@ use App\Models\DiscordVerification;
 use App\Models\DiscordGuildSetting;
 use App\Models\RulesAcknowledgement;
 use App\Models\SalesEvent;
+use App\Models\VipTitleClaim;
 use App\Models\VipTitleMapSetting;
+use App\Models\VipTitlePayment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 
@@ -110,8 +112,12 @@ test('bot vip title maps api returns active dashboard maps', function () {
         'name' => 'Mount Xyra',
         'map_key' => 'mountxyra',
         'gamepass_id' => 1700114697,
+        'claim_mode' => 'vip_gamepass',
         'api_key' => 'lyva_active_secret',
         'title_slot' => 10,
+        'title_price_idr' => null,
+        'payment_expiry_minutes' => 60,
+        'button_label' => 'Claim Title',
         'place_ids' => ['76880221507840'],
         'script_access_role_ids' => ['123456789012345678'],
         'is_active' => true,
@@ -121,8 +127,12 @@ test('bot vip title maps api returns active dashboard maps', function () {
         'name' => 'Legacy Map',
         'map_key' => 'legacymap',
         'gamepass_id' => 123456,
+        'claim_mode' => 'vip_gamepass',
         'api_key' => 'lyva_inactive_secret',
         'title_slot' => 8,
+        'title_price_idr' => null,
+        'payment_expiry_minutes' => 60,
+        'button_label' => null,
         'place_ids' => [],
         'script_access_role_ids' => [],
         'is_active' => false,
@@ -138,9 +148,118 @@ test('bot vip title maps api returns active dashboard maps', function () {
         ->assertJsonPath('items.0.name', 'Mount Xyra')
         ->assertJsonPath('items.0.map_key', 'mountxyra')
         ->assertJsonPath('items.0.gamepass_id', 1700114697)
+        ->assertJsonPath('items.0.claim_mode', 'vip_gamepass')
         ->assertJsonPath('items.0.api_key', 'lyva_active_secret')
         ->assertJsonPath('items.0.place_ids.0', '76880221507840')
         ->assertJsonPath('items.0.script_access_role_ids.0', '123456789012345678');
+});
+
+test('bot can create duitku vip title checkout', function () {
+    config()->set('services.discord.internal_token', 'shared-secret');
+    config()->set('services.duitku.merchant_code', 'D1234');
+    config()->set('services.duitku.api_key', 'secret-key');
+    config()->set('services.duitku.sandbox', true);
+    config()->set('services.duitku.default_phone_number', '081234567890');
+    config()->set('app.url', 'https://lyvaindonesia.my.id');
+
+    Http::fake([
+        'https://sandbox.duitku.com/webapi/api/merchant/v2/inquiry' => Http::response([
+            'merchantCode' => 'D1234',
+            'merchantOrderId' => 'VIPTITLE-1-ABCDEFGH',
+            'reference' => 'DUITKU-REF-001',
+            'paymentUrl' => 'https://sandbox.duitku.com/pay/test-123',
+        ]),
+    ]);
+
+    VipTitleMapSetting::query()->create([
+        'name' => 'Mount Xyra Paid',
+        'map_key' => 'mountxyra-paid',
+        'gamepass_id' => 0,
+        'claim_mode' => 'duitku',
+        'api_key' => 'lyva_paid_secret',
+        'title_slot' => 10,
+        'title_price_idr' => 15000,
+        'payment_expiry_minutes' => 90,
+        'button_label' => 'Beli Title',
+        'place_ids' => ['76880221507840'],
+        'script_access_role_ids' => [],
+        'is_active' => true,
+    ]);
+
+    $response = $this->withHeaders([
+        'X-Bot-Token' => 'shared-secret',
+    ])->postJson(route('api.bot.vip-title-checkouts.store'), [
+        'map_key' => 'mountxyra-paid',
+        'roblox_user_id' => 99123,
+        'roblox_username' => 'RobloxBuyer',
+        'requested_title' => 'Sky King',
+        'discord_user_id' => '777',
+        'discord_tag' => 'Buyer#1234',
+    ]);
+
+    $response
+        ->assertCreated()
+        ->assertJsonPath('flow', 'duitku')
+        ->assertJsonPath('claim.status', 'awaiting_payment')
+        ->assertJsonPath('payment.amount', 15000)
+        ->assertJsonPath('payment.paymentUrl', 'https://sandbox.duitku.com/pay/test-123');
+
+    expect(VipTitleClaim::query()->count())->toBe(1);
+    expect(VipTitlePayment::query()->count())->toBe(1);
+});
+
+test('duitku callback marks vip title payment as paid', function () {
+    config()->set('services.duitku.merchant_code', 'D1234');
+    config()->set('services.duitku.api_key', 'secret-key');
+    config()->set('services.duitku.sandbox', true);
+
+    $claim = VipTitleClaim::query()->create([
+        'map_key' => 'mountxyra-paid',
+        'gamepass_id' => 0,
+        'roblox_user_id' => 99123,
+        'roblox_username' => 'RobloxBuyer',
+        'requested_title' => 'Sky King',
+        'status' => 'awaiting_payment',
+        'requested_at' => now(),
+        'meta' => ['claim_mode' => 'duitku'],
+    ]);
+
+    VipTitlePayment::query()->create([
+        'vip_title_claim_id' => $claim->id,
+        'map_key' => 'mountxyra-paid',
+        'merchant_order_id' => 'VIPTITLE-1-ABCDEFGH',
+        'duitku_reference' => 'DUITKU-REF-001',
+        'amount' => 15000,
+        'status' => 'pending',
+        'payment_url' => 'https://sandbox.duitku.com/pay/test-123',
+        'expires_at' => now()->addHour(),
+        'buyer_email' => 'buyer@example.com',
+    ]);
+
+    Http::fake([
+        'https://sandbox.duitku.com/webapi/api/merchant/transactionStatus' => Http::response([
+            'merchantOrderId' => 'VIPTITLE-1-ABCDEFGH',
+            'statusCode' => '00',
+            'statusMessage' => 'SUCCESS',
+            'reference' => 'DUITKU-REF-001',
+        ]),
+    ]);
+
+    $signature = md5('D1234'.'15000'.'VIPTITLE-1-ABCDEFGH'.'secret-key');
+
+    $response = $this->post(route('payments.duitku.callback'), [
+        'merchantCode' => 'D1234',
+        'amount' => '15000',
+        'merchantOrderId' => 'VIPTITLE-1-ABCDEFGH',
+        'signature' => $signature,
+        'reference' => 'DUITKU-REF-001',
+        'resultCode' => '00',
+    ]);
+
+    $response->assertOk();
+
+    expect($claim->fresh()->status)->toBe('pending');
+    expect(VipTitlePayment::query()->first()?->status)->toBe('paid');
 });
 
 test('roblox sales event api stores incoming sales event', function () {
