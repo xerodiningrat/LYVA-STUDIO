@@ -88,6 +88,10 @@
                 padding-top: 0.15rem;
             }
 
+            .ops-sidebar-mobile-brand {
+                display: none;
+            }
+
             .ops-sidebar-guild {
                 margin-top: 1rem;
                 margin-bottom: 0.35rem;
@@ -335,7 +339,7 @@
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-header] + [data-flux-sidebar-nav] {
-                    margin-top: 1.45rem;
+                    margin-top: 1.05rem;
                 }
 
                 .ops-sidebar-shell [data-flux-sidebar-nav] + [data-flux-sidebar-nav] {
@@ -365,13 +369,27 @@
                     margin-top: 2.1rem;
                     padding-top: 1rem;
                 }
+
+                .ops-sidebar-mobile-brand {
+                    display: none !important;
+                }
+
+                .ops-sidebar-header {
+                    padding-top: 0;
+                }
+
+                .ops-sidebar-guild {
+                    margin-top: 0;
+                }
             }
         </style>
 
         <flux:sidebar sticky collapsible="mobile" class="ops-sidebar-shell border-e border-[rgba(104,240,255,0.1)]">
             <flux:sidebar.header>
                 <div class="ops-sidebar-header w-full space-y-4">
-                    <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
+                    <div class="ops-sidebar-mobile-brand">
+                        <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
+                    </div>
                     <div class="ops-sidebar-guild">
                         <span class="ops-sidebar-eyebrow">Ops surface</span>
                         <strong>{{ $managedGuild['name'] ?? 'Belum pilih server' }}</strong>
