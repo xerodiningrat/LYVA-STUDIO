@@ -1,5 +1,20 @@
 @php
     $title = __('VIP Title Setup');
+    $activeMaps = collect($settings)->where('is_active', true)->count();
+    $paidMaps = collect($settings)->filter(fn ($setting) => (int) ($setting->title_price_idr ?? 0) > 0)->count();
+    $scriptProtectedMaps = collect($settings)->filter(fn ($setting) => count($setting->script_access_role_ids ?? []) > 0)->count();
+    $vipParticles = range(1, 14);
+    $setupSignals = [
+        ['label' => 'Maps Active', 'value' => count($settings) > 0 ? (int) round(($activeMaps / max(1, count($settings))) * 100) : 0, 'tone' => 'var(--studio-accent)'],
+        ['label' => 'Paid Flow', 'value' => count($settings) > 0 ? (int) round(($paidMaps / max(1, count($settings))) * 100) : 0, 'tone' => 'var(--studio-accent-3)'],
+        ['label' => 'Script Access', 'value' => count($settings) > 0 ? (int) round(($scriptProtectedMaps / max(1, count($settings))) * 100) : 0, 'tone' => 'var(--studio-accent-2)'],
+        ['label' => 'Claims Queue', 'value' => min(100, max(10, count($claims) * 14)), 'tone' => '#ff9bb0'],
+    ];
+    $adminNotes = [
+        ['title' => 'Map key harus konsisten', 'copy' => 'Map key dipakai bareng oleh bot Discord, backend Laravel, dan script Roblox. Jangan ubah sembarangan setelah live.'],
+        ['title' => 'Harga otomatis aktifkan flow beli', 'copy' => 'Kalau harga IDR diisi, panel bot akan menampilkan Beli Title tanpa mematikan Claim Title untuk user VIP.'],
+        ['title' => 'Role akses script untuk keamanan', 'copy' => 'Batasi tombol Script Roblox hanya ke role tertentu supaya API key dan snippet tidak diambil sembarang orang.'],
+    ];
 @endphp
 
 <x-portfolio.shell :title="$title" active-key="vip-title" search-placeholder="Cari map, API key, script role, harga title">
@@ -17,11 +32,64 @@
                 gap: 1rem;
             }
 
+            .vip-hero {
+                position: relative;
+                isolation: isolate;
+                overflow: hidden;
+            }
+
+            .vip-particles {
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                z-index: 0;
+                overflow: hidden;
+            }
+
+            .vip-particle {
+                position: absolute;
+                width: var(--size);
+                height: var(--size);
+                top: var(--top);
+                left: var(--left);
+                border-radius: 999px;
+                background: radial-gradient(circle, rgba(111, 230, 255, .22), rgba(111, 230, 255, 0));
+                border: 1px solid rgba(111, 230, 255, .16);
+                animation: vipFloat var(--duration) ease-in-out infinite;
+                animation-delay: var(--delay);
+            }
+
+            .vip-hero-glow {
+                position: absolute;
+                inset: auto auto -5rem -4rem;
+                width: 18rem;
+                height: 18rem;
+                border-radius: 999px;
+                background: radial-gradient(circle, rgba(125, 247, 196, .16), rgba(125, 247, 196, 0) 72%);
+                filter: blur(10px);
+                animation: vipPulse 10s ease-in-out infinite;
+            }
+
+            .vip-signal-card,
             .vip-map-card {
+                position: relative;
+                overflow: hidden;
                 border-radius: 1.45rem;
                 border: 1px solid var(--studio-line);
-                background: rgba(255, 255, 255, 0.035);
+                background:
+                    radial-gradient(circle at top right, rgba(111, 230, 255, .1), transparent 34%),
+                    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
                 padding: 1rem;
+            }
+
+            .vip-signal-card::before,
+            .vip-map-card::before {
+                content: "";
+                position: absolute;
+                inset: 0 auto auto 0;
+                width: 100%;
+                height: 1px;
+                background: linear-gradient(90deg, rgba(111, 230, 255, .62), rgba(125, 247, 196, 0));
             }
 
             .vip-map-card > * + * {
@@ -47,6 +115,140 @@
                 flex-wrap: wrap;
                 gap: 0.75rem;
             }
+
+            .vip-signal-bars,
+            .vip-note-grid,
+            .vip-bottom-grid {
+                display: grid;
+                gap: 1rem;
+            }
+
+            .vip-signal-bars {
+                margin-top: 1rem;
+            }
+
+            .vip-signal-row {
+                display: grid;
+                gap: .45rem;
+            }
+
+            .vip-signal-meta {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: .75rem;
+            }
+
+            .vip-signal-track {
+                height: 10px;
+                border-radius: 999px;
+                overflow: hidden;
+                background: rgba(255,255,255,.08);
+            }
+
+            .vip-signal-track span {
+                display: block;
+                width: var(--value);
+                height: 100%;
+                border-radius: inherit;
+                background: linear-gradient(90deg, var(--tone), rgba(255,255,255,.92));
+                box-shadow: 0 0 16px color-mix(in srgb, var(--tone) 45%, transparent);
+                transform-origin: left center;
+                transform: scaleX(0);
+                animation: vipGrow 1.2s cubic-bezier(.22, 1, .36, 1) forwards;
+            }
+
+            .vip-snapshot-grid {
+                display: grid;
+                gap: .9rem;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .vip-snapshot-item,
+            .vip-note-card {
+                padding: 1rem 1.05rem;
+                border-radius: 1.2rem;
+                border: 1px solid rgba(255,255,255,.06);
+                background: rgba(255,255,255,.03);
+            }
+
+            .vip-snapshot-item strong {
+                display: block;
+                margin-top: .65rem;
+                font: 700 1.6rem/1 var(--studio-display);
+            }
+
+            .vip-api-box {
+                padding: 1rem 1.05rem;
+                border-radius: 1.1rem;
+                border: 1px solid rgba(111, 230, 255, .18);
+                background: linear-gradient(180deg, rgba(111, 230, 255, .08), rgba(255,255,255,.02));
+                font-family: var(--studio-mono);
+                word-break: break-all;
+                box-shadow: inset 0 0 0 1px rgba(255,255,255,.02);
+            }
+
+            .vip-snippet-box {
+                border-radius: 1.2rem;
+                overflow: hidden;
+                border: 1px solid rgba(255,255,255,.06);
+            }
+
+            .vip-snippet-box .studio-code {
+                margin: 0;
+                max-height: 18rem;
+            }
+
+            .vip-bottom-grid {
+                grid-template-columns: 1.05fr .95fr;
+            }
+
+            .vip-note-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            @keyframes vipFloat {
+                0%, 100% {
+                    transform: translate3d(0, 0, 0) scale(1);
+                    opacity: .18;
+                }
+
+                50% {
+                    transform: translate3d(0, -16px, 0) scale(1.08);
+                    opacity: .74;
+                }
+            }
+
+            @keyframes vipPulse {
+                0%, 100% {
+                    transform: scale(1);
+                    opacity: .84;
+                }
+
+                50% {
+                    transform: scale(1.1);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes vipGrow {
+                to {
+                    transform: scaleX(1);
+                }
+            }
+
+            @media (max-width: 980px) {
+                .vip-bottom-grid,
+                .vip-note-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            @media (max-width: 720px) {
+                .vip-snapshot-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
         </style>
         @include('partials.studio-workspace-style')
     </x-slot:head>
@@ -61,7 +263,17 @@
         </section>
     @endif
 
-    <section class="studio-hero" data-studio-hover>
+    <section class="studio-hero vip-hero" data-studio-hover>
+        <div class="vip-particles" aria-hidden="true">
+            <div class="vip-hero-glow"></div>
+            @foreach ($vipParticles as $particle)
+                <span
+                    class="vip-particle"
+                    style="--size: {{ 0.42 + (($particle % 4) * 0.24) }}rem; --top: {{ 8 + (($particle * 7) % 74) }}%; --left: {{ 4 + (($particle * 10) % 90) }}%; --delay: -{{ $particle * 0.3 }}s; --duration: {{ 7 + ($particle % 5) }}s;"
+                ></span>
+            @endforeach
+        </div>
+
         <div class="studio-hero-grid">
             <div>
                 <span class="studio-kicker">VIP Title Control</span>
@@ -93,7 +305,7 @@
             </div>
 
             <aside class="studio-stack">
-                <article class="studio-card" data-studio-hover>
+                <article class="studio-card vip-signal-card" data-studio-hover>
                     <div class="studio-panel-header">
                         <div>
                             <span class="studio-label">Workflow</span>
@@ -119,6 +331,43 @@
                             <strong>4. Copy snippet Roblox</strong>
                             <p class="studio-copy" style="margin-top:.45rem;">Admin tinggal tempel config yang sudah kebentuk otomatis di bawah.</p>
                         </article>
+                    </div>
+                </article>
+
+                <article class="studio-card vip-signal-card" data-studio-hover>
+                    <div class="studio-panel-header">
+                        <div>
+                            <span class="studio-label">Config Signal</span>
+                            <h3 style="margin-top:.75rem;">Map key dan API key readiness</h3>
+                        </div>
+                        <span class="studio-pill">Live</span>
+                    </div>
+
+                    <div class="vip-snapshot-grid">
+                        <article class="vip-snapshot-item" data-studio-hover>
+                            <span class="studio-label">Protected scripts</span>
+                            <strong>{{ $scriptProtectedMaps }}</strong>
+                            <p class="studio-copy" style="margin:.5rem 0 0;">Map yang sudah dibatasi role akses script Discord.</p>
+                        </article>
+                        <article class="vip-snapshot-item" data-studio-hover>
+                            <span class="studio-label">Paid maps</span>
+                            <strong>{{ $paidMaps }}</strong>
+                            <p class="studio-copy" style="margin:.5rem 0 0;">Map yang sudah punya flow beli title via IDR.</p>
+                        </article>
+                    </div>
+
+                    <div class="vip-signal-bars">
+                        @foreach ($setupSignals as $signal)
+                            <div class="vip-signal-row">
+                                <div class="vip-signal-meta">
+                                    <span>{{ $signal['label'] }}</span>
+                                    <strong>{{ $signal['value'] }}%</strong>
+                                </div>
+                                <div class="vip-signal-track">
+                                    <span style="--value: {{ $signal['value'] }}%; --tone: {{ $signal['tone'] }};"></span>
+                                </div>
+                            </div>
+                        @endforeach
                     </div>
                 </article>
             </aside>
@@ -309,12 +558,12 @@
 
                             <div class="studio-field">
                                 <label>API key Roblox</label>
-                                <div class="studio-api studio-surface">{{ $setting->api_key }}</div>
+                                <div class="vip-api-box">{{ $setting->api_key }}</div>
                             </div>
 
                             <div class="studio-field">
                                 <label>Snippet Roblox</label>
-                                <div class="studio-code">CLAIM_MODE = "{{ ($setting->title_price_idr ?? 0) > 0 ? 'hybrid' : 'vip_gamepass' }}"
+                                <div class="vip-snippet-box"><div class="studio-code">CLAIM_MODE = "{{ ($setting->title_price_idr ?? 0) > 0 ? 'hybrid' : 'vip_gamepass' }}"
 BUTTON_LABEL = "{{ $setting->button_label ?: 'Beli Title' }}"
 TITLE_PRICE_IDR = {{ $setting->title_price_idr ?? 0 }}
 PAYMENT_EXPIRY_MINUTES = {{ $setting->payment_expiry_minutes ?? 60 }}
@@ -323,7 +572,7 @@ VIP_TITLE_MAP_KEY = "{{ $setting->map_key }}"
 VIP_TITLE_BACKEND_URL = "{{ $appUrl }}"
 VIP_TITLE_API_KEY = "{{ $setting->api_key }}"
 VIP_TITLE_SLOT = {{ $setting->title_slot }}
-VIP_TITLE_ALLOWED_PLACE_IDS = [{{ implode(', ', $setting->place_ids ?? []) }}]</div>
+VIP_TITLE_ALLOWED_PLACE_IDS = [{{ implode(', ', $setting->place_ids ?? []) }}]</div></div>
                             </div>
 
                             <div class="studio-actions">
@@ -396,4 +645,90 @@ VIP_TITLE_ALLOWED_PLACE_IDS = [{{ implode(', ', $setting->place_ids ?? []) }}]</
             </table>
         </div>
     </section>
+
+    <section class="vip-bottom-grid">
+        <section class="studio-panel" data-studio-hover>
+            <div class="studio-panel-header">
+                <div>
+                    <span class="studio-label">Admin Notes</span>
+                    <h3 style="margin-top:.75rem;">Catatan penting untuk map key dan API key</h3>
+                    <p class="studio-copy" style="margin-top:.45rem;">Saya isi bagian bawah ini supaya halaman tidak terasa cuma form panjang, tapi juga jadi panduan admin saat pegang config VIP Title.</p>
+                </div>
+                <span class="studio-pill">Guide</span>
+            </div>
+
+            <div class="vip-note-grid">
+                @foreach ($adminNotes as $index => $note)
+                    <article class="vip-note-card" data-studio-hover>
+                        <span class="studio-note" style="margin-top:0;">Note {{ $index + 1 }}</span>
+                        <strong style="display:block;margin-top:.6rem;">{{ $note['title'] }}</strong>
+                        <p class="studio-copy" style="margin:.5rem 0 0;">{{ $note['copy'] }}</p>
+                    </article>
+                @endforeach
+            </div>
+        </section>
+
+        <aside class="studio-panel" data-studio-hover>
+            <div class="studio-panel-header">
+                <div>
+                    <span class="studio-label">Quick Snapshot</span>
+                    <h3 style="margin-top:.75rem;">Ringkasan VIP key dan akses script</h3>
+                    <p class="studio-copy" style="margin-top:.45rem;">Panel ini membantu admin lihat kondisi config tanpa harus baca semua kartu map satu per satu.</p>
+                </div>
+                <span class="studio-pill">Summary</span>
+            </div>
+
+            <div class="studio-stack">
+                <article class="vip-note-card" data-studio-hover>
+                    <span class="studio-label">Maps aktif</span>
+                    <strong style="display:block;margin-top:.6rem;font-size:1.35rem;">{{ $activeMaps }} dari {{ count($settings) }}</strong>
+                    <p class="studio-copy" style="margin:.5rem 0 0;">Map aktif ini yang dipakai panel bot saat kirim tombol claim, beli, ubah title, dan script Roblox.</p>
+                </article>
+
+                <article class="vip-note-card" data-studio-hover>
+                    <span class="studio-label">API key rotation</span>
+                    <p class="studio-copy" style="margin:.55rem 0 0;">Kalau API key bocor atau script salah tangan, langsung generate ulang dari kartu map terkait agar endpoint Roblox lama berhenti dipakai.</p>
+                </article>
+
+                <article class="vip-note-card" data-studio-hover>
+                    <span class="studio-label">Script access role</span>
+                    <p class="studio-copy" style="margin:.55rem 0 0;">Saat role akses script diisi, hanya admin dan role yang kamu tentukan yang bisa ambil file Roblox dari panel Discord.</p>
+                </article>
+            </div>
+        </aside>
+    </section>
+
+    <x-slot:scripts>
+        <script>
+            (() => {
+                const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                if (prefersReducedMotion || window.innerWidth < 960) {
+                    return;
+                }
+
+                document.querySelectorAll('[data-studio-hover]').forEach((card) => {
+                    const reset = () => {
+                        card.style.transform = '';
+                        card.style.setProperty('--mx', '50%');
+                        card.style.setProperty('--my', '50%');
+                    };
+
+                    card.addEventListener('pointermove', (event) => {
+                        const rect = card.getBoundingClientRect();
+                        const x = event.clientX - rect.left;
+                        const y = event.clientY - rect.top;
+                        const rotateY = ((x / rect.width) - 0.5) * 6;
+                        const rotateX = (0.5 - (y / rect.height)) * 5;
+
+                        card.style.setProperty('--mx', `${(x / rect.width) * 100}%`);
+                        card.style.setProperty('--my', `${(y / rect.height) * 100}%`);
+                        card.style.transform = `perspective(1400px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-5px)`;
+                    });
+
+                    card.addEventListener('pointerleave', reset);
+                    card.addEventListener('pointercancel', reset);
+                });
+            })();
+        </script>
+    </x-slot:scripts>
 </x-portfolio.shell>
