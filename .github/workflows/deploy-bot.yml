@@ -1,0 +1,27 @@
+name: deploy-bot
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: Production
+
+    steps:
+      - name: Deploy bot to VPS
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          script: |
+            export APP_DIR="${{ secrets.VPS_APP_DIR }}"
+            export DEPLOY_BRANCH="${{ github.ref_name }}"
+            cd "${APP_DIR}"
+            chmod +x scripts/deploy-bot.sh
+            ./scripts/deploy-bot.sh
