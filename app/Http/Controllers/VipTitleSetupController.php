@@ -27,15 +27,16 @@ class VipTitleSetupController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $this->validatePayload($request);
+        $price = $this->normalizePrice($validated['title_price_idr'] ?? null);
 
         VipTitleMapSetting::query()->create([
             'name' => $validated['name'],
             'map_key' => $this->normalizeMapKey($validated['map_key']),
             'gamepass_id' => $validated['gamepass_id'],
-            'claim_mode' => $validated['claim_mode'],
+            'claim_mode' => $this->resolveClaimMode($price),
             'api_key' => $this->generateApiKey(),
             'title_slot' => $validated['title_slot'],
-            'title_price_idr' => $this->normalizePrice($validated['title_price_idr'] ?? null),
+            'title_price_idr' => $price,
             'payment_expiry_minutes' => $validated['payment_expiry_minutes'] ?? 60,
             'button_label' => $validated['button_label'] ?? null,
             'place_ids' => $this->parsePlaceIds($validated['place_ids'] ?? ''),
@@ -50,14 +51,15 @@ class VipTitleSetupController extends Controller
     public function update(Request $request, VipTitleMapSetting $setting): RedirectResponse
     {
         $validated = $this->validatePayload($request, $setting->id);
+        $price = $this->normalizePrice($validated['title_price_idr'] ?? null);
 
         $setting->update([
             'name' => $validated['name'],
             'map_key' => $this->normalizeMapKey($validated['map_key']),
             'gamepass_id' => $validated['gamepass_id'],
-            'claim_mode' => $validated['claim_mode'],
+            'claim_mode' => $this->resolveClaimMode($price),
             'title_slot' => $validated['title_slot'],
-            'title_price_idr' => $this->normalizePrice($validated['title_price_idr'] ?? null),
+            'title_price_idr' => $price,
             'payment_expiry_minutes' => $validated['payment_expiry_minutes'] ?? 60,
             'button_label' => $validated['button_label'] ?? null,
             'place_ids' => $this->parsePlaceIds($validated['place_ids'] ?? ''),
@@ -98,9 +100,8 @@ class VipTitleSetupController extends Controller
                 Rule::unique('vip_title_map_settings', 'map_key')->ignore($ignoreId),
             ],
             'gamepass_id' => ['required', 'integer', 'min:0'],
-            'claim_mode' => ['required', 'string', Rule::in(['vip_gamepass', 'duitku'])],
             'title_slot' => ['required', 'integer', 'min:1', 'max:10'],
-            'title_price_idr' => ['nullable', 'required_if:claim_mode,duitku', 'integer', 'min:1000', 'max:100000000'],
+            'title_price_idr' => ['nullable', 'integer', 'min:1000', 'max:100000000'],
             'payment_expiry_minutes' => ['nullable', 'integer', 'min:5', 'max:1440'],
             'button_label' => ['nullable', 'string', 'max:100'],
             'place_ids' => ['nullable', 'string', 'max:2000'],
@@ -141,6 +142,13 @@ class VipTitleSetupController extends Controller
         }
 
         return max(0, (int) $value);
+    }
+
+    private function resolveClaimMode(?int $price): string
+    {
+        return $price !== null && $price > 0
+            ? 'duitku'
+            : 'vip_gamepass';
     }
 
     private function generateApiKey(): string

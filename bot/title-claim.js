@@ -213,15 +213,20 @@ function normalizeMapConfig(rawMap = {}) {
     return null;
   }
 
+  const titlePriceIdr = Number(rawMap.title_price_idr ?? rawMap.titlePriceIdr ?? 0);
+  const derivedClaimMode = titlePriceIdr > 0
+    ? 'duitku'
+    : String(rawMap.claim_mode ?? rawMap.claimMode ?? 'vip_gamepass').trim() || 'vip_gamepass';
+
   return {
     id: rawMap.id ?? null,
     mapKey,
     name: String(rawMap.name || mapKey).trim() || mapKey,
     gamepassId: Number(rawMap.gamepass_id ?? rawMap.gamepassId ?? 0),
-    claimMode: String(rawMap.claim_mode ?? rawMap.claimMode ?? 'vip_gamepass').trim() || 'vip_gamepass',
+    claimMode: derivedClaimMode,
     apiKey: String(rawMap.api_key ?? rawMap.apiKey ?? '').trim(),
     titleSlot: Number(rawMap.title_slot ?? rawMap.titleSlot ?? 0),
-    titlePriceIdr: Number(rawMap.title_price_idr ?? rawMap.titlePriceIdr ?? 0),
+    titlePriceIdr,
     paymentExpiryMinutes: Number(rawMap.payment_expiry_minutes ?? rawMap.paymentExpiryMinutes ?? 60),
     buttonLabel: String(rawMap.button_label ?? rawMap.buttonLabel ?? '').trim(),
     placeIds: Array.isArray(rawMap.place_ids ?? rawMap.placeIds)

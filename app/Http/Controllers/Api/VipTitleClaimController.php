@@ -94,7 +94,7 @@ class VipTitleClaimController extends Controller
             ], 422);
         }
 
-        if ($mapSetting->claim_mode !== 'duitku') {
+        if (! $this->usesPaidCheckout($mapSetting)) {
             return response()->json([
                 'message' => 'Map ini tidak memakai flow pembayaran Duitku.',
             ], 422);
@@ -223,7 +223,7 @@ class VipTitleClaimController extends Controller
             ], 422);
         }
 
-        if ($mapSetting->claim_mode === 'duitku') {
+        if ($this->usesPaidCheckout($mapSetting)) {
             return response()->json([
                 'message' => 'Map ini memakai flow pembayaran Duitku. Gunakan endpoint checkout.',
             ], 422);
@@ -371,6 +371,12 @@ class VipTitleClaimController extends Controller
             ->where('map_key', $this->normalizeMapKey($mapKey))
             ->where('is_active', true)
             ->first();
+    }
+
+    private function usesPaidCheckout(VipTitleMapSetting $setting): bool
+    {
+        return (int) ($setting->title_price_idr ?? 0) > 0
+            || $setting->claim_mode === 'duitku';
     }
 
     private function hasRobloxApiKey(Request $request): bool
