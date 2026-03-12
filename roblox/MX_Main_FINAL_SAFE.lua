@@ -562,6 +562,43 @@ local function playerOwnsVipForClaim(player: Player, claimGamepassId: number?): 
 	return ok and owns == true
 end
 
+local function resolveVipClaimSlot(claim: table?): number
+	local slot = tonumber(claim and claim.titleSlot) or tonumber(CONFIG.VIP_TITLE_SLOT) or 10
+	return math.clamp(slot, 1, 10)
+end
+
+local function applyRgbMetaToPlayer(player: Player): boolean
+	local metaFolder = player:FindFirstChild("CustomTitleMeta")
+	if not metaFolder then
+		return false
+	end
+
+	local hasRgb = false
+	for slotIndex = 1,10 do
+		local slot = metaFolder:FindFirstChild(string.format("Slot%02d", slotIndex))
+		if slot and slot:IsA("Folder") then
+			local mode = slot:FindFirstChild("Mode")
+			local col  = slot:FindFirstChild("Color")
+			if mode and mode:IsA("StringValue") and string.upper(tostring(mode.Value)) == "RGB" and col and col:IsA("Color3Value") then
+				hasRgb = true
+				local hue = (os.clock() * 0.18 + (slotIndex * 0.07)) % 1
+				col.Value = Color3.fromHSV(hue, 1, 1)
+			end
+		end
+	end
+
+	if hasRgb then
+		local nowClock = os.clock()
+		local prev = rgbRefreshCooldown[player.UserId] or 0
+		if (nowClock - prev) >= 0.75 then
+			rgbRefreshCooldown[player.UserId] = nowClock
+			safeRefreshTitle(player)
+		end
+	end
+
+	return hasRgb
+end
+
 local function isVipClaimPlaceAllowed(): boolean
 	local allowed = CONFIG.VIP_TITLE_ALLOWED_PLACE_IDS
 	if typeof(allowed) ~= "table" or next(allowed) == nil then
@@ -571,7 +608,8 @@ local function isVipClaimPlaceAllowed(): boolean
 end
 
 local function applyVipClaimToPlayer(player: Player, claim: table): boolean
-	print("[VIP CLAIM] APPLY START", player.Name, claim and claim.title or "NO_TITLE", "slot", CONFIG.VIP_TITLE_SLOT)
+	local targetSlot = resolveVipClaimSlot(claim)
+	print("[VIP CLAIM] APPLY START", player.Name, claim and claim.title or "NO_TITLE", "slot", targetSlot)
 
 	if not playerOwnsVipForClaim(player, claim and claim.gamepassId) then
 		warn("[VIP CLAIM] APPLY FAIL: player tidak punya VIP", player.Name, player.UserId, claim and claim.gamepassId or CONFIG.VIP_GAMEPASS_ID)
@@ -589,7 +627,7 @@ local function applyVipClaimToPlayer(player: Player, claim: table): boolean
 	loadedOk[player.UserId] = true
 	profile.customTitles = profile.customTitles or {}
 	profile.customTitleMeta = profile.customTitleMeta or {}
-	profile.customTitles[CONFIG.VIP_TITLE_SLOT] = tostring(claim.title or "")
+	profile.customTitles[targetSlot] = tostring(claim.title or "")
 	local titleMeta = (claim and typeof(claim.titleMeta) == "table") and claim.titleMeta or nil
 	local titleMetaColor = (titleMeta and typeof(titleMeta.color) == "table") and titleMeta.color or {}
 	local titleMode = titleMeta and tostring(titleMeta.mode or "SOLID"):upper() or "SOLID"
@@ -600,7 +638,7 @@ local function applyVipClaimToPlayer(player: Player, claim: table): boolean
 	if titlePreset == "" then
 		titlePreset = "VIP"
 	end
-	profile.customTitleMeta[CONFIG.VIP_TITLE_SLOT] = {
+	profile.customTitleMeta[targetSlot] = {
 		mode = titleMode,
 		preset = titlePreset,
 		color = {
@@ -610,7 +648,7 @@ local function applyVipClaimToPlayer(player: Player, claim: table): boolean
 		},
 	}
 
-	print("[VIP CLAIM] TITLE WRITE", player.Name, CONFIG.VIP_TITLE_SLOT, profile.customTitles[CONFIG.VIP_TITLE_SLOT])
+	print("[VIP CLAIM] TITLE WRITE", player.Name, targetSlot, profile.customTitles[targetSlot])
 
 	Data:Save(player.UserId, {
 		customTitles = profile.customTitles,
@@ -618,9 +656,10 @@ local function applyVipClaimToPlayer(player: Player, claim: table): boolean
 	})
 
 	applyCustomTitlesFromProfile(player, profile)
+	applyRgbMetaToPlayer(player)
 	safeRefreshTitle(player)
-	notifyPlayer(player, ("VIP TITLE BERHASIL: %s"):format(profile.customTitles[CONFIG.VIP_TITLE_SLOT]))
-	print("[VIP CLAIM] APPLY DONE", player.Name, profile.customTitles[CONFIG.VIP_TITLE_SLOT])
+	notifyPlayer(player, ("VIP TITLE BERHASIL SLOT %d: %s"):format(targetSlot, profile.customTitles[targetSlot]))
+	print("[VIP CLAIM] APPLY DONE", player.Name, profile.customTitles[targetSlot])
 	return true
 end
 
@@ -707,6 +746,17 @@ local function snapshotCustomTitles(player: Player)
 	return titles, meta
 end
 
+task.spawn(function()
+	while true do
+		task.wait(0.2)
+		for _, player in ipairs(Players:GetPlayers()) do
+			task.spawn(function()
+				applyRgbMetaToPlayer(player)
+			end)
+		end
+	end
+end)
+
 --========================
 -- Admin give title
 --========================
@@ -766,6 +816,7 @@ end)
 -- Runtime state
 --========================
 local touchDebounce, lastPopupForCp = {}, {}
+local rgbRefreshCooldown = {}
 local mustStartFromOne, runLocked, validRun = {}, {}, {}
 local lastFinishAt = {}
 

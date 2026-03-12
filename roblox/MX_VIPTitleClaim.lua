@@ -18,6 +18,7 @@ function Module.Init(config)
 	local vipGamepassId = config.VIPGamepassId or 0
 	local pollInterval = config.PollInterval or 30
 	local allowNonVipInStudio = config.AllowNonVipInStudio == true
+	local rgbRefreshCooldown = {}
 
 	local function loadProfileCompat(...)
 		local profile, ok = ...
@@ -76,6 +77,43 @@ function Module.Init(config)
 		return ok and result == true
 	end
 
+	local function resolveClaimSlot(claim)
+		local slot = tonumber(claim and claim.titleSlot) or tonumber(claimSlot) or 10
+		return math.clamp(slot, 1, 10)
+	end
+
+	local function applyRgbMetaToPlayer(player)
+		local metaFolder = player:FindFirstChild("CustomTitleMeta")
+		if not metaFolder then
+			return false
+		end
+
+		local hasRgb = false
+		for slotIndex = 1, 10 do
+			local slotFolder = metaFolder:FindFirstChild(string.format("Slot%02d", slotIndex))
+			if slotFolder and slotFolder:IsA("Folder") then
+				local modeValue = slotFolder:FindFirstChild("Mode")
+				local colorValue = slotFolder:FindFirstChild("Color")
+				if modeValue and modeValue:IsA("StringValue") and string.upper(tostring(modeValue.Value)) == "RGB" and colorValue and colorValue:IsA("Color3Value") then
+					hasRgb = true
+					local hue = (os.clock() * 0.18 + (slotIndex * 0.07)) % 1
+					colorValue.Value = Color3.fromHSV(hue, 1, 1)
+				end
+			end
+		end
+
+		if hasRgb and safeRefreshTitle then
+			local nowClock = os.clock()
+			local previousRefresh = rgbRefreshCooldown[player.UserId] or 0
+			if (nowClock - previousRefresh) >= 0.75 then
+				rgbRefreshCooldown[player.UserId] = nowClock
+				safeRefreshTitle(player)
+			end
+		end
+
+		return hasRgb
+	end
+
 	local function applyClaim(player, claim)
 		if not ownsVip(player, claim and claim.gamepassId) then
 			return false
@@ -85,9 +123,10 @@ function Module.Init(config)
 		if not ok or not profile then
 			return false
 		end
+		local targetSlot = resolveClaimSlot(claim)
 		profile.customTitles = profile.customTitles or {}
 		profile.customTitleMeta = profile.customTitleMeta or {}
-		profile.customTitles[claimSlot] = tostring(claim.title or "")
+		profile.customTitles[targetSlot] = tostring(claim.title or "")
 		local titleMeta = (claim and typeof(claim.titleMeta) == "table") and claim.titleMeta or nil
 		local titleMetaColor = (titleMeta and typeof(titleMeta.color) == "table") and titleMeta.color or {}
 		local titleMode = titleMeta and tostring(titleMeta.mode or "SOLID"):upper() or "SOLID"
@@ -98,7 +137,7 @@ function Module.Init(config)
 		if titlePreset == "" then
 			titlePreset = "VIP"
 		end
-		profile.customTitleMeta[claimSlot] = {
+		profile.customTitleMeta[targetSlot] = {
 			mode = titleMode,
 			preset = titlePreset,
 			color = {
@@ -114,9 +153,10 @@ function Module.Init(config)
 		})
 
 		applyCustomTitlesFromData(player)
+		applyRgbMetaToPlayer(player)
 		safeRefreshTitle(player)
 		if notifyPlayer then
-			notifyPlayer(player, ("VIP TITLE BERHASIL: %s"):format(profile.customTitles[claimSlot]))
+			notifyPlayer(player, ("VIP TITLE BERHASIL SLOT %d: %s"):format(targetSlot, profile.customTitles[targetSlot]))
 		end
 		return true
 	end
@@ -158,6 +198,17 @@ function Module.Init(config)
 			for _, player in ipairs(Players:GetPlayers()) do
 				task.spawn(function()
 					checkPlayer(player)
+				end)
+			end
+		end
+	end)
+
+	task.spawn(function()
+		while true do
+			task.wait(0.2)
+			for _, player in ipairs(Players:GetPlayers()) do
+				task.spawn(function()
+					applyRgbMetaToPlayer(player)
 				end)
 			end
 		end

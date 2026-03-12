@@ -789,7 +789,7 @@ function buildScriptEmbed(mapConfig) {
     );
 }
 
-function buildClaimSuccessEmbed(username, title, mapConfig, titleStyle) {
+function buildClaimSuccessEmbed(username, title, mapConfig, titleStyle, titleSlot = null) {
   return new EmbedBuilder()
     .setColor(0x16a34a)
     .setTitle('Claim Title Tersimpan')
@@ -798,6 +798,7 @@ function buildClaimSuccessEmbed(username, title, mapConfig, titleStyle) {
       { name: 'Custom Title', value: title, inline: true },
       { name: 'Warna', value: formatTitleStyle(titleStyle), inline: true },
       { name: 'Map', value: mapConfig.name, inline: true },
+      ...(titleSlot ? [{ name: 'Slot', value: String(titleSlot), inline: true }] : []),
       { name: 'Status', value: 'Pending review / apply', inline: true },
     )
     .setFooter({ text: 'Admin bisa cek daftar claim dengan /titile list' });
@@ -807,7 +808,7 @@ function buildTitleChangeSuccessEmbed(username, title, mapConfig, titleStyle, ne
   return new EmbedBuilder()
     .setColor(0x0891b2)
     .setTitle('Perubahan Title Tersimpan')
-    .setDescription(`Perubahan title untuk **@${username}** sudah masuk antrean update. Yang diubah adalah title aktif terakhir di map ini.`)
+    .setDescription(`Perubahan title untuk **@${username}** sudah masuk antrean update. Yang diubah adalah title aktif yang kamu pilih dari daftar.`)
     .addFields(
       ...(previousTitle
         ? [{ name: 'Title Sebelumnya', value: previousTitle, inline: true }]
@@ -841,6 +842,7 @@ function buildPaymentCheckoutEmbed(username, title, mapConfig, payment, titleSty
       { name: 'Custom Title', value: title, inline: true },
       { name: 'Warna', value: formatTitleStyle(titleStyle), inline: true },
       { name: 'Map', value: mapConfig.name, inline: true },
+      ...(payment.titleSlot ? [{ name: 'Slot', value: String(payment.titleSlot), inline: true }] : []),
       { name: 'Nominal', value: formatIdr(payment.amount), inline: true },
       { name: 'Order ID', value: payment.merchantOrderId, inline: false },
       { name: 'Expired', value: payment.expiresAt ? `<t:${Math.floor(new Date(payment.expiresAt).getTime() / 1000)}:R>` : `${mapConfig.paymentExpiryMinutes} menit`, inline: true },
@@ -1347,6 +1349,7 @@ export async function handleTitileComponent(interaction, config) {
           {
             ...status.payment,
             claimStatus: status?.claim?.status || 'unknown',
+            titleSlot: status?.claim?.titleSlot || null,
           },
           status?.claim?.titleStyle || null,
         )],
@@ -1783,8 +1786,9 @@ export async function handleTitileModal(interaction, config) {
     return true;
   }
 
+  let createdClaim = null;
   try {
-    await createLaravelVipTitleClaim(config, {
+    createdClaim = await createLaravelVipTitleClaim(config, {
       map_key: mapKey,
       roblox_user_id: robloxUser.userId,
       roblox_username: robloxUser.username,
@@ -1804,7 +1808,13 @@ export async function handleTitileModal(interaction, config) {
   }
 
   await interaction.editReply({
-    embeds: [buildClaimSuccessEmbed(robloxUser.username, titleCheck.title, mapConfig, titleStyle)],
+    embeds: [buildClaimSuccessEmbed(
+      robloxUser.username,
+      titleCheck.title,
+      mapConfig,
+      titleStyle,
+      Number(createdClaim?.claim?.meta?.title_slot || 0) || null,
+    )],
   });
 
   return true;

@@ -211,11 +211,77 @@ test('bot can create duitku vip title checkout', function () {
         ->assertJsonPath('flow', 'duitku')
         ->assertJsonPath('claim.status', 'awaiting_payment')
         ->assertJsonPath('payment.amount', 15000)
-        ->assertJsonPath('payment.paymentUrl', 'https://sandbox.duitku.com/pay/test-123');
+        ->assertJsonPath('payment.paymentUrl', 'https://sandbox.duitku.com/pay/test-123')
+        ->assertJsonPath('payment.titleSlot', 10);
 
     expect(VipTitleClaim::query()->count())->toBe(1);
     expect(VipTitlePayment::query()->count())->toBe(1);
     expect(VipTitleClaim::query()->first()?->meta['title_style']['color']['g'])->toBe(215);
+});
+
+test('second vip title checkout reserves a different slot instead of overwriting the old one', function () {
+    config()->set('services.discord.internal_token', 'shared-secret');
+    config()->set('services.duitku.merchant_code', 'D1234');
+    config()->set('services.duitku.api_key', 'secret-key');
+    config()->set('services.duitku.sandbox', true);
+    config()->set('services.duitku.default_phone_number', '081234567890');
+    config()->set('app.url', 'https://lyvaindonesia.my.id');
+
+    Http::fake([
+        'https://sandbox.duitku.com/webapi/api/merchant/v2/inquiry' => Http::response([
+            'merchantCode' => 'D1234',
+            'merchantOrderId' => 'VIPTITLE-2-HIJKLMNO',
+            'reference' => 'DUITKU-REF-002',
+            'paymentUrl' => 'https://sandbox.duitku.com/pay/test-456',
+        ]),
+    ]);
+
+    VipTitleMapSetting::query()->create([
+        'name' => 'Mount Xyra Paid',
+        'map_key' => 'mountxyra-paid',
+        'gamepass_id' => 0,
+        'claim_mode' => 'duitku',
+        'api_key' => 'lyva_paid_secret',
+        'title_slot' => 10,
+        'title_price_idr' => 15000,
+        'payment_expiry_minutes' => 90,
+        'button_label' => 'Beli Title',
+        'place_ids' => ['76880221507840'],
+        'script_access_role_ids' => [],
+        'is_active' => true,
+    ]);
+
+    VipTitleClaim::query()->create([
+        'map_key' => 'mountxyra-paid',
+        'gamepass_id' => 0,
+        'roblox_user_id' => 99123,
+        'roblox_username' => 'RobloxBuyer',
+        'requested_title' => 'Title Pertama',
+        'discord_user_id' => '777',
+        'status' => 'applied',
+        'requested_at' => now()->subDay(),
+        'consumed_at' => now()->subDay(),
+        'meta' => [
+            'title_slot' => 10,
+        ],
+    ]);
+
+    $response = $this->withHeaders([
+        'X-Bot-Token' => 'shared-secret',
+    ])->postJson(route('api.bot.vip-title-checkouts.store'), [
+        'map_key' => 'mountxyra-paid',
+        'roblox_user_id' => 99123,
+        'roblox_username' => 'RobloxBuyer',
+        'requested_title' => 'Title Kedua',
+        'discord_user_id' => '777',
+        'discord_tag' => 'Buyer#1234',
+        'payment_method' => 'VC',
+    ]);
+
+    $response
+        ->assertCreated()
+        ->assertJsonPath('payment.titleSlot', 1)
+        ->assertJsonPath('claim.meta.title_slot', 1);
 });
 
 test('bot can fetch duitku payment methods for vip title', function () {
@@ -795,6 +861,7 @@ test('roblox pull includes title style metadata', function () {
         'status' => 'pending',
         'requested_at' => now(),
         'meta' => [
+            'title_slot' => 8,
             'title_style' => [
                 'mode' => 'SOLID',
                 'preset' => 'VIP',
@@ -817,6 +884,7 @@ test('roblox pull includes title style metadata', function () {
     $response
         ->assertOk()
         ->assertJsonPath('claim.title', 'Sky King')
+        ->assertJsonPath('claim.titleSlot', 8)
         ->assertJsonPath('claim.titleMeta.mode', 'SOLID')
         ->assertJsonPath('claim.titleMeta.color.g', 215)
         ->assertJsonPath('claim.titleMeta.label', 'Gold');

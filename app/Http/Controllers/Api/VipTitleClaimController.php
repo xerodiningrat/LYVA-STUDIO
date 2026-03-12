@@ -98,6 +98,7 @@ class VipTitleClaimController extends Controller
                 'mapKey' => $payment->claim?->map_key,
                 'robloxUsername' => $payment->claim?->roblox_username,
                 'requestedTitle' => $payment->claim?->requested_title,
+                'titleSlot' => $this->extractTitleSlot($payment->claim, $payment->claim?->map_key),
                 'titleStyle' => $this->normalizeTitleStyle($payment->claim?->meta['title_style'] ?? null),
                 'status' => $payment->claim?->status,
                 'requestedAt' => $payment->claim?->requested_at,
@@ -128,7 +129,7 @@ class VipTitleClaimController extends Controller
 
         $items = $claims
             ->unique(function (VipTitleClaim $claim) use ($mapSettings) {
-                $slot = (int) ($mapSettings->get($claim->map_key)?->title_slot ?? 10);
+                $slot = $this->extractTitleSlot($claim, $claim->map_key);
                 $userKey = $claim->roblox_user_id > 0
                     ? 'uid:'.$claim->roblox_user_id
                     : 'uname:'.strtolower((string) $claim->roblox_username);
@@ -138,7 +139,7 @@ class VipTitleClaimController extends Controller
             ->values()
             ->map(function (VipTitleClaim $claim) use ($mapSettings) {
                 $mapSetting = $mapSettings->get($claim->map_key);
-                $titleSlot = (int) ($mapSetting?->title_slot ?? 10);
+                $titleSlot = $this->extractTitleSlot($claim, $claim->map_key);
                 $cooldownSource = $claim->consumed_at ?? $claim->requested_at ?? $claim->created_at;
                 $canChangeAt = $cooldownSource?->copy()->addHours(self::TITLE_CHANGE_COOLDOWN_HOURS);
 
@@ -216,10 +217,17 @@ class VipTitleClaimController extends Controller
             ], 422);
         }
 
+        $reservedSlot = $this->resolveAvailableTitleSlot(
+            (int) $validated['roblox_user_id'],
+            (string) $validated['roblox_username'],
+            (int) ($mapSetting->title_slot ?? 10),
+        );
+
         $claimMeta = $this->normalizeClaimMeta(array_filter([
             ...($validated['meta'] ?? []),
             'claim_mode' => 'duitku',
             'price_idr' => $amount,
+            'title_slot' => $reservedSlot,
         ], static fn ($value) => $value !== null));
 
         $claim = VipTitleClaim::query()->create([
@@ -299,6 +307,7 @@ class VipTitleClaimController extends Controller
                 'paymentMethod' => $payment->payment_method,
                 'reference' => $payment->duitku_reference,
                 'expiresAt' => $payment->expires_at,
+                'titleSlot' => $reservedSlot,
             ],
         ], 201);
     }
@@ -383,12 +392,21 @@ class VipTitleClaimController extends Controller
             ->first();
 
         if ($existingPending) {
+            $existingMeta = is_array($existingPending->meta) ? $existingPending->meta : [];
             $existingPending->update([
                 'requested_title' => $title,
                 'gamepass_id' => $mapSetting->gamepass_id,
                 'discord_user_id' => $validated['discord_user_id'] ?? null,
                 'discord_tag' => $validated['discord_tag'] ?? null,
-                'meta' => $this->normalizeClaimMeta($validated['meta'] ?? null),
+                'meta' => $this->normalizeClaimMeta([
+                    ...$existingMeta,
+                    ...($validated['meta'] ?? []),
+                    'title_slot' => $existingMeta['title_slot'] ?? $this->resolveAvailableTitleSlot(
+                        (int) $validated['roblox_user_id'],
+                        (string) $validated['roblox_username'],
+                        (int) ($mapSetting->title_slot ?? 10),
+                    ),
+                ]),
                 'requested_at' => now(),
             ]);
 
@@ -397,6 +415,12 @@ class VipTitleClaimController extends Controller
                 'updated' => true,
             ]);
         }
+
+        $reservedSlot = $this->resolveAvailableTitleSlot(
+            (int) $validated['roblox_user_id'],
+            (string) $validated['roblox_username'],
+            (int) ($mapSetting->title_slot ?? 10),
+        );
 
         $claim = VipTitleClaim::query()->create([
             'map_key' => $mapKey,
@@ -408,7 +432,10 @@ class VipTitleClaimController extends Controller
             'discord_tag' => $validated['discord_tag'] ?? null,
             'status' => 'pending',
             'requested_at' => now(),
-            'meta' => $this->normalizeClaimMeta($validated['meta'] ?? null),
+            'meta' => $this->normalizeClaimMeta([
+                ...($validated['meta'] ?? []),
+                'title_slot' => $reservedSlot,
+            ]),
         ]);
 
         return response()->json([
@@ -526,6 +553,7 @@ class VipTitleClaimController extends Controller
                 'change_type' => 'self_service_update',
                 'previous_claim_id' => $latestAppliedClaim->id,
                 'cooldown_hours' => self::TITLE_CHANGE_COOLDOWN_HOURS,
+                'title_slot' => $this->extractTitleSlot($latestAppliedClaim, $latestAppliedClaim->map_key),
             ], static fn ($value) => $value !== null)),
         ]);
 
@@ -536,7 +564,7 @@ class VipTitleClaimController extends Controller
             'basedOnClaimId' => $latestAppliedClaim->id,
             'previousTitle' => $latestAppliedClaim->requested_title,
             'previousTitleStyle' => $this->normalizeTitleStyle($latestAppliedClaim->meta['title_style'] ?? null),
-            'titleSlot' => (int) ($mapSetting->title_slot ?? 10),
+            'titleSlot' => $this->extractTitleSlot($latestAppliedClaim, $latestAppliedClaim->map_key),
         ], 201);
     }
 
@@ -580,6 +608,7 @@ class VipTitleClaimController extends Controller
                 'claimId' => $claim->id,
                 'title' => $claim->requested_title,
                 'titleMeta' => $this->normalizeTitleStyle($claim->meta['title_style'] ?? null),
+                'titleSlot' => $this->extractTitleSlot($claim, $claim->map_key),
                 'mapKey' => $claim->map_key,
                 'gamepassId' => $claim->gamepass_id,
                 'requestedAt' => $claim->requested_at,
@@ -787,6 +816,58 @@ class VipTitleClaimController extends Controller
         return sprintf('%d jam %d menit', $hours, $minutes);
     }
 
+    private function resolveAvailableTitleSlot(int $robloxUserId, string $robloxUsername, int $preferredSlot = 10): int
+    {
+        $preferredSlot = max(1, min(10, $preferredSlot));
+
+        $claims = VipTitleClaim::query()
+            ->whereIn('status', ['pending', 'awaiting_payment', 'applied'])
+            ->where(fn ($query) => $this->applyUserMatchQuery($query, $robloxUserId, $robloxUsername))
+            ->get(['map_key', 'meta']);
+
+        $occupiedSlots = $claims
+            ->map(fn (VipTitleClaim $claim) => $this->extractTitleSlot($claim, $claim->map_key))
+            ->filter(fn ($slot) => $slot >= 1 && $slot <= 10)
+            ->unique()
+            ->values()
+            ->all();
+
+        $candidateSlots = array_values(array_unique([
+            ...range($preferredSlot, 10),
+            ...range(1, max(1, $preferredSlot - 1)),
+        ]));
+
+        foreach ($candidateSlots as $slot) {
+            if (! in_array($slot, $occupiedSlots, true)) {
+                return $slot;
+            }
+        }
+
+        abort(response()->json([
+            'message' => 'Semua 10 slot title untuk user ini sudah terpakai. Hapus atau ubah title aktif dulu sebelum beli title baru.',
+        ], 422));
+    }
+
+    private function extractTitleSlot(?VipTitleClaim $claim, ?string $mapKey = null): int
+    {
+        $meta = is_array($claim?->meta) ? $claim->meta : [];
+        $slot = (int) ($meta['title_slot'] ?? 0);
+        if ($slot >= 1 && $slot <= 10) {
+            return $slot;
+        }
+
+        if ($mapKey !== null && $mapKey !== '') {
+            $fallbackSetting = VipTitleMapSetting::query()
+                ->where('map_key', $this->normalizeMapKey($mapKey))
+                ->first(['title_slot']);
+            $fallbackSlot = (int) ($fallbackSetting?->title_slot ?? 10);
+
+            return max(1, min(10, $fallbackSlot));
+        }
+
+        return 10;
+    }
+
     private function normalizeClaimMeta(?array $meta): ?array
     {
         $normalized = is_array($meta) ? $meta : [];
@@ -796,6 +877,13 @@ class VipTitleClaimController extends Controller
             $normalized['title_style'] = $titleStyle;
         } else {
             unset($normalized['title_style']);
+        }
+
+        $titleSlot = (int) ($normalized['title_slot'] ?? 0);
+        if ($titleSlot >= 1 && $titleSlot <= 10) {
+            $normalized['title_slot'] = $titleSlot;
+        } else {
+            unset($normalized['title_slot']);
         }
 
         return $normalized === [] ? null : $normalized;
