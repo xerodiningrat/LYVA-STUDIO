@@ -15,7 +15,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from 'discord.js';
-import { createLaravelVipTitleCheckout, createLaravelVipTitleClaim, fetchLaravelVipTitleClaims, fetchLaravelVipTitleMaps, fetchLaravelVipTitlePaymentMethods } from './laravel-api.js';
+import { createLaravelVipTitleCheckout, createLaravelVipTitleClaim, fetchLaravelVipTitleClaims, fetchLaravelVipTitleMaps, fetchLaravelVipTitlePaymentMethods, fetchLaravelVipTitlePaymentStatus } from './laravel-api.js';
 
 const TITLE_PANEL_BUTTON_PREFIX = 'title_claim_open:';
 const TITLE_BUY_BUTTON_PREFIX = 'title_buy_open:';
@@ -24,6 +24,7 @@ const TITLE_CLAIM_MODAL_PREFIX = 'title_claim_modal:';
 const TITLE_BUY_MODAL_PREFIX = 'title_buy_modal:';
 const TITLE_SETUP_SELECT_PREFIX = 'title_setup_map_select:';
 const TITLE_PAYMENT_SELECT_PREFIX = 'title_payment_select:';
+const TITLE_PAYMENT_REFRESH_PREFIX = 'title_payment_refresh:';
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(MODULE_DIR, '..');
 const CLAIMS_PATH = path.join(PROJECT_ROOT, 'data', 'vip-title-claims.json');
@@ -239,6 +240,10 @@ function buildTitlePaymentSelectId(sessionId) {
   return `${TITLE_PAYMENT_SELECT_PREFIX}${sessionId}`;
 }
 
+function buildTitlePaymentRefreshId(merchantOrderId) {
+  return `${TITLE_PAYMENT_REFRESH_PREFIX}${merchantOrderId}`;
+}
+
 function parseTitleSetupSelectChannelId(customId) {
   if (!String(customId || '').startsWith(TITLE_SETUP_SELECT_PREFIX)) {
     return '';
@@ -253,6 +258,14 @@ function parseTitlePaymentSelectId(customId) {
   }
 
   return String(customId).slice(TITLE_PAYMENT_SELECT_PREFIX.length);
+}
+
+function parseTitlePaymentRefreshId(customId) {
+  if (!String(customId || '').startsWith(TITLE_PAYMENT_REFRESH_PREFIX)) {
+    return '';
+  }
+
+  return String(customId).slice(TITLE_PAYMENT_REFRESH_PREFIX.length);
 }
 
 function normalizeMapConfig(rawMap = {}) {
@@ -483,17 +496,27 @@ function buildClaimSuccessEmbed(username, title, mapConfig) {
 }
 
 function buildPaymentCheckoutEmbed(username, title, mapConfig, payment) {
+  const paymentStatus = String(payment.status || 'pending');
+  const claimStatus = String(payment.claimStatus || 'awaiting_payment');
+  const statusText = claimStatus === 'applied'
+    ? 'Title sudah diproses di Roblox'
+    : paymentStatus === 'paid'
+      ? 'Pembayaran sudah diterima'
+      : 'Menunggu pembayaran';
+
   return new EmbedBuilder()
     .setColor(0x22c55e)
     .setTitle('Checkout Title Siap')
-    .setDescription(`Invoice untuk **@${username}** sudah dibuat. Lanjutkan pembayaran lewat Duitku agar title diproses otomatis.`)
+    .setDescription(`Invoice untuk **@${username}** sudah dibuat. Lanjutkan pembayaran lewat Duitku atau klik cek status untuk update terbaru.`)
     .addFields(
       { name: 'Custom Title', value: title, inline: true },
       { name: 'Map', value: mapConfig.name, inline: true },
       { name: 'Nominal', value: formatIdr(payment.amount), inline: true },
       { name: 'Order ID', value: payment.merchantOrderId, inline: false },
       { name: 'Expired', value: payment.expiresAt ? `<t:${Math.floor(new Date(payment.expiresAt).getTime() / 1000)}:R>` : `${mapConfig.paymentExpiryMinutes} menit`, inline: true },
-      { name: 'Status', value: 'Menunggu pembayaran', inline: true },
+      { name: 'Status', value: statusText, inline: true },
+      { name: 'Payment', value: paymentStatus, inline: true },
+      { name: 'Claim', value: claimStatus, inline: true },
     )
     .setFooter({ text: 'Setelah pembayaran sukses, title akan masuk otomatis ke antrian Roblox.' });
 }
@@ -931,10 +954,12 @@ export async function handleTitileComponent(interaction, config) {
         embeds: [buildPaymentCheckoutEmbed(session.robloxUsername, session.requestedTitle, session.mapConfig, {
           ...checkout.payment,
           amount: selectedMethod.totalFee || checkout.payment.amount,
+          claimStatus: checkout?.claim?.status ?? 'awaiting_payment',
         })],
         components: [
           new ActionRowBuilder().addComponents(
             new ButtonBuilder().setLabel(`Bayar via ${selectedMethod.paymentName}`).setStyle(ButtonStyle.Link).setURL(paymentUrl),
+            new ButtonBuilder().setCustomId(buildTitlePaymentRefreshId(checkout.payment.merchantOrderId)).setLabel('Cek Status').setStyle(ButtonStyle.Secondary),
           ),
         ],
       });
@@ -951,6 +976,46 @@ export async function handleTitileComponent(interaction, config) {
 
   if (!interaction.isButton()) {
     return false;
+  }
+
+  const refreshMerchantOrderId = parseTitlePaymentRefreshId(interaction.customId);
+  if (refreshMerchantOrderId) {
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      const status = await fetchLaravelVipTitlePaymentStatus(config, refreshMerchantOrderId);
+      const mapConfig = await resolveMapConfig(config, status?.claim?.mapKey || '');
+      const fallbackMapConfig = mapConfig || {
+        name: status?.claim?.mapKey || 'Unknown Map',
+        paymentExpiryMinutes: 60,
+      };
+
+      await interaction.editReply({
+        embeds: [buildPaymentCheckoutEmbed(
+          status?.claim?.robloxUsername || '-',
+          status?.claim?.requestedTitle || '-',
+          fallbackMapConfig,
+          {
+            ...status.payment,
+            claimStatus: status?.claim?.status || 'unknown',
+          },
+        )],
+        components: status?.payment?.paymentUrl
+          ? [
+              new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setLabel('Bayar via Duitku').setStyle(ButtonStyle.Link).setURL(status.payment.paymentUrl),
+                new ButtonBuilder().setCustomId(buildTitlePaymentRefreshId(status.payment.merchantOrderId)).setLabel('Cek Status').setStyle(ButtonStyle.Secondary),
+              ),
+            ]
+          : [],
+      });
+    } catch (error) {
+      await interaction.editReply({
+        content: truncateDiscordContent(`Gagal ambil status pembayaran: ${error.message}`),
+      });
+    }
+
+    return true;
   }
 
   const panelMapKey = parseTitlePanelButtonId(interaction.customId);

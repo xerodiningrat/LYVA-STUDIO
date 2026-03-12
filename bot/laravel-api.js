@@ -368,6 +368,26 @@ export async function fetchLaravelVipTitlePaymentMethods(config, params = {}) {
   return response.json();
 }
 
+export async function fetchLaravelVipTitlePaymentStatus(config, merchantOrderId) {
+  if (!config.internalToken) {
+    return null;
+  }
+
+  const response = await requestLaravel(`${config.botApiUrl}/api/bot/vip-title-payments/${encodeURIComponent(merchantOrderId)}`, {
+    headers: {
+      'Accept': 'application/json',
+      'X-Bot-Token': config.internalToken,
+    },
+  }, 'mengambil status pembayaran VIP title');
+
+  if (!response.ok) {
+    const message = await readLaravelErrorMessage(response, 'Laravel status pembayaran VIP title gagal.');
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
 export async function fetchLaravelVipTitleMaps(config) {
   if (!config.internalToken) {
     return null;

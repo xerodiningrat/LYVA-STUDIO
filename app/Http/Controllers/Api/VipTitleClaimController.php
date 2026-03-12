@@ -72,6 +72,38 @@ class VipTitleClaimController extends Controller
         ]);
     }
 
+    public function paymentStatus(Request $request, string $merchantOrderId): JsonResponse
+    {
+        abort_unless($this->hasBotToken($request), 401);
+
+        $payment = VipTitlePayment::query()
+            ->with('claim')
+            ->where('merchant_order_id', $merchantOrderId)
+            ->firstOrFail();
+
+        return response()->json([
+            'payment' => [
+                'merchantOrderId' => $payment->merchant_order_id,
+                'reference' => $payment->duitku_reference,
+                'amount' => $payment->amount,
+                'status' => $payment->status,
+                'paymentMethod' => $payment->payment_method,
+                'paymentUrl' => $payment->payment_url,
+                'expiresAt' => $payment->expires_at,
+                'paidAt' => $payment->paid_at,
+            ],
+            'claim' => [
+                'id' => $payment->claim?->id,
+                'mapKey' => $payment->claim?->map_key,
+                'robloxUsername' => $payment->claim?->roblox_username,
+                'requestedTitle' => $payment->claim?->requested_title,
+                'status' => $payment->claim?->status,
+                'requestedAt' => $payment->claim?->requested_at,
+                'consumedAt' => $payment->claim?->consumed_at,
+            ],
+        ]);
+    }
+
     public function checkout(Request $request, DuitkuService $duitku): JsonResponse
     {
         abort_unless($this->hasBotToken($request), 401);

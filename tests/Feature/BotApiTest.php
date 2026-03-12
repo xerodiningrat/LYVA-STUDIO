@@ -350,6 +350,45 @@ test('duitku callback marks vip title payment as paid', function () {
     expect(VipTitlePayment::query()->first()?->status)->toBe('paid');
 });
 
+test('bot can fetch vip title payment status', function () {
+    config()->set('services.discord.internal_token', 'shared-secret');
+
+    $claim = VipTitleClaim::query()->create([
+        'map_key' => 'mountxyra',
+        'gamepass_id' => 0,
+        'roblox_user_id' => 9006398922,
+        'roblox_username' => 'fenzane25',
+        'requested_title' => 'FENZANE KEREN',
+        'status' => 'applied',
+        'requested_at' => now(),
+        'consumed_at' => now(),
+        'meta' => ['payment_status' => 'paid'],
+    ]);
+
+    VipTitlePayment::query()->create([
+        'vip_title_claim_id' => $claim->id,
+        'map_key' => 'mountxyra',
+        'merchant_order_id' => 'VIPTITLE-4-HLLERIVM',
+        'duitku_reference' => 'DS1690426UVGQIWU7LEEVXO6',
+        'amount' => 100000,
+        'status' => 'paid',
+        'payment_method' => 'VC',
+        'payment_url' => 'https://sandbox.duitku.com/topup/test',
+        'expires_at' => now()->addHour(),
+        'paid_at' => now(),
+    ]);
+
+    $response = $this->withHeaders([
+        'X-Bot-Token' => 'shared-secret',
+    ])->getJson(route('api.bot.vip-title-payments.show', ['merchantOrderId' => 'VIPTITLE-4-HLLERIVM']));
+
+    $response
+        ->assertOk()
+        ->assertJsonPath('payment.status', 'paid')
+        ->assertJsonPath('claim.status', 'applied')
+        ->assertJsonPath('claim.robloxUsername', 'fenzane25');
+});
+
 test('roblox sales event api stores incoming sales event', function () {
     config()->set('services.roblox.ingest_token', 'roblox-shared-secret');
 
