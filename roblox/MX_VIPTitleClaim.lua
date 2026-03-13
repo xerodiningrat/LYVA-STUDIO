@@ -43,15 +43,20 @@ function Module.Init(config)
 			:gsub("/+$", "")
 			:gsub("/api$", "")
 
-		local response = HttpService:RequestAsync({
-			Url = normalizedBackendUrl .. path,
-			Method = "POST",
-			Headers = {
-				["Content-Type"] = "application/json",
-				["x-api-key"] = apiKey,
-			},
-			Body = HttpService:JSONEncode(body or {}),
-		})
+		local ok, response = pcall(function()
+			return HttpService:RequestAsync({
+				Url = normalizedBackendUrl .. path,
+				Method = "POST",
+				Headers = {
+					["Content-Type"] = "application/json",
+					["x-api-key"] = apiKey,
+				},
+				Body = HttpService:JSONEncode(body or {}),
+			})
+		end)
+		if not ok or not response then
+			return nil
+		end
 		if not response.Success then
 			return nil
 		end
@@ -161,6 +166,29 @@ function Module.Init(config)
 		end
 	end
 
+	local function scheduleRespawnTitleRecovery(player, character)
+		for _, delaySeconds in ipairs({ 0.4, 1, 2, 3 }) do
+			task.delay(delaySeconds, function()
+				if not player or not player:IsDescendantOf(Players) then
+					return
+				end
+
+				if player.Character ~= character or not character.Parent then
+					return
+				end
+
+				local head = character:FindFirstChild("Head")
+				local hrp = character:FindFirstChild("HumanoidRootPart")
+				local humanoid = character:FindFirstChildOfClass("Humanoid")
+				if not head or not hrp or not humanoid or humanoid.Health <= 0 then
+					return
+				end
+
+				hydratePlayerTitle(player)
+			end)
+		end
+	end
+
 	local function applyClaim(player, claim)
 		if not ownsVip(player, claim and claim.gamepassId) then
 			return false
@@ -209,7 +237,7 @@ function Module.Init(config)
 	end
 
 	local function checkPlayer(player)
-		if mapKey == "" or not isPlaceAllowed() then
+		if mapKey == "" or apiKey == "" or backendUrl == "" or not isPlaceAllowed() then
 			return
 		end
 
@@ -221,11 +249,11 @@ function Module.Init(config)
 			universeId = tostring(game.GameId),
 		})
 		if payload and payload.claim then
-			applyClaim(player, payload.claim)
+			local applied = applyClaim(player, payload.claim)
 			requestJson("/api/roblox/vip-title-claims/consume", {
 				claimId = payload.claim.claimId,
-				status = "applied",
-				reason = "Applied in game",
+				status = applied and "applied" or "rejected",
+				reason = applied and "Applied in game" or "VIP ownership / data load failed",
 				mapKey = mapKey,
 				placeId = tostring(game.PlaceId),
 				universeId = tostring(game.GameId),
@@ -237,6 +265,7 @@ function Module.Init(config)
 		scheduleTitleHydration(player)
 		if player.Character then
 			scheduleCharacterTitleRefresh(player, player.Character)
+			scheduleRespawnTitleRecovery(player, player.Character)
 		end
 
 		player.CharacterAdded:Connect(function(char)
@@ -244,11 +273,13 @@ function Module.Init(config)
 			char:WaitForChild("HumanoidRootPart")
 			scheduleTitleHydration(player)
 			scheduleCharacterTitleRefresh(player, char)
+			scheduleRespawnTitleRecovery(player, char)
 		end)
 
 		player.CharacterAppearanceLoaded:Connect(function(char)
 			scheduleTitleHydration(player)
 			scheduleCharacterTitleRefresh(player, char)
+			scheduleRespawnTitleRecovery(player, char)
 		end)
 
 		task.delay(5, function()
