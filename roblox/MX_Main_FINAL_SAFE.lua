@@ -239,6 +239,11 @@ local function teleportToSummit(character: Model)
 			hrp.Anchored = wasAnchored
 		end
 	end)
+
+	local player = Players:GetPlayerFromCharacter(character)
+	if player and scheduleSummitTitleRecovery then
+		scheduleSummitTitleRecovery(player, character)
+	end
 end
 
 local function teleportToSavedCheckpointOrSummit(player:Player, character:Model)
@@ -292,6 +297,9 @@ local SpeedrunModule = require(ModFolder:WaitForChild("MX_Speedrun"))
 local TitleModule = require(ModFolder:WaitForChild("MX_Title"))
 
 local Data = DataModule.Init(CONFIG)
+
+local scheduleSummitTitleRecovery
+local scheduleClaimTitleRecovery
 
 --========================
 -- Disable ordered DS traffic
@@ -408,9 +416,14 @@ local function safeRefreshTitle(plr: Player)
 	if not char:FindFirstChild("Head") then return end
 	local uid = plr.UserId
 	local now = os.clock()
-	if titleDebounce[uid] and (now - titleDebounce[uid]) < 0.15 then return end
+	if titleDebounce[uid] and (now - titleDebounce[uid]) < 0.05 then return end
 	titleDebounce[uid] = now
-	Title:ApplyRetry(plr, char, ROLES, CONFIG.LYVA_COMMUNITY_USERIDS)
+	local ok, err = pcall(function()
+		Title:ApplyRetry(plr, char, ROLES, CONFIG.LYVA_COMMUNITY_USERIDS)
+	end)
+	if not ok then
+		warn("[MX] safeRefreshTitle error:", err)
+	end
 end
 
 refresh.Event:Connect(function(targetPlayer: Player)
@@ -503,6 +516,55 @@ local function applyCustomTitlesFromProfile(player: Player, profile: table)
 				end
 			end
 		end
+	end
+end
+
+local function syncProfileTitleSlotToPlayer(player: Player, profile: table, slotIndex: number)
+	Title:EnsureCustomTitles(player)
+
+	local titleValue = tostring((profile.customTitles or {})[slotIndex] or "")
+	local titleFolder = player:FindFirstChild("CustomTitles")
+	if titleFolder then
+		local stringValue = titleFolder:FindFirstChild(string.format("Title%02d", slotIndex))
+		if stringValue and stringValue:IsA("StringValue") then
+			stringValue.Value = titleValue
+		end
+	end
+
+	local meta = (profile.customTitleMeta or {})[slotIndex]
+	if typeof(meta) ~= "table" then
+		return
+	end
+
+	local metaFolder = player:FindFirstChild("CustomTitleMeta")
+	if not metaFolder then
+		return
+	end
+
+	local slotFolder = metaFolder:FindFirstChild(string.format("Slot%02d", slotIndex))
+	if not slotFolder or not slotFolder:IsA("Folder") then
+		return
+	end
+
+	local modeValue = slotFolder:FindFirstChild("Mode")
+	local presetValue = slotFolder:FindFirstChild("Preset")
+	local colorValue = slotFolder:FindFirstChild("Color")
+
+	if modeValue and modeValue:IsA("StringValue") then
+		modeValue.Value = tostring(meta.mode or "NONE")
+	end
+
+	if presetValue and presetValue:IsA("StringValue") then
+		presetValue.Value = tostring(meta.preset or "VIP")
+	end
+
+	local color = typeof(meta.color) == "table" and meta.color or {}
+	if colorValue and colorValue:IsA("Color3Value") then
+		colorValue.Value = Color3.fromRGB(
+			math.clamp(tonumber(color.r) or 255, 0, 255),
+			math.clamp(tonumber(color.g) or 255, 0, 255),
+			math.clamp(tonumber(color.b) or 255, 0, 255)
+		)
 	end
 end
 
@@ -637,6 +699,43 @@ local function scheduleRespawnTitleRecovery(player: Player, character: Model, pr
 	end
 end
 
+scheduleSummitTitleRecovery = function(player: Player, character: Model)
+	for _, delaySeconds in ipairs({ 0.3, 0.8, 1.5, 3 }) do
+		task.delay(delaySeconds, function()
+			if not player or not player:IsDescendantOf(Players) then
+				return
+			end
+
+			if player.Character ~= character or not character.Parent then
+				return
+			end
+
+			if not character:FindFirstChild("Head") then
+				return
+			end
+
+			titleDebounce[player.UserId] = nil
+			hydratePlayerTitle(player)
+		end)
+	end
+end
+
+scheduleClaimTitleRecovery = function(player: Player, profile: table, targetSlot: number)
+	for _, delaySeconds in ipairs({ 0.2, 0.5, 1.0, 2.0 }) do
+		task.delay(delaySeconds, function()
+			if not player or not player:IsDescendantOf(Players) then
+				return
+			end
+
+			syncProfileTitleSlotToPlayer(player, profile, targetSlot)
+			applyCustomTitlesFromProfile(player, profile)
+			titleDebounce[player.UserId] = nil
+			applyRgbMetaToPlayer(player)
+			safeRefreshTitle(player)
+		end)
+	end
+end
+
 --========================
 -- VIP title claim polling
 --========================
@@ -760,14 +859,19 @@ local function applyVipClaimToPlayer(player: Player, claim: table): boolean
 
 	print("[VIP CLAIM] TITLE WRITE", player.Name, targetSlot, profile.customTitles[targetSlot])
 
-	Data:Save(player.UserId, {
+	rawSave(Data, player.UserId, {
 		customTitles = profile.customTitles,
 		customTitleMeta = profile.customTitleMeta,
 	})
 
+	syncProfileTitleSlotToPlayer(player, profile, targetSlot)
 	applyCustomTitlesFromProfile(player, profile)
+	titleDebounce[player.UserId] = nil
 	applyRgbMetaToPlayer(player)
 	safeRefreshTitle(player)
+	if scheduleClaimTitleRecovery then
+		scheduleClaimTitleRecovery(player, profile, targetSlot)
+	end
 	notifyPlayer(player, ("VIP TITLE BERHASIL SLOT %d: %s"):format(targetSlot, profile.customTitles[targetSlot]))
 	print("[VIP CLAIM] APPLY DONE", player.Name, profile.customTitles[targetSlot])
 	return true
@@ -1047,6 +1151,17 @@ local function finishRun(player:Player)
 	validRun[player]=nil
 
 	notifyPlayer(player, "SUMMIT!")
+	task.delay(0.1, function()
+		if player and player:IsDescendantOf(Players) then
+			titleDebounce[player.UserId] = nil
+			safeRefreshTitle(player)
+		end
+	end)
+	task.delay(0.5, function()
+		if player and player:IsDescendantOf(Players) then
+			hydratePlayerTitle(player)
+		end
+	end)
 end
 
 --========================
