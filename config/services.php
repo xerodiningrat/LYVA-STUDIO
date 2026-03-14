@@ -41,6 +41,7 @@ return [
         'redirect_uri' => env('DISCORD_REDIRECT_URI'),
         'public_key' => env('DISCORD_PUBLIC_KEY'),
         'bot_token' => env('DISCORD_BOT_TOKEN'),
+        'bot_invite_permissions' => env('DISCORD_BOT_INVITE_PERMISSIONS', '274878221376'),
         'guild_id' => env('DISCORD_GUILD_ID'),
         'internal_token' => env('DISCORD_INTERNAL_TOKEN'),
         'verified_role_id' => env('DISCORD_VERIFIED_ROLE_ID'),

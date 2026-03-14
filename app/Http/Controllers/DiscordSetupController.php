@@ -2,26 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Discord\DiscordBotInviteUrlFactory;
 use App\Services\Discord\DiscordCommandCatalog;
+use Illuminate\Http\Request;
 
 class DiscordSetupController extends Controller
 {
-    public function __invoke(DiscordCommandCatalog $catalog)
+    public function __invoke(Request $request, DiscordCommandCatalog $catalog, DiscordBotInviteUrlFactory $inviteUrlFactory)
     {
         $applicationId = config('services.discord.application_id');
         $guildId = config('services.discord.guild_id');
         $publicKey = config('services.discord.public_key');
         $botToken = config('services.discord.bot_token');
         $appUrl = rtrim((string) config('app.url'), '/');
+        $managedGuild = $request->session()->get('managed_guild');
+        $preferredGuildId = (string) ($managedGuild['id'] ?? $request->user()?->selected_guild_id ?? $guildId ?? '');
+        $preferredGuildName = (string) ($managedGuild['name'] ?? '');
 
-        $inviteUrl = is_string($applicationId) && $applicationId !== ''
-            ? sprintf(
-                'https://discord.com/oauth2/authorize?client_id=%s&scope=%s&permissions=%s',
-                $applicationId,
-                rawurlencode('bot applications.commands'),
-                '274878221376',
-            )
-            : null;
+        $inviteUrl = $inviteUrlFactory->make();
+        $selectedGuildInviteUrl = $inviteUrlFactory->make($preferredGuildId, true);
 
         $interactionUrl = $appUrl !== '' ? "{$appUrl}/discord/interactions" : null;
 
@@ -47,6 +46,13 @@ class DiscordSetupController extends Controller
                 'ready' => true,
             ],
             [
+                'label' => 'Guild aktif di panel',
+                'value' => $preferredGuildId !== ''
+                    ? trim($preferredGuildName.' ('.$preferredGuildId.')', ' ')
+                    : 'Belum pilih server di dashboard',
+                'ready' => $preferredGuildId !== '',
+            ],
+            [
                 'label' => 'APP_URL publik',
                 'value' => $appUrl ?: 'Belum diisi',
                 'ready' => $appUrl !== '' && ! str_contains($appUrl, 'localhost') && ! str_contains($appUrl, '127.0.0.1'),
@@ -67,6 +73,9 @@ class DiscordSetupController extends Controller
 
         return view('discord.setup', compact(
             'inviteUrl',
+            'selectedGuildInviteUrl',
+            'preferredGuildId',
+            'preferredGuildName',
             'interactionUrl',
             'setupChecks',
             'commands',

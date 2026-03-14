@@ -481,7 +481,11 @@
 
                 <div class="discord-links-grid">
                     <div class="studio-field studio-card discord-link-card" data-studio-hover>
-                        <label>Invite URL</label>
+                        <label>Invite URL Server Aktif</label>
+                        <div class="studio-code">{{ $selectedGuildInviteUrl ?? 'Pilih server dulu atau isi DISCORD_APPLICATION_ID.' }}</div>
+                    </div>
+                    <div class="studio-field studio-card discord-link-card" data-studio-hover>
+                        <label>Invite URL Umum</label>
                         <div class="studio-code">{{ $inviteUrl ?? 'Isi DISCORD_APPLICATION_ID dulu.' }}</div>
                     </div>
                     <div class="studio-field studio-card discord-link-card" data-studio-hover>
@@ -491,6 +495,7 @@
                 </div>
 
                 <p class="studio-help" style="margin-top:1rem;">Discord hanya menerima endpoint publik. Jangan pakai <span class="studio-inline-code">localhost</span> atau <span class="studio-inline-code">127.0.0.1</span> untuk production.</p>
+                <p class="studio-help" style="margin-top:.55rem;">Kalau invite masih gagal, cek juga di Discord Developer Portal: <span class="studio-inline-code">Bot &gt; Public Bot</span> aktif dan <span class="studio-inline-code">Installation &gt; Guild Install</span> tidak dimatikan.</p>
             </section>
 
             <section class="studio-panel" data-studio-hover>
