@@ -201,7 +201,35 @@ app.get('/dashboard', async (req, res, next) => {
         }
 
         const keys = await bacaKeys();
-        return res.send(renderDashboard(keys));
+        const filters = ambilFilterDashboard(req.query ?? {});
+        const filteredKeys = filterKeys(keys, filters);
+        return res.send(renderDashboard({
+            keys,
+            filteredKeys,
+            filters,
+        }));
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get('/dashboard/keys', async (req, res, next) => {
+    try {
+        if (!lolosBasicAuth(req)) {
+            res.setHeader('WWW-Authenticate', 'Basic realm="LYVA License Dashboard"');
+            return res.status(401).json({ error: 'Butuh autentikasi.' });
+        }
+
+        const keys = await bacaKeys();
+        const filters = ambilFilterDashboard(req.query ?? {});
+        const filteredKeys = filterKeys(keys, filters);
+
+        return res.json({
+            total: keys.length,
+            matched: filteredKeys.length,
+            filters,
+            items: filteredKeys,
+        });
     } catch (error) {
         next(error);
     }
@@ -453,8 +481,40 @@ function lolosBasicAuth(req) {
     return username === 'admin' && password === ADMIN_PASSWORD;
 }
 
-function renderDashboard(keys) {
-    const rows = keys.map((item) => `
+function ambilFilterDashboard(query = {}) {
+    const filter = (nilai) => typeof nilai === 'string' ? nilai.trim() : '';
+    const statusRaw = filter(query.status).toLowerCase();
+    const status = statusRaw === 'active' || statusRaw === 'revoked'
+        ? statusRaw
+        : '';
+
+    return {
+        key: filter(query.key),
+        mapsName: filter(query.mapsName),
+        gameId: filter(query.gameId),
+        placeId: filter(query.placeId),
+        owner: filter(query.owner),
+        status,
+    };
+}
+
+function filterKeys(keys, filters) {
+    const cocokParsial = (sumber, cari) => String(sumber ?? '').toLowerCase().includes(String(cari ?? '').toLowerCase());
+
+    return keys.filter((item) => {
+        if (filters.key && !cocokParsial(item.key, filters.key)) return false;
+        if (filters.mapsName && !cocokParsial(item.mapsName, filters.mapsName)) return false;
+        if (filters.gameId && !cocokParsial(item.gameId, filters.gameId)) return false;
+        if (filters.placeId && !cocokParsial(item.placeId, filters.placeId)) return false;
+        if (filters.owner && !cocokParsial(item.owner, filters.owner)) return false;
+        if (filters.status === 'active' && item.active !== true) return false;
+        if (filters.status === 'revoked' && item.active !== false) return false;
+        return true;
+    });
+}
+
+function renderDashboard({ keys, filteredKeys, filters }) {
+    const rows = filteredKeys.map((item) => `
         <tr>
             <td>${escapeHtml(item.key)}</td>
             <td>${escapeHtml(item.mapsName)}</td>
@@ -466,6 +526,10 @@ function renderDashboard(keys) {
         </tr>
     `).join('');
 
+    const kosong = rows === ''
+        ? '<tr><td colspan="7" style="text-align:center;color:#9fb3d1;">Tidak ada key yang cocok dengan filter.</td></tr>'
+        : rows;
+
     return `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -476,15 +540,63 @@ function renderDashboard(keys) {
         body { font-family: Arial, sans-serif; margin: 24px; background: #0f172a; color: #e5eefc; }
         h1 { margin-bottom: 8px; }
         p { color: #9fb3d1; }
+        form { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-top: 20px; margin-bottom: 16px; }
+        label { display: block; font-size: 12px; color: #9fb3d1; margin-bottom: 6px; }
+        input, select { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #25314b; background: #111c31; color: #e5eefc; }
+        .actions { display: flex; gap: 10px; align-items: end; }
+        .button { display: inline-flex; align-items: center; justify-content: center; padding: 10px 14px; border-radius: 8px; border: 1px solid #25314b; background: #18253b; color: #e5eefc; text-decoration: none; cursor: pointer; }
+        .meta { display: flex; gap: 18px; margin-top: 8px; margin-bottom: 8px; color: #9fb3d1; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #111c31; }
         th, td { padding: 12px; border: 1px solid #25314b; text-align: left; }
         th { background: #18253b; }
         tr:nth-child(even) { background: #132036; }
+        code { color: #93c5fd; }
+        @media (max-width: 1100px) { form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 640px) { form { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
     <h1>LYVA License Dashboard</h1>
-    <p>Total key: ${keys.length}</p>
+    <p>Cari key berdasarkan map, owner, placeId, gameId, atau potongan key.</p>
+    <form method="GET" action="/dashboard">
+        <div>
+            <label for="key">Key</label>
+            <input id="key" name="key" value="${escapeHtml(filters.key)}" placeholder="LYVA-....">
+        </div>
+        <div>
+            <label for="mapsName">Map Name</label>
+            <input id="mapsName" name="mapsName" value="${escapeHtml(filters.mapsName)}" placeholder="MountDredfall">
+        </div>
+        <div>
+            <label for="owner">Owner</label>
+            <input id="owner" name="owner" value="${escapeHtml(filters.owner)}" placeholder="FENZANE">
+        </div>
+        <div>
+            <label for="placeId">PlaceId</label>
+            <input id="placeId" name="placeId" value="${escapeHtml(filters.placeId)}" placeholder="86416935087157">
+        </div>
+        <div>
+            <label for="gameId">GameId</label>
+            <input id="gameId" name="gameId" value="${escapeHtml(filters.gameId)}" placeholder="9866305598">
+        </div>
+        <div>
+            <label for="status">Status</label>
+            <select id="status" name="status">
+                <option value="" ${filters.status === '' ? 'selected' : ''}>Semua</option>
+                <option value="active" ${filters.status === 'active' ? 'selected' : ''}>Active</option>
+                <option value="revoked" ${filters.status === 'revoked' ? 'selected' : ''}>Revoked</option>
+            </select>
+        </div>
+        <div class="actions">
+            <button class="button" type="submit">Cari</button>
+            <a class="button" href="/dashboard">Reset</a>
+        </div>
+    </form>
+    <div class="meta">
+        <span>Total key: <strong>${keys.length}</strong></span>
+        <span>Hasil filter: <strong>${filteredKeys.length}</strong></span>
+        <span>JSON endpoint: <code>/dashboard/keys</code></span>
+    </div>
     <table>
         <thead>
             <tr>
@@ -497,7 +609,7 @@ function renderDashboard(keys) {
                 <th>CreatedAt</th>
             </tr>
         </thead>
-        <tbody>${rows}</tbody>
+        <tbody>${kosong}</tbody>
     </table>
 </body>
 </html>`;
