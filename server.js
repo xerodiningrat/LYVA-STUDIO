@@ -63,6 +63,7 @@ app.post('/obfuscate', async (req, res, next) => {
         const hasil = providerAktif === 'luaobfuscator'
             ? await obfuscateDenganLuaObfuscator(code, { level, syntax })
             : jalankanPipelineProteksi(code, { level, syntax });
+        validasiHasilObfuscateAman(code, hasil.result, providerAktif);
         const responsePayload = {
             result: hasil.result,
             stats: hasil.stats,
@@ -318,6 +319,26 @@ function normalisasiProvider(providerMasuk) {
     }
 
     return 'local';
+}
+
+function validasiHasilObfuscateAman(kodeAsli, kodeHasil, providerAktif) {
+    if (typeof kodeAsli !== 'string' || typeof kodeHasil !== 'string') {
+        return;
+    }
+
+    const sourceMemakaiMxConfig = /\bMX_Config\b/.test(kodeAsli);
+    const hasilMenyisipkanMxConfig = /WaitForChild\(\s*["']MX_Config["']\s*\)/.test(kodeHasil);
+
+    if (!sourceMemakaiMxConfig && hasilMenyisipkanMxConfig) {
+        const saran = providerAktif === 'luaobfuscator'
+            ? 'Gunakan Local Engine untuk script MX.'
+            : 'Coba ulangi dengan Local Engine atau source yang belum pernah di-transform.'
+
+        throw new PipelineError(
+            `Output terdeteksi tidak aman: hasil obfuscation menyisipkan require("MX_Config") padahal source tidak memakainya. ${saran}`,
+            422,
+        );
+    }
 }
 
 async function bacaKeys() {
