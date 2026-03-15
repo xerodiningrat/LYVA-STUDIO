@@ -56,6 +56,11 @@ class ObfuscatorController extends Controller
         return $this->forward($request, 'GET', '/dashboard');
     }
 
+    public function dashboardKeys(Request $request)
+    {
+        return $this->forward($request, 'GET', '/dashboard/keys');
+    }
+
     private function forward(Request $request, string $method, string $path)
     {
         try {
@@ -80,7 +85,9 @@ class ObfuscatorController extends Controller
     private function requestOptions(Request $request, string $method): array
     {
         if ($method === 'GET') {
-            return [];
+            return [
+                'query' => $request->query(),
+            ];
         }
 
         return [

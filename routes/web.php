@@ -22,6 +22,7 @@ Route::prefix('enkripsi/api')
     ->withoutMiddleware(VerifyCsrfToken::class)
     ->group(function () {
         Route::get('/health', [ObfuscatorController::class, 'health'])->name('obfuscator.health');
+        Route::get('/dashboard/keys', [ObfuscatorController::class, 'dashboardKeys'])->name('obfuscator.dashboard.keys');
         Route::post('/obfuscate', [ObfuscatorController::class, 'obfuscate'])->name('obfuscator.obfuscate');
         Route::post('/generate-key', [ObfuscatorController::class, 'generateKey'])->name('obfuscator.generate-key');
         Route::post('/check-key', [ObfuscatorController::class, 'checkKey'])->name('obfuscator.check-key');
