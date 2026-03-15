@@ -610,7 +610,7 @@ async function uploadSessionLuaObfuscator(code) {
         method: 'POST',
         headers: {
             apikey: LUAOBFUSCATOR_API_KEY,
-            'content-type': 'text/plain; charset=utf-8',
+            'content-type': 'text',
         },
         body: code,
     });
