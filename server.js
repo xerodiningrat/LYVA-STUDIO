@@ -19,6 +19,7 @@ const WINDOW_MS = 60 * 1000;
 const ADMIN_PASSWORD = process.env.LYVA_LICENSE_ADMIN_PASSWORD ?? 'lyva-admin';
 const LUAOBFUSCATOR_API_KEY = String(process.env.LUAOBFUSCATOR_API_KEY ?? '').trim();
 const LUAOBFUSCATOR_BASE_URL = 'https://api.luaobfuscator.com/v1';
+const LYVA_LICENSE_PUBLIC_URL = String(process.env.LYVA_LICENSE_PUBLIC_URL ?? '').trim();
 
 app.disable('x-powered-by');
 
@@ -507,7 +508,7 @@ async function siapkanLicenseOtomatis(req, payload) {
     const createdAt = new Date().toISOString();
     const key = await buatKeyUnik(keys);
     const escapedKey = encodeLuaByteEscape(key);
-    const serverUrl = parsed.serverUrl ?? `${req.protocol}://${req.get('host')}`;
+    const serverUrl = tentukanLicenseServerUrl(req, parsed.serverUrl);
 
     keys.push({
         key,
@@ -528,6 +529,76 @@ async function siapkanLicenseOtomatis(req, payload) {
         createdAt,
         serverUrl,
     };
+}
+
+function tentukanLicenseServerUrl(req, serverUrlManual) {
+    const kandidat = [
+        serverUrlManual,
+        LYVA_LICENSE_PUBLIC_URL,
+        ambilUrlDariRequest(req),
+    ];
+
+    for (const item of kandidat) {
+        const normalized = normalisasiLicenseServerUrl(item);
+        if (normalized) {
+            return normalized;
+        }
+    }
+
+    return 'https://lyvaindonesia.my.id/enkripsi/api';
+}
+
+function ambilUrlDariRequest(req) {
+    if (!req) {
+        return null;
+    }
+
+    const forwardedProtoRaw = req.headers?.['x-forwarded-proto'];
+    const forwardedHostRaw = req.headers?.['x-forwarded-host'];
+    const proto = typeof forwardedProtoRaw === 'string' && forwardedProtoRaw.trim() !== ''
+        ? forwardedProtoRaw.split(',')[0].trim()
+        : req.protocol;
+    const host = typeof forwardedHostRaw === 'string' && forwardedHostRaw.trim() !== ''
+        ? forwardedHostRaw.split(',')[0].trim()
+        : req.get('host');
+
+    if (!host) {
+        return null;
+    }
+
+    return `${proto || 'https'}://${host}`;
+}
+
+function normalisasiLicenseServerUrl(rawUrl) {
+    if (typeof rawUrl !== 'string' || rawUrl.trim() === '') {
+        return null;
+    }
+
+    const cleaned = rawUrl.trim().replace(/\/+$/, '');
+    const tanpaApiCheck = cleaned.replace(/\/check-key$/i, '');
+    const lower = tanpaApiCheck.toLowerCase();
+
+    if (
+        lower.includes('127.0.0.1') ||
+        lower.includes('localhost') ||
+        lower.includes('0.0.0.0')
+    ) {
+        return null;
+    }
+
+    if (lower.endsWith('/enkripsi/api')) {
+        return tanpaApiCheck;
+    }
+
+    if (lower.endsWith('/api')) {
+        return tanpaApiCheck;
+    }
+
+    if (lower.endsWith('/enkripsi')) {
+        return `${tanpaApiCheck}/api`;
+    }
+
+    return `${tanpaApiCheck}/enkripsi/api`;
 }
 
 function renderLicenseBootstrap(license) {
