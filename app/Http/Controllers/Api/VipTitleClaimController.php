@@ -387,6 +387,24 @@ class VipTitleClaimController extends Controller
             ], 422);
         }
 
+        $latestAppliedClaim = $this->findLatestAppliedClaimForUser(
+            $mapKey,
+            (int) $validated['roblox_user_id'],
+            (string) $validated['roblox_username'],
+        );
+
+        if ($latestAppliedClaim) {
+            return response()->json([
+                'message' => sprintf(
+                    'User ini sudah punya VIP title aktif di map "%s". Claim baru hanya boleh kalau title aktifnya sudah hilang dari sistem. Kalau cuma mau ganti title, pakai tombol Ubah Title.',
+                    $mapSetting->name ?? $mapKey
+                ),
+                'activeClaimId' => $latestAppliedClaim->id,
+                'currentTitle' => $latestAppliedClaim->requested_title,
+                'titleSlot' => $this->extractTitleSlot($latestAppliedClaim, $latestAppliedClaim->map_key),
+            ], 422);
+        }
+
         $existingPending = VipTitleClaim::query()
             ->where('map_key', $mapKey)
             ->where(function ($query) use ($validated) {

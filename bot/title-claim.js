@@ -896,6 +896,7 @@ function buildTitlePanelEmbed(mapConfig) {
         '',
         `Panel ini sudah terhubung ke map **${mapConfig.name}** dari dashboard.`,
         'Klik `Claim Title` kalau user sudah punya VIP gamepass.',
+        'Claim Title hanya dipakai untuk claim pertama. Kalau title sudah pernah aktif, user harus pakai `Ubah Title`, bukan claim ulang.',
         hasPaidOption
           ? `Klik \`Beli Title\` kalau user mau bayar pakai IDR. Harga saat ini **${formatIdr(mapConfig.titlePriceIdr)}**.`
           : 'Kalau harga IDR belum diisi, panel ini hanya pakai flow claim gamepass.',
