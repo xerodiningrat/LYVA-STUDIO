@@ -523,6 +523,10 @@
                         <div class="statlabel">Syntax</div>
                         <div class="statvalue" id="syntaxPreview">Auto</div>
                     </div>
+                    <div class="statcard reveal delay-3">
+                        <div class="statlabel">Engine</div>
+                        <div class="statvalue" id="providerPreview">Local</div>
+                    </div>
                 </div>
 
                 <div class="heromini">
@@ -542,6 +546,13 @@
                 </div>
 
                 <div class="toolbar">
+                    <div class="field">
+                        <label for="provider">Engine</label>
+                        <select id="provider">
+                            <option value="local" selected>Local Engine</option>
+                            <option value="luaobfuscator">luaobfuscator.com</option>
+                        </select>
+                    </div>
                     <div class="field">
                         <label for="syntax">Syntax</label>
                         <select id="syntax">
@@ -715,6 +726,7 @@ print(x)</textarea>
         const apiUrl = (path) => `${apiBase}${path}`;
         const inputCode = document.getElementById('inputCode');
         const outputCode = document.getElementById('outputCode');
+        const provider = document.getElementById('provider');
         const syntax = document.getElementById('syntax');
         const level = document.getElementById('level');
         const fileInput = document.getElementById('fileInput');
@@ -731,6 +743,7 @@ print(x)</textarea>
         const runStatus = document.getElementById('runStatus');
         const profilePreview = document.getElementById('profilePreview');
         const syntaxPreview = document.getElementById('syntaxPreview');
+        const providerPreview = document.getElementById('providerPreview');
         const healthStat = document.getElementById('healthStat');
         const mapsName = document.getElementById('mapsName');
         const gameId = document.getElementById('gameId');
@@ -757,7 +770,13 @@ print(x)</textarea>
             luau: 'Luau',
         };
 
+        const providerLabels = {
+            local: 'Local',
+            luaobfuscator: 'luaobfuscator',
+        };
+
         inputCode.addEventListener('input', updateStats);
+        provider.addEventListener('change', syncPreview);
         syntax.addEventListener('change', syncPreview);
         level.addEventListener('change', syncPreview);
         fileInput.addEventListener('change', handleFile);
@@ -802,6 +821,7 @@ print(x)</textarea>
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         code: inputCode.value,
+                        provider: provider.value,
                         syntax: syntax.value,
                         level: level.value,
                         license: buildAutoLicensePayload(),
@@ -819,8 +839,8 @@ print(x)</textarea>
                 hydrateGeneratedLicense(data.license || null);
                 updateStats();
                 runStatus.textContent = data.license?.autoInjected
-                    ? `Selesai | ${profileLabels[level.value] || level.value} | key otomatis dibuat`
-                    : `Selesai | ${profileLabels[level.value] || level.value}`;
+                    ? `Selesai | ${providerLabels[provider.value] || provider.value} | key otomatis dibuat`
+                    : `Selesai | ${providerLabels[provider.value] || provider.value}`;
             } catch (error) {
                 outputCode.value = '';
                 updateStats();
@@ -974,6 +994,7 @@ print(x)</textarea>
         function syncPreview() {
             profilePreview.textContent = profileLabels[level.value] || level.value;
             syntaxPreview.textContent = syntaxLabels[syntax.value] || syntax.value;
+            providerPreview.textContent = providerLabels[provider.value] || provider.value;
         }
 
         function buildAutoLicensePayload() {

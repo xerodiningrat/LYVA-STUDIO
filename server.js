@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -16,6 +17,8 @@ const rateLimitStore = new Map();
 const BATAS_REQUEST_PER_MENIT = 20;
 const WINDOW_MS = 60 * 1000;
 const ADMIN_PASSWORD = process.env.LYVA_LICENSE_ADMIN_PASSWORD ?? 'lyva-admin';
+const LUAOBFUSCATOR_API_KEY = String(process.env.LUAOBFUSCATOR_API_KEY ?? '').trim();
+const LUAOBFUSCATOR_BASE_URL = 'https://api.luaobfuscator.com/v1';
 
 app.disable('x-powered-by');
 
@@ -45,13 +48,20 @@ app.get('/health', (_req, res) => {
         maxInputBytes: BATAS_INPUT_BYTE,
         rateLimitPerMinute: BATAS_REQUEST_PER_MENIT,
         features: ['obfuscate', 'license-generator', 'license-dashboard'],
+        providers: {
+            local: true,
+            luaobfuscator: LUAOBFUSCATOR_API_KEY !== '',
+        },
     });
 });
 
 app.post('/obfuscate', async (req, res, next) => {
     try {
-        const { code, level, syntax, license } = req.body ?? {};
-        const hasil = jalankanPipelineProteksi(code, { level, syntax });
+        const { code, level, syntax, license, provider } = req.body ?? {};
+        const providerAktif = normalisasiProvider(provider);
+        const hasil = providerAktif === 'luaobfuscator'
+            ? await obfuscateDenganLuaObfuscator(code, { level, syntax })
+            : jalankanPipelineProteksi(code, { level, syntax });
         const responsePayload = {
             result: hasil.result,
             stats: hasil.stats,
@@ -59,6 +69,7 @@ app.post('/obfuscate', async (req, res, next) => {
             layers: hasil.layers,
             profile: hasil.profile,
             syntax: hasil.syntax,
+            provider: providerAktif,
             license: null,
         };
 
@@ -296,6 +307,18 @@ function ambilIp(req) {
     return req.ip || req.socket.remoteAddress || 'unknown';
 }
 
+function normalisasiProvider(providerMasuk) {
+    const provider = typeof providerMasuk === 'string'
+        ? providerMasuk.toLowerCase().trim()
+        : 'local';
+
+    if (provider === 'luaobfuscator' || provider === 'luaobfuscator.com') {
+        return 'luaobfuscator';
+    }
+
+    return 'local';
+}
+
 async function bacaKeys() {
     await pastikanKeysFileAda();
     const raw = await fs.readFile(keysFilePath, 'utf8');
@@ -527,4 +550,109 @@ function renderLicenseBootstrap(license) {
         'while true do local _0xok,_0xresponse=pcall(_0xlyva_request) if _0xok and _0xresponse and _0xresponse.Success then local _0xbody=_0xlyva_decode(_0xresponse) if _0xbody and _0xbody.valid==true then break end _0xlyva_fail((_0xbody and _0xbody.reason) or "' + encodedInvalid + '") end if (os.clock()-_0xlyva_started)>=_0xlyva_cfg.grace then _0xlyva_fail("' + encodedLicenseDown + '") end task.wait(_0xlyva_cfg.retry) end',
         '',
     ].join('\n');
+}
+
+async function obfuscateDenganLuaObfuscator(code, opsi = {}) {
+    const sumber = validasiKodeMasuk(code);
+
+    if (LUAOBFUSCATOR_API_KEY === '') {
+        throw new PipelineError('Provider luaobfuscator.com belum dikonfigurasi di server.', 503);
+    }
+
+    const sessionId = await uploadSessionLuaObfuscator(sumber);
+    const payload = bangunPayloadLuaObfuscator(opsi.level);
+    const obfuscated = await jalankanObfuscateLuaObfuscator(sessionId, payload);
+
+    return {
+        result: obfuscated,
+        stats: {
+            before: Buffer.byteLength(sumber, 'utf8'),
+            after: Buffer.byteLength(obfuscated, 'utf8'),
+        },
+        warnings: [
+            'Kode diproses lewat provider eksternal luaobfuscator.com.',
+            'Konfigurasi plugin eksternal saat ini memakai preset aman berbasis profile yang dipilih.',
+        ],
+        layers: [
+            {
+                name: 'luaobfuscator',
+                status: 'ok',
+                meta: {
+                    provider: 'luaobfuscator.com',
+                    profile: typeof opsi.level === 'string' ? opsi.level : 'balanced',
+                },
+            },
+        ],
+        profile: typeof opsi.level === 'string' ? opsi.level : 'balanced',
+        syntax: typeof opsi.syntax === 'string' ? opsi.syntax : 'auto',
+    };
+}
+
+async function uploadSessionLuaObfuscator(code) {
+    const response = await fetch(`${LUAOBFUSCATOR_BASE_URL}/obfuscator/newscript`, {
+        method: 'POST',
+        headers: {
+            apikey: LUAOBFUSCATOR_API_KEY,
+            'content-type': 'text/plain; charset=utf-8',
+        },
+        body: code,
+    });
+
+    const data = await bacaJsonAman(response);
+    if (!response.ok || !data?.sessionId) {
+        throw new PipelineError(
+            data?.message || `Gagal membuat session luaobfuscator.com (${response.status}).`,
+            502,
+        );
+    }
+
+    return String(data.sessionId);
+}
+
+async function jalankanObfuscateLuaObfuscator(sessionId, payload) {
+    const response = await fetch(`${LUAOBFUSCATOR_BASE_URL}/obfuscator/obfuscate`, {
+        method: 'POST',
+        headers: {
+            apikey: LUAOBFUSCATOR_API_KEY,
+            sessionId,
+            'content-type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+    });
+
+    const data = await bacaJsonAman(response);
+    if (!response.ok || typeof data?.code !== 'string' || data.code === '') {
+        throw new PipelineError(
+            data?.message || `Gagal obfuscate via luaobfuscator.com (${response.status}).`,
+            502,
+        );
+    }
+
+    return data.code;
+}
+
+function bangunPayloadLuaObfuscator(levelMasuk) {
+    const level = typeof levelMasuk === 'string' ? levelMasuk.toLowerCase().trim() : 'balanced';
+    const payload = {
+        MinifiyAll: true,
+        Seed: crypto.randomBytes(8).toString('hex'),
+    };
+
+    if (level === 'max-safe' || level === 'heavy') {
+        payload.Virtualize = true;
+    }
+
+    return payload;
+}
+
+async function bacaJsonAman(response) {
+    const text = await response.text();
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return {
+            message: text || null,
+        };
+    }
 }
