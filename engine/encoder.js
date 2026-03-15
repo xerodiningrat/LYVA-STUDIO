@@ -97,7 +97,7 @@ function ubahAngkaJikaAman(token, level) {
     }
 
     if (angka === 0) return '(1-1)';
-    if (angka === 1) return '(2-1)';
+    if (angka === 1) return '1';
     if (angka === 2) return '(1+1)';
 
     if (angka <= 9) {

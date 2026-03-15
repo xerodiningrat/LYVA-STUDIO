@@ -57,7 +57,7 @@ export function obfuscateLua(kodeMasuk, levelMasuk = 'light', syntaxMasuk = 'aut
     const syntax = validasiSyntax(syntaxMasuk);
     const parsed = parseLua(kode, syntax);
     const ast = parsed.ast;
-    const kodeKerja = parsed.kode;
+    const kodeKerja = parsed.outputCode;
     const konteks = buatKonteksNama();
     const replacements = [];
     const scopeAkar = new Scope();
@@ -155,13 +155,14 @@ function parseLua(kode, syntaxMasuk) {
 
 function parseDenganSyntax(kode, syntax) {
     try {
-        const sumberParser = syntax === 'luau'
+        const sumber = syntax === 'luau'
             ? normalisasiLuauUntukParser(kode)
-            : kode;
+            : { parserCode: kode, outputCode: kode };
 
         return {
-            ast: luaparse.parse(sumberParser, OPSI_PARSER),
-            kode: sumberParser,
+            ast: luaparse.parse(sumber.parserCode, OPSI_PARSER),
+            kode: sumber.parserCode,
+            outputCode: sumber.outputCode,
         };
     } catch (error) {
         if (syntax === 'luau') {
@@ -170,6 +171,7 @@ function parseDenganSyntax(kode, syntax) {
                 return {
                     ast: luaparse.parse(sumberFallback, OPSI_PARSER),
                     kode: sumberFallback,
+                    outputCode: sumberFallback,
                 };
             } catch {
                 // Biarkan jatuh ke formatter error utama di bawah.
@@ -255,7 +257,10 @@ function normalisasiLuauUntukParser(kode) {
     tandaiTypeAnnotations(kodeTanpaCompound, tokens, replacements);
     tandaiTypeAssertions(kodeTanpaCompound, tokens, replacements);
 
-    return terapkanReplacementsPanjangTetap(kodeTanpaCompound, replacements);
+    return {
+        parserCode: terapkanReplacementsPanjangTetap(kodeTanpaCompound, replacements),
+        outputCode: kodeTanpaCompound,
+    };
 }
 
 function normalisasiLuauFallback(kode) {
