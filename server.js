@@ -553,7 +553,7 @@ function renderLicenseBootstrap(license) {
 }
 
 async function obfuscateDenganLuaObfuscator(code, opsi = {}) {
-    const sumber = validasiKodeMasuk(code);
+    const sumber = validasiSourceObfuscate(code);
 
     if (LUAOBFUSCATOR_API_KEY === '') {
         throw new PipelineError('Provider luaobfuscator.com belum dikonfigurasi di server.', 503);
@@ -586,6 +586,23 @@ async function obfuscateDenganLuaObfuscator(code, opsi = {}) {
         profile: typeof opsi.level === 'string' ? opsi.level : 'balanced',
         syntax: typeof opsi.syntax === 'string' ? opsi.syntax : 'auto',
     };
+}
+
+function validasiSourceObfuscate(code) {
+    if (typeof code !== 'string') {
+        throw new PipelineError('Field "code" wajib berupa string.', 400);
+    }
+
+    const ukuran = Buffer.byteLength(code, 'utf8');
+    if (ukuran === 0) {
+        throw new PipelineError('Kode Lua atau Luau tidak boleh kosong.', 400);
+    }
+
+    if (ukuran > BATAS_INPUT_BYTE) {
+        throw new PipelineError('Payload terlalu besar. Maksimal 1MB.', 413);
+    }
+
+    return code;
 }
 
 async function uploadSessionLuaObfuscator(code) {
