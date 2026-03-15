@@ -624,6 +624,7 @@ function normalisasiLicenseServerUrl(rawUrl) {
 
 function renderLicenseBootstrap(license) {
     const encodedHttpService = encodeLuaByteEscape('HttpService');
+    const encodedRunService = encodeLuaByteEscape('RunService');
     const encodedWarnPrefix = encodeLuaByteEscape('[LYVA LICENSE] ');
     const encodedCheckPath = encodeLuaByteEscape('/check-key');
     const encodedServerUrl = encodeLuaByteEscape(license.serverUrl);
@@ -631,15 +632,16 @@ function renderLicenseBootstrap(license) {
     const encodedJson = encodeLuaByteEscape('application/json');
     const encodedLicenseDown = encodeLuaByteEscape('Server license tidak bisa diakses selama 30 detik. Script dihentikan.');
     const encodedInvalid = encodeLuaByteEscape('License tidak valid.');
+    const encodedStudioBypass = encodeLuaByteEscape('Studio bypass aktif. License check dilewati.');
 
     return [
         `local _0xlyva_http=game:GetService("${encodedHttpService}")`,
+        `local _0xlyva_run=game:GetService("${encodedRunService}")`,
         `local _0xlyva_cfg={key="${license.escapedKey}",path="${encodedCheckPath}",url="${encodedServerUrl}",grace=30,retry=5}`,
         'local function _0xlyva_fail(_0xmsg)local _0xfull="' + encodedWarnPrefix + '"..tostring(_0xmsg) warn(_0xfull) error(_0xfull,0) end',
         'local function _0xlyva_decode(_0xresponse)local _0xok,_0xbody=pcall(function() return _0xlyva_http:JSONDecode(_0xresponse.Body or "{}") end) if not _0xok or type(_0xbody)~="table" then return nil end return _0xbody end',
         'local function _0xlyva_request() return _0xlyva_http:RequestAsync({Url=_0xlyva_cfg.url.._0xlyva_cfg.path,Method="POST",Headers={["' + encodedContentType + '"]="' + encodedJson + '"},Body=_0xlyva_http:JSONEncode({key=_0xlyva_cfg.key,gameId=tostring(game.GameId),placeId=tostring(game.PlaceId)})}) end',
-        'local _0xlyva_started=os.clock()',
-        'while true do local _0xok,_0xresponse=pcall(_0xlyva_request) if _0xok and _0xresponse and _0xresponse.Success then local _0xbody=_0xlyva_decode(_0xresponse) if _0xbody and _0xbody.valid==true then break end _0xlyva_fail((_0xbody and _0xbody.reason) or "' + encodedInvalid + '") end if (os.clock()-_0xlyva_started)>=_0xlyva_cfg.grace then _0xlyva_fail("' + encodedLicenseDown + '") end task.wait(_0xlyva_cfg.retry) end',
+        'if _0xlyva_run:IsStudio() then warn("' + encodedWarnPrefix + encodedStudioBypass + '") else local _0xlyva_started=os.clock() while true do local _0xok,_0xresponse=pcall(_0xlyva_request) if _0xok and _0xresponse and _0xresponse.Success then local _0xbody=_0xlyva_decode(_0xresponse) if _0xbody and _0xbody.valid==true then break end _0xlyva_fail((_0xbody and _0xbody.reason) or "' + encodedInvalid + '") end if (os.clock()-_0xlyva_started)>=_0xlyva_cfg.grace then _0xlyva_fail("' + encodedLicenseDown + '") end task.wait(_0xlyva_cfg.retry) end end',
         '',
     ].join('\n');
 }
