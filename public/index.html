@@ -711,6 +711,8 @@ print(x)</textarea>
     </div>
 
     <script>
+        const apiBase = window.LYVA_API_BASE || '';
+        const apiUrl = (path) => `${apiBase}${path}`;
         const inputCode = document.getElementById('inputCode');
         const outputCode = document.getElementById('outputCode');
         const syntax = document.getElementById('syntax');
@@ -772,7 +774,7 @@ print(x)</textarea>
 
         async function cekHealth() {
             try {
-                const response = await fetch('/health');
+                const response = await fetch(apiUrl('/health'));
                 const data = await response.json();
                 if (!response.ok || !data.ok) {
                     throw new Error('health check gagal');
@@ -795,7 +797,7 @@ print(x)</textarea>
             layersEl.innerHTML = '';
 
             try {
-                const response = await fetch('/obfuscate', {
+                const response = await fetch(apiUrl('/obfuscate'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -878,7 +880,7 @@ print(x)</textarea>
             generatedAtStat.textContent = 'Menghubungi server';
 
             try {
-                const response = await fetch('/generate-key', {
+                const response = await fetch(apiUrl('/generate-key'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

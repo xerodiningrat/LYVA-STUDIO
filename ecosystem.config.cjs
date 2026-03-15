@@ -13,5 +13,19 @@ module.exports = {
         NODE_ENV: 'production',
       },
     },
+    {
+      name: 'lyva-obfuscator',
+      cwd: __dirname,
+      script: './server.js',
+      interpreter: 'node',
+      autorestart: true,
+      watch: false,
+      max_restarts: 10,
+      restart_delay: 3000,
+      env: {
+        NODE_ENV: 'production',
+        PORT: 3000,
+      },
+    },
   ],
 };

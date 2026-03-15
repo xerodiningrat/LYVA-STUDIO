@@ -56,7 +56,7 @@ php artisan migrate --force
 php artisan optimize:clear
 php artisan optimize
 
-pm2 startOrReload ecosystem.config.cjs --only lyva-bot --update-env
+pm2 startOrReload ecosystem.config.cjs --only lyva-bot,lyva-obfuscator --update-env
 pm2 save
 
 echo "[deploy-bot] deploy selesai."

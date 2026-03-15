@@ -51,6 +51,10 @@ return [
         'ingest_token' => env('ROBLOX_INGEST_TOKEN'),
     ],
 
+    'obfuscator' => [
+        'url' => env('OBFUSCATOR_INTERNAL_URL', 'http://127.0.0.1:3000'),
+    ],
+
     'duitku' => [
         'merchant_code' => env('DUITKU_MERCHANT_CODE'),
         'api_key' => env('DUITKU_API_KEY'),

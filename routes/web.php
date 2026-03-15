@@ -7,6 +7,7 @@ use App\Http\Controllers\DiscordSetupController;
 use App\Http\Controllers\DuitkuPaymentController;
 use App\Http\Controllers\GuildSelectionController;
 use App\Http\Controllers\LandingController;
+use App\Http\Controllers\ObfuscatorController;
 use App\Http\Controllers\RobloxScriptController;
 use App\Http\Controllers\VipTitleWalletController;
 use App\Http\Controllers\VipTitleWithdrawalController;
@@ -15,6 +16,17 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', LandingController::class)->name('home');
+Route::get('/enkripsi', [ObfuscatorController::class, 'index'])->name('obfuscator.index');
+Route::get('/enkripsi/dashboard', [ObfuscatorController::class, 'dashboard'])->name('obfuscator.dashboard');
+Route::prefix('enkripsi/api')
+    ->withoutMiddleware(VerifyCsrfToken::class)
+    ->group(function () {
+        Route::get('/health', [ObfuscatorController::class, 'health'])->name('obfuscator.health');
+        Route::post('/obfuscate', [ObfuscatorController::class, 'obfuscate'])->name('obfuscator.obfuscate');
+        Route::post('/generate-key', [ObfuscatorController::class, 'generateKey'])->name('obfuscator.generate-key');
+        Route::post('/check-key', [ObfuscatorController::class, 'checkKey'])->name('obfuscator.check-key');
+        Route::post('/revoke-key', [ObfuscatorController::class, 'revokeKey'])->name('obfuscator.revoke-key');
+    });
 Route::get('/auth/discord/redirect', [DiscordAuthController::class, 'redirect'])->name('auth.discord.redirect');
 Route::get('/auth/discord/callback', [DiscordAuthController::class, 'callback'])->name('auth.discord.callback');
 Route::post('/discord/interactions', DiscordInteractionController::class)
