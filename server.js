@@ -195,19 +195,7 @@ app.post('/revoke-key', async (req, res, next) => {
 
 app.get('/dashboard', async (req, res, next) => {
     try {
-        if (!lolosBasicAuth(req)) {
-            res.setHeader('WWW-Authenticate', 'Basic realm="LYVA License Dashboard"');
-            return res.status(401).send('Butuh autentikasi.');
-        }
-
-        const keys = await bacaKeys();
-        const filters = ambilFilterDashboard(req.query ?? {});
-        const filteredKeys = filterKeys(keys, filters);
-        return res.send(renderDashboard({
-            keys,
-            filteredKeys,
-            filters,
-        }));
+        return res.send(renderDashboard());
     } catch (error) {
         next(error);
     }
@@ -513,23 +501,7 @@ function filterKeys(keys, filters) {
     });
 }
 
-function renderDashboard({ keys, filteredKeys, filters }) {
-    const rows = filteredKeys.map((item) => `
-        <tr>
-            <td>${escapeHtml(item.key)}</td>
-            <td>${escapeHtml(item.mapsName)}</td>
-            <td>${escapeHtml(String(item.gameId))}</td>
-            <td>${escapeHtml(String(item.placeId))}</td>
-            <td>${escapeHtml(item.owner)}</td>
-            <td>${item.active ? 'Active' : 'Revoked'}</td>
-            <td>${escapeHtml(item.createdAt)}</td>
-        </tr>
-    `).join('');
-
-    const kosong = rows === ''
-        ? '<tr><td colspan="7" style="text-align:center;color:#9fb3d1;">Tidak ada key yang cocok dengan filter.</td></tr>'
-        : rows;
-
+function renderDashboard() {
     return `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -540,12 +512,17 @@ function renderDashboard({ keys, filteredKeys, filters }) {
         body { font-family: Arial, sans-serif; margin: 24px; background: #0f172a; color: #e5eefc; }
         h1 { margin-bottom: 8px; }
         p { color: #9fb3d1; }
+        .card { background: #111c31; border: 1px solid #25314b; border-radius: 12px; padding: 18px; margin-top: 18px; }
         form { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-top: 20px; margin-bottom: 16px; }
         label { display: block; font-size: 12px; color: #9fb3d1; margin-bottom: 6px; }
         input, select { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #25314b; background: #111c31; color: #e5eefc; }
         .actions { display: flex; gap: 10px; align-items: end; }
         .button { display: inline-flex; align-items: center; justify-content: center; padding: 10px 14px; border-radius: 8px; border: 1px solid #25314b; background: #18253b; color: #e5eefc; text-decoration: none; cursor: pointer; }
         .meta { display: flex; gap: 18px; margin-top: 8px; margin-bottom: 8px; color: #9fb3d1; }
+        .hidden { display: none; }
+        .status { margin-top: 10px; color: #9fb3d1; }
+        .status.error { color: #fca5a5; }
+        .status.ok { color: #86efac; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #111c31; }
         th, td { padding: 12px; border: 1px solid #25314b; text-align: left; }
         th { background: #18253b; }
@@ -558,43 +535,62 @@ function renderDashboard({ keys, filteredKeys, filters }) {
 <body>
     <h1>LYVA License Dashboard</h1>
     <p>Cari key berdasarkan map, owner, placeId, gameId, atau potongan key.</p>
-    <form method="GET" action="/dashboard">
+
+    <div class="card">
+        <form id="loginForm" style="grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0;">
+            <div>
+                <label for="username">Username</label>
+                <input id="username" name="username" value="admin" placeholder="admin">
+            </div>
+            <div>
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password" placeholder="Masukkan password">
+            </div>
+            <div class="actions">
+                <button class="button" type="submit">Login</button>
+                <button class="button" type="button" id="logoutButton">Logout</button>
+            </div>
+        </form>
+        <div id="loginStatus" class="status">Masukkan username dan password untuk memuat data key.</div>
+    </div>
+
+    <form id="searchForm" class="hidden">
         <div>
             <label for="key">Key</label>
-            <input id="key" name="key" value="${escapeHtml(filters.key)}" placeholder="LYVA-....">
+            <input id="key" name="key" value="" placeholder="LYVA-....">
         </div>
         <div>
             <label for="mapsName">Map Name</label>
-            <input id="mapsName" name="mapsName" value="${escapeHtml(filters.mapsName)}" placeholder="MountDredfall">
+            <input id="mapsName" name="mapsName" value="" placeholder="MountDredfall">
         </div>
         <div>
             <label for="owner">Owner</label>
-            <input id="owner" name="owner" value="${escapeHtml(filters.owner)}" placeholder="FENZANE">
+            <input id="owner" name="owner" value="" placeholder="FENZANE">
         </div>
         <div>
             <label for="placeId">PlaceId</label>
-            <input id="placeId" name="placeId" value="${escapeHtml(filters.placeId)}" placeholder="86416935087157">
+            <input id="placeId" name="placeId" value="" placeholder="86416935087157">
         </div>
         <div>
             <label for="gameId">GameId</label>
-            <input id="gameId" name="gameId" value="${escapeHtml(filters.gameId)}" placeholder="9866305598">
+            <input id="gameId" name="gameId" value="" placeholder="9866305598">
         </div>
         <div>
             <label for="status">Status</label>
             <select id="status" name="status">
-                <option value="" ${filters.status === '' ? 'selected' : ''}>Semua</option>
-                <option value="active" ${filters.status === 'active' ? 'selected' : ''}>Active</option>
-                <option value="revoked" ${filters.status === 'revoked' ? 'selected' : ''}>Revoked</option>
+                <option value="" selected>Semua</option>
+                <option value="active">Active</option>
+                <option value="revoked">Revoked</option>
             </select>
         </div>
         <div class="actions">
             <button class="button" type="submit">Cari</button>
-            <a class="button" href="/dashboard">Reset</a>
+            <button class="button" type="button" id="resetButton">Reset</button>
         </div>
     </form>
-    <div class="meta">
-        <span>Total key: <strong>${keys.length}</strong></span>
-        <span>Hasil filter: <strong>${filteredKeys.length}</strong></span>
+    <div class="meta hidden" id="metaInfo">
+        <span>Total key: <strong id="totalKeys">0</strong></span>
+        <span>Hasil filter: <strong id="matchedKeys">0</strong></span>
         <span>JSON endpoint: <code>/dashboard/keys</code></span>
     </div>
     <table>
@@ -609,8 +605,137 @@ function renderDashboard({ keys, filteredKeys, filters }) {
                 <th>CreatedAt</th>
             </tr>
         </thead>
-        <tbody>${kosong}</tbody>
+        <tbody id="resultsBody">
+            <tr><td colspan="7" style="text-align:center;color:#9fb3d1;">Login dulu untuk melihat data key.</td></tr>
+        </tbody>
     </table>
+    <script>
+        const loginForm = document.getElementById('loginForm');
+        const searchForm = document.getElementById('searchForm');
+        const logoutButton = document.getElementById('logoutButton');
+        const resetButton = document.getElementById('resetButton');
+        const loginStatus = document.getElementById('loginStatus');
+        const metaInfo = document.getElementById('metaInfo');
+        const totalKeys = document.getElementById('totalKeys');
+        const matchedKeys = document.getElementById('matchedKeys');
+        const resultsBody = document.getElementById('resultsBody');
+        const storageKey = 'lyva_dashboard_basic_auth';
+        const keysEndpoint = window.location.pathname.startsWith('/enkripsi/')
+            ? '/enkripsi/api/dashboard/keys'
+            : '/dashboard/keys';
+
+        function escapeHtmlClient(text) {
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function buildAuthHeader(username, password) {
+            return 'Basic ' + btoa(username + ':' + password);
+        }
+
+        function setStatus(message, type = '') {
+            loginStatus.textContent = message;
+            loginStatus.className = 'status' + (type ? ' ' + type : '');
+        }
+
+        function getSavedAuth() {
+            return sessionStorage.getItem(storageKey) || '';
+        }
+
+        function saveAuth(auth) {
+            if (auth) {
+                sessionStorage.setItem(storageKey, auth);
+            } else {
+                sessionStorage.removeItem(storageKey);
+            }
+        }
+
+        async function loadKeys() {
+            const auth = getSavedAuth();
+            if (!auth) {
+                searchForm.classList.add('hidden');
+                metaInfo.classList.add('hidden');
+                resultsBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#9fb3d1;">Login dulu untuk melihat data key.</td></tr>';
+                return;
+            }
+
+            const params = new URLSearchParams(new FormData(searchForm));
+            const response = await fetch(keysEndpoint + '?' + params.toString(), {
+                headers: { Authorization: auth }
+            });
+
+            if (response.status === 401) {
+                saveAuth('');
+                searchForm.classList.add('hidden');
+                metaInfo.classList.add('hidden');
+                resultsBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#fca5a5;">Autentikasi gagal. Login ulang.</td></tr>';
+                setStatus('Username atau password salah.', 'error');
+                return;
+            }
+
+            const data = await response.json();
+            totalKeys.textContent = data.total ?? 0;
+            matchedKeys.textContent = data.matched ?? 0;
+            searchForm.classList.remove('hidden');
+            metaInfo.classList.remove('hidden');
+            setStatus('Login berhasil. Data key dimuat.', 'ok');
+
+            if (!Array.isArray(data.items) || data.items.length === 0) {
+                resultsBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#9fb3d1;">Tidak ada key yang cocok dengan filter.</td></tr>';
+                return;
+            }
+
+            resultsBody.innerHTML = data.items.map((item) => \`
+                <tr>
+                    <td>\${escapeHtmlClient(item.key)}</td>
+                    <td>\${escapeHtmlClient(item.mapsName)}</td>
+                    <td>\${escapeHtmlClient(item.gameId)}</td>
+                    <td>\${escapeHtmlClient(item.placeId)}</td>
+                    <td>\${escapeHtmlClient(item.owner)}</td>
+                    <td>\${item.active ? 'Active' : 'Revoked'}</td>
+                    <td>\${escapeHtmlClient(item.createdAt)}</td>
+                </tr>
+            \`).join('');
+        }
+
+        loginForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            if (!username || !password) {
+                setStatus('Username dan password wajib diisi.', 'error');
+                return;
+            }
+            saveAuth(buildAuthHeader(username, password));
+            await loadKeys();
+        });
+
+        searchForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            await loadKeys();
+        });
+
+        resetButton.addEventListener('click', async () => {
+            searchForm.reset();
+            await loadKeys();
+        });
+
+        logoutButton.addEventListener('click', () => {
+            saveAuth('');
+            searchForm.classList.add('hidden');
+            metaInfo.classList.add('hidden');
+            resultsBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#9fb3d1;">Login dulu untuk melihat data key.</td></tr>';
+            setStatus('Session login dihapus.', 'ok');
+        });
+
+        if (getSavedAuth()) {
+            loadKeys().catch(() => setStatus('Gagal memuat data key.', 'error'));
+        }
+    </script>
 </body>
 </html>`;
 }
