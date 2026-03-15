@@ -55,7 +55,9 @@ export function obfuscateLua(kodeMasuk, levelMasuk = 'light', syntaxMasuk = 'aut
     const kode = validasiKodeMasuk(kodeMasuk);
     const level = validasiLevel(levelMasuk);
     const syntax = validasiSyntax(syntaxMasuk);
-    const ast = parseLua(kode, syntax);
+    const parsed = parseLua(kode, syntax);
+    const ast = parsed.ast;
+    const kodeKerja = parsed.kode;
     const konteks = buatKonteksNama();
     const replacements = [];
     const scopeAkar = new Scope();
@@ -64,10 +66,10 @@ export function obfuscateLua(kodeMasuk, levelMasuk = 'light', syntaxMasuk = 'aut
     telusuriChunk(ast, scopeAkar, replacements, konteks);
 
     if (level !== 'light') {
-        tambahReplacementKomentar(ast.comments, kode, replacements);
+        tambahReplacementKomentar(ast.comments, kodeKerja, replacements);
     }
 
-    const kodeTertransformasi = terapkanReplacements(kode, replacements);
+    const kodeTertransformasi = terapkanReplacements(kodeKerja, replacements);
     const kodeDirapikan = rapikanKode(kodeTertransformasi);
     const hasilAkhir = level === 'heavy'
         ? bungkusLevelHeavy(kodeDirapikan, konteks)
@@ -159,12 +161,18 @@ function parseDenganSyntax(kode, syntax) {
             ? normalisasiLuauUntukParser(kode)
             : kode;
 
-        return luaparse.parse(sumberParser, OPSI_PARSER);
+        return {
+            ast: luaparse.parse(sumberParser, OPSI_PARSER),
+            kode: sumberParser,
+        };
     } catch (error) {
         if (syntax === 'luau') {
             try {
                 const sumberFallback = normalisasiLuauFallback(kode);
-                return luaparse.parse(sumberFallback, OPSI_PARSER);
+                return {
+                    ast: luaparse.parse(sumberFallback, OPSI_PARSER),
+                    kode: sumberFallback,
+                };
             } catch {
                 // Biarkan jatuh ke formatter error utama di bawah.
             }
@@ -221,15 +229,12 @@ function normalisasiLuauUntukParser(kode) {
         throw new KesalahanObfuscator('Statement "declare" Luau belum didukung.');
     }
 
-    if (/[+\-*/%^]=|\/\/=|\.\.=/.test(kode)) {
-        throw new KesalahanObfuscator('Compound assignment Luau seperti += atau ..= belum didukung.');
-    }
-
     if (/\bif\b[\s\S]*?\bthen\b[\s\S]*?\belse\b/.test(kode) && /=\s*if\b/.test(kode)) {
         throw new KesalahanObfuscator('If-expression Luau belum didukung.');
     }
 
-    const tokenData = tokenizeLuau(kode);
+    const kodeTanpaCompound = normalisasiCompoundAssignmentLuau(kode);
+    const tokenData = tokenizeLuau(kodeTanpaCompound);
     const replacements = [];
     const tokens = tokenData.tokens;
     const semuaToken = tokens.filter((token) => token.type !== 'newline');
@@ -246,13 +251,13 @@ function normalisasiLuauUntukParser(kode) {
         }
     }
 
-    tandaiTypeAliases(kode, tokens, replacements);
-    tandaiFunctionGenerics(kode, semuaToken, replacements);
-    tandaiLocalAttributes(kode, semuaToken, replacements);
-    tandaiTypeAnnotations(kode, tokens, replacements);
-    tandaiTypeAssertions(kode, tokens, replacements);
+    tandaiTypeAliases(kodeTanpaCompound, tokens, replacements);
+    tandaiFunctionGenerics(kodeTanpaCompound, semuaToken, replacements);
+    tandaiLocalAttributes(kodeTanpaCompound, semuaToken, replacements);
+    tandaiTypeAnnotations(kodeTanpaCompound, tokens, replacements);
+    tandaiTypeAssertions(kodeTanpaCompound, tokens, replacements);
 
-    return terapkanReplacementsPanjangTetap(kode, replacements);
+    return terapkanReplacementsPanjangTetap(kodeTanpaCompound, replacements);
 }
 
 function normalisasiLuauFallback(kode) {
@@ -376,6 +381,64 @@ function tokenizeLuau(kode) {
     return { tokens };
 }
 
+function normalisasiCompoundAssignmentLuau(kode) {
+    if (!/[+\-*/%^]=|\/\/=|\.\.=/.test(kode)) {
+        return kode;
+    }
+
+    const { tokens } = tokenizeLuau(kode);
+    const replacements = [];
+    let depthKurung = 0;
+    let depthKurawal = 0;
+    let depthSiku = 0;
+
+    for (let index = 0; index < tokens.length; index += 1) {
+        const token = tokens[index];
+
+        if (token.type !== 'newline') {
+            if (token.value === '(') depthKurung += 1;
+            if (token.value === ')') depthKurung = Math.max(0, depthKurung - 1);
+            if (token.value === '{') depthKurawal += 1;
+            if (token.value === '}') depthKurawal = Math.max(0, depthKurawal - 1);
+            if (token.value === '[') depthSiku += 1;
+            if (token.value === ']') depthSiku = Math.max(0, depthSiku - 1);
+        }
+
+        if (depthKurung !== 0 || depthKurawal !== 0 || depthSiku !== 0) {
+            continue;
+        }
+
+        const operatorDasar = COMPOUND_OPERATOR_MAP.get(token.value);
+        if (!operatorDasar) {
+            continue;
+        }
+
+        const mulai = cariAwalStatementLuau(tokens, index, kode);
+        const akhir = cariAkhirStatementLuau(tokens, index, kode);
+        const sebelum = kode.slice(mulai, token.start);
+        const sesudah = kode.slice(token.end, akhir);
+        const indentasi = (sebelum.match(/^[ \t]*/) ?? [''])[0];
+        const lhs = sebelum.trim();
+        const rhs = sesudah.trim();
+
+        if (lhs === '' || rhs === '') {
+            throw new KesalahanObfuscator(`Compound assignment Luau tidak bisa dinormalisasi di dekat "${token.value}".`);
+        }
+
+        replacements.push({
+            start: mulai,
+            end: akhir,
+            text: `${indentasi}${lhs} = ${lhs} ${operatorDasar} ${rhs}`,
+        });
+
+        while (index + 1 < tokens.length && tokens[index + 1].start < akhir) {
+            index += 1;
+        }
+    }
+
+    return terapkanReplacementBebas(kode, replacements);
+}
+
 const KEYWORD_LUAU = new Set([
     'and', 'break', 'continue', 'do', 'else', 'elseif', 'end', 'export', 'false', 'for',
     'function', 'if', 'in', 'local', 'nil', 'not', 'or', 'repeat', 'return', 'then',
@@ -385,6 +448,20 @@ const KEYWORD_LUAU = new Set([
 const OPERATORS_LUAU = [
     '...', '::', '//=', '+=', '-=', '*=', '/=', '%=', '^=', '..=', '==', '~=', '<=', '>=', '//', '..', '->',
 ];
+
+const COMPOUND_OPERATOR_MAP = new Map([
+    ['+=', '+'],
+    ['-=', '-'],
+    ['*=', '*'],
+    ['/=', '/'],
+    ['%=', '%'],
+    ['^=', '^'],
+    ['..=', '..'],
+    ['//=', '//'],
+]);
+
+const BATAS_AWAL_STATEMENT_LUAU = new Set(['then', 'do', 'else', 'elseif', 'repeat']);
+const BATAS_AKHIR_STATEMENT_LUAU = new Set(['end', 'else', 'elseif', 'until']);
 
 function bacaPembukaKurungPanjang(kode, index) {
     if (kode[index] !== '[') {
@@ -750,6 +827,59 @@ function cariPasangan(tokens, startIndex, buka, tutup) {
     return -1;
 }
 
+function cariAwalStatementLuau(tokens, operatorIndex, kode) {
+    let mulai = 0;
+
+    for (let index = operatorIndex - 1; index >= 0; index -= 1) {
+        const token = tokens[index];
+
+        if (token.type === 'newline') {
+            mulai = token.end;
+            break;
+        }
+
+        if (token.value === ';') {
+            mulai = token.end;
+            break;
+        }
+
+        if (BATAS_AWAL_STATEMENT_LUAU.has(token.value)) {
+            mulai = token.end;
+            break;
+        }
+    }
+
+    while (mulai < kode.length && /[ \t]/.test(kode[mulai])) {
+        mulai += 1;
+    }
+
+    return mulai;
+}
+
+function cariAkhirStatementLuau(tokens, operatorIndex, kode) {
+    let akhir = kode.length;
+
+    for (let index = operatorIndex + 1; index < tokens.length; index += 1) {
+        const token = tokens[index];
+
+        if (token.type === 'newline') {
+            akhir = token.start;
+            break;
+        }
+
+        if (token.value === ';' || BATAS_AKHIR_STATEMENT_LUAU.has(token.value)) {
+            akhir = token.start;
+            break;
+        }
+    }
+
+    while (akhir > 0 && /[ \t]/.test(kode[akhir - 1])) {
+        akhir -= 1;
+    }
+
+    return akhir;
+}
+
 function padSameLength(teks, panjang) {
     if (teks.length >= panjang) {
         return teks.slice(0, panjang);
@@ -763,6 +893,35 @@ function gantiDenganWhitespacePanjangTetap(teks) {
 }
 
 function terapkanReplacementsPanjangTetap(kode, replacements) {
+    const unik = new Map();
+
+    for (const replacement of replacements) {
+        if (!replacement || replacement.start >= replacement.end) {
+            continue;
+        }
+
+        unik.set(`${replacement.start}:${replacement.end}`, replacement);
+    }
+
+    const daftar = [...unik.values()].sort((a, b) => a.start - b.start);
+    let cursor = 0;
+    let hasil = '';
+
+    for (const replacement of daftar) {
+        if (replacement.start < cursor) {
+            continue;
+        }
+
+        hasil += kode.slice(cursor, replacement.start);
+        hasil += replacement.text;
+        cursor = replacement.end;
+    }
+
+    hasil += kode.slice(cursor);
+    return hasil;
+}
+
+function terapkanReplacementBebas(kode, replacements) {
     const unik = new Map();
 
     for (const replacement of replacements) {
