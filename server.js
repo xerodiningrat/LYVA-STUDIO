@@ -217,6 +217,10 @@ if (prosesUtamaDipanggilLangsung()) {
 export default app;
 
 function prosesUtamaDipanggilLangsung() {
+    if (typeof process.env.pm_id !== 'undefined') {
+        return true;
+    }
+
     const target = process.argv[1];
 
     if (!target) {
