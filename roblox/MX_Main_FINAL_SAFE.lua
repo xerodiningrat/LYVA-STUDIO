@@ -13,6 +13,15 @@
 --   - Rejoin/mati setelah finish spawn di SummitPart (SpawnAtSummit)
 --====================================================
 
+local okLicense, licenseResult = pcall(function()
+	return require(script:WaitForChild("MX_License"))
+end)
+
+if not okLicense then
+	warn("[MX] License error:", licenseResult)
+	return
+end
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MarketplaceService = game:GetService("MarketplaceService")

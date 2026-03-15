@@ -1,0 +1,29 @@
+[
+  {
+    "key": "LYVA-B6A0-35A8-24B6-3831",
+    "mapsName": "MountDredfall",
+    "gameId": "9866305598",
+    "placeId": "86416935087157",
+    "owner": "FENZANE",
+    "active": true,
+    "createdAt": "2026-03-15T10:52:22.782Z"
+  },
+  {
+    "key": "LYVA-19CC-4CC5-DE6C-E893",
+    "mapsName": "MountDredfall",
+    "gameId": "9866305598",
+    "placeId": "86416935087157",
+    "owner": "FENZANE",
+    "active": true,
+    "createdAt": "2026-03-15T10:59:12.632Z"
+  },
+  {
+    "key": "LYVA-87C9-5821-5BE4-A696",
+    "mapsName": "MountDredfall",
+    "gameId": "9866305598",
+    "placeId": "86416935087157",
+    "owner": "FENZANE",
+    "active": true,
+    "createdAt": "2026-03-15T11:13:12.378Z"
+  }
+]

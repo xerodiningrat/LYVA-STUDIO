@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LYVA SHIELD</title>
+    <style>
+        :root {
+            --bg: #08111f;
+            --bg-soft: #0f1b31;
+            --surface: rgba(9, 19, 36, 0.78);
+            --surface-strong: rgba(10, 24, 47, 0.92);
+            --surface-soft: rgba(255, 255, 255, 0.05);
+            --line: rgba(151, 184, 255, 0.15);
+            --line-strong: rgba(151, 184, 255, 0.28);
+            --text: #eef5ff;
+            --muted: #9eb1cd;
+            --brand: #4fd1c5;
+            --brand-2: #6ea8fe;
+            --brand-3: #ffd166;
+            --success: #3ddc97;
+            --danger: #ff7a90;
+            --shadow: 0 30px 90px rgba(0, 0, 0, 0.34);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI Variable", "Trebuchet MS", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 12% 18%, rgba(79, 209, 197, 0.18), transparent 24%),
+                radial-gradient(circle at 86% 12%, rgba(110, 168, 254, 0.18), transparent 22%),
+                radial-gradient(circle at 70% 82%, rgba(255, 209, 102, 0.14), transparent 20%),
+                linear-gradient(180deg, #08111f 0%, #0a1529 48%, #07101d 100%);
+            overflow-x: hidden;
+        }
+
+        body::before,
+        body::after {
+            content: "";
+            position: fixed;
+            inset: auto;
+            pointer-events: none;
+            z-index: 0;
+            filter: blur(40px);
+        }
+
+        body::before {
+            top: 70px;
+            right: -80px;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            background: rgba(79, 209, 197, 0.16);
+        }
+
+        body::after {
+            bottom: 40px;
+            left: -50px;
+            width: 260px;
+            height: 260px;
+            border-radius: 50%;
+            background: rgba(110, 168, 254, 0.16);
+        }
+
+        .shell {
+            position: relative;
+            z-index: 1;
+            width: min(1360px, calc(100vw - 24px));
+            margin: 12px auto;
+            padding: 20px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .brand-lockup {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .brand-mark {
+            width: 52px;
+            height: 52px;
+            display: grid;
+            place-items: center;
+            border-radius: 16px;
+            border: 1px solid rgba(79, 209, 197, 0.3);
+            background:
+                linear-gradient(145deg, rgba(79, 209, 197, 0.22), rgba(110, 168, 254, 0.18)),
+                rgba(255, 255, 255, 0.04);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            font-weight: 900;
+            letter-spacing: 0.1em;
+        }
+
+        .brand-copy strong {
+            display: block;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.18em;
+            color: var(--brand);
+        }
+
+        .brand-copy span {
+            display: block;
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .top-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--muted);
+            font-size: 13px;
+            backdrop-filter: blur(10px);
+        }
+
+        .hero {
+            position: relative;
+            display: grid;
+            grid-template-columns: 1.35fr 0.95fr;
+            gap: 18px;
+            margin-bottom: 18px;
+        }
+
+        .card,
+        .stats,
+        .editor-panel {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 28px;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+                var(--surface);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(16px);
+        }
+
+        .card::before,
+        .editor-panel::before,
+        .stats::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, rgba(79, 209, 197, 0.06), transparent 24%, transparent 70%, rgba(110, 168, 254, 0.08));
+            pointer-events: none;
+        }
+
+        .hero-main {
+            padding: 32px;
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(79, 209, 197, 0.24);
+            background: rgba(79, 209, 197, 0.08);
+            color: #b8fff8;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 18px 0 12px;
+            font-size: clamp(42px, 6vw, 76px);
+            line-height: 0.92;
+            letter-spacing: -0.06em;
+        }
+
+        .gradient-text {
+            background: linear-gradient(90deg, #ffffff 0%, #8ff7ef 32%, #8db8ff 72%, #ffe59d 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .hero-copy {
+            max-width: 62ch;
+            margin: 0 0 18px;
+            color: var(--muted);
+            line-height: 1.72;
+            font-size: 15px;
+        }
+
+        .hero-actions,
+        .button-row,
+        .micro-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .micro-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 11px 14px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.04);
+            color: #dbe8ff;
+            font-size: 13px;
+        }
+
+        .hero-side {
+            display: grid;
+            gap: 14px;
+            padding: 18px;
+        }
+
+        .feature-card {
+            position: relative;
+            padding: 20px;
+            min-height: 150px;
+            border-radius: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03)),
+                var(--surface-strong);
+        }
+
+        .feature-card strong {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 15px;
+            color: #ffffff;
+        }
+
+        .feature-card p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        .feature-card .accent-line {
+            width: 72px;
+            height: 4px;
+            margin-bottom: 16px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--brand), var(--brand-2));
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+            padding: 18px;
+            margin-bottom: 18px;
+        }
+
+        .stat-card {
+            position: relative;
+            padding: 18px;
+            border-radius: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .stat-label {
+            margin-bottom: 10px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: clamp(26px, 4vw, 40px);
+            font-weight: 900;
+            letter-spacing: -0.05em;
+            color: #ffffff;
+        }
+
+        .stats-note,
+        .status,
+        .hint,
+        .level-copy {
+            color: var(--muted);
+        }
+
+        .stats-note {
+            margin-top: 8px;
+            font-size: 13px;
+            line-height: 1.55;
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
+        }
+
+        .editor-panel {
+            padding: 18px;
+        }
+
+        .panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+
+        .panel-head h2 {
+            margin: 0;
+            font-size: 24px;
+            letter-spacing: -0.04em;
+        }
+
+        .hint {
+            font-size: 13px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1.2fr 190px;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .input-shell,
+        .select-shell {
+            position: relative;
+        }
+
+        .input-shell::before,
+        .select-shell::before {
+            content: "";
+            position: absolute;
+            inset: 1px;
+            border-radius: 17px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+            pointer-events: none;
+        }
+
+        .controls input[type="file"],
+        .controls select,
+        textarea {
+            width: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text);
+            background: rgba(4, 10, 20, 0.58);
+        }
+
+        .controls input[type="file"],
+        .controls select {
+            position: relative;
+            z-index: 1;
+            min-height: 54px;
+            padding: 13px 14px;
+            border-radius: 18px;
+            font: inherit;
+        }
+
+        .controls input[type="file"]::file-selector-button {
+            margin-right: 12px;
+            border: 0;
+            border-radius: 12px;
+            padding: 10px 12px;
+            background: linear-gradient(135deg, rgba(79, 209, 197, 0.22), rgba(110, 168, 254, 0.22));
+            color: #effdff;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .level-copy {
+            margin: 0 0 14px;
+            font-size: 14px;
+            line-height: 1.65;
+        }
+
+        textarea {
+            min-height: 500px;
+            resize: vertical;
+            border-radius: 22px;
+            padding: 18px;
+            font-size: 14px;
+            line-height: 1.65;
+            font-family: "Cascadia Code", "Consolas", monospace;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        }
+
+        textarea::placeholder {
+            color: rgba(158, 177, 205, 0.7);
+        }
+
+        button {
+            border: 0;
+            border-radius: 999px;
+            padding: 13px 18px;
+            font: inherit;
+            font-weight: 800;
+            letter-spacing: 0.01em;
+            cursor: pointer;
+            transition: transform 160ms ease, opacity 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            filter: brightness(1.04);
+        }
+
+        button:disabled {
+            opacity: 0.52;
+            cursor: not-allowed;
+        }
+
+        .primary {
+            color: #04111e;
+            background: linear-gradient(135deg, #7ef5eb, #90b8ff 56%, #ffe8a2);
+            box-shadow: 0 18px 38px rgba(79, 209, 197, 0.2);
+        }
+
+        .secondary {
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .download {
+            color: #071322;
+            background: linear-gradient(135deg, #ffd166, #7ef5eb);
+            box-shadow: 0 18px 38px rgba(255, 209, 102, 0.18);
+        }
+
+        .status {
+            min-height: 24px;
+            margin-top: 12px;
+            font-size: 14px;
+        }
+
+        .status.error {
+            color: var(--danger);
+        }
+
+        .status.success {
+            color: var(--success);
+        }
+
+        @media (max-width: 1100px) {
+            .hero,
+            .workspace {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .shell {
+                width: min(100vw - 12px, 100%);
+                padding: 10px;
+            }
+
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .hero-main,
+            .hero-side,
+            .editor-panel,
+            .stats {
+                padding: 16px;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            .controls {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: clamp(36px, 12vw, 56px);
+            }
+
+            textarea {
+                min-height: 340px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="shell">
+        <section class="topbar">
+            <div class="brand-lockup">
+                <div class="brand-mark">LS</div>
+                <div class="brand-copy">
+                    <strong>LYVA SHIELD</strong>
+                    <span>Lua Source Hardening Studio for Roblox</span>
+                </div>
+            </div>
+            <div class="top-pill">Node.js + Express + Lua 5.1 Compatible</div>
+        </section>
+
+        <section class="hero">
+            <article class="card hero-main">
+                <div class="eyebrow">Modern Web Obfuscator</div>
+                <h1><span class="gradient-text">LYVA SHIELD</span></h1>
+                <p class="hero-copy">
+                    Workspace proteksi source Lua dengan tampilan modern, alur cepat, dan fokus penuh ke workflow Roblox.
+                    Upload file `.lua` atau `.luau`, paste script, pilih level dan syntax `Lua` atau `Luau`, lalu preview hasil secara side by side tanpa ribet.
+                </p>
+
+                <div class="hero-actions">
+                    <div class="micro-pill">Local variable rename</div>
+                    <div class="micro-pill">String byte escape</div>
+                    <div class="micro-pill">Live size stats</div>
+                    <div class="micro-pill">Ready to download</div>
+                </div>
+            </article>
+
+            <aside class="card hero-side">
+                <div class="feature-card">
+                    <div class="accent-line"></div>
+                    <strong>Level Engine</strong>
+                    <p>
+                        Light untuk transform dasar, Medium untuk output lebih bersih, dan Heavy untuk wrapper chunk transparan
+                        yang tetap aman dijalankan untuk script Lua maupun Luau umum.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="accent-line"></div>
+                    <strong>Workflow Cepat</strong>
+                    <p>
+                        Mendukung upload `.lua` dan `.luau`, paste code langsung, copy result, download hasil, dan validasi ukuran
+                        hingga 500KB per request.
+                    </p>
+                </div>
+            </aside>
+        </section>
+
+        <section class="stats">
+            <div class="stat-card">
+                <div class="stat-label">Ukuran Sebelum</div>
+                <div class="stat-value" id="beforeSize">0 B</div>
+                <div class="stats-note">Dihitung langsung dari editor input aktif.</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Ukuran Sesudah</div>
+                <div class="stat-value" id="afterSize">0 B</div>
+                <div class="stats-note">Otomatis terisi setelah proses selesai.</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Delta Ukuran</div>
+                <div class="stat-value" id="deltaSize">0 B</div>
+                <div class="stats-note">Nilai positif berarti output lebih besar.</div>
+            </div>
+        </section>
+
+        <section class="workspace">
+            <article class="editor-panel">
+                <div class="panel-head">
+                    <h2>Input Script</h2>
+                    <span class="hint">Upload file atau paste langsung</span>
+                </div>
+
+                <div class="controls">
+                    <div class="input-shell">
+                        <input id="fileInput" type="file" accept=".lua,.luau,text/plain">
+                    </div>
+                    <div class="select-shell">
+                        <select id="levelSelect" aria-label="Pilih level obfuscation">
+                            <option value="light">Light</option>
+                            <option value="medium">Medium</option>
+                            <option value="heavy">Heavy</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="controls" style="grid-template-columns: 1fr;">
+                    <div class="select-shell">
+                        <select id="syntaxSelect" aria-label="Pilih syntax parser">
+                            <option value="auto">Auto Detect</option>
+                            <option value="lua">Lua 5.1</option>
+                            <option value="luau">Luau</option>
+                        </select>
+                    </div>
+                </div>
+
+                <p class="level-copy" id="levelCopy">
+                    Rename variabel lokal dan ubah semua string literal menjadi escape byte.
+                </p>
+
+                <textarea id="inputCode" spellcheck="false" placeholder="Tempel kode Lua Anda di sini..."></textarea>
+
+                <div class="button-row">
+                    <button class="primary" id="obfuscateButton" type="button">Shield Script</button>
+                    <button class="secondary" id="resetButton" type="button">Reset</button>
+                </div>
+
+                <div class="status" id="statusMessage" aria-live="polite"></div>
+            </article>
+
+            <article class="editor-panel">
+                <div class="panel-head">
+                    <h2>Output Preview</h2>
+                    <span class="hint">Hasil siap copy atau download</span>
+                </div>
+
+                <textarea id="outputCode" spellcheck="false" readonly placeholder="Hasil obfuscation akan muncul di sini..."></textarea>
+
+                <div class="button-row">
+                    <button class="download" id="downloadButton" type="button" disabled>Download Result</button>
+                    <button class="secondary" id="copyButton" type="button" disabled>Copy Result</button>
+                </div>
+            </article>
+        </section>
+    </main>
+
+    <script>
+        // Seluruh logika UI disimpan di file yang sama agar deployment tetap sederhana.
+        const batasUkuran = 500 * 1024;
+        const fileInput = document.getElementById('fileInput');
+        const levelSelect = document.getElementById('levelSelect');
+        const syntaxSelect = document.getElementById('syntaxSelect');
+        const levelCopy = document.getElementById('levelCopy');
+        const inputCode = document.getElementById('inputCode');
+        const outputCode = document.getElementById('outputCode');
+        const obfuscateButton = document.getElementById('obfuscateButton');
+        const downloadButton = document.getElementById('downloadButton');
+        const copyButton = document.getElementById('copyButton');
+        const resetButton = document.getElementById('resetButton');
+        const statusMessage = document.getElementById('statusMessage');
+        const beforeSize = document.getElementById('beforeSize');
+        const afterSize = document.getElementById('afterSize');
+        const deltaSize = document.getElementById('deltaSize');
+
+        const deskripsiLevel = {
+            light: 'Rename variabel lokal dan ubah semua string literal menjadi escape byte.',
+            medium: 'Semua fitur light ditambah pembersihan komentar dan perapihan output.',
+            heavy: 'Semua fitur medium ditambah wrapper chunk transparan yang tetap aman dijalankan.',
+        };
+
+        levelSelect.addEventListener('change', () => {
+            levelCopy.textContent = deskripsiLevel[levelSelect.value] ?? deskripsiLevel.light;
+        });
+
+        inputCode.addEventListener('input', () => {
+            perbaruiStatInput();
+            bersihkanStatus();
+        });
+
+        fileInput.addEventListener('change', async (event) => {
+            const file = event.target.files?.[0];
+
+            if (!file) {
+                return;
+            }
+
+            if (file.size > batasUkuran) {
+                tampilkanStatus('Ukuran file melebihi 500KB.', true);
+                fileInput.value = '';
+                return;
+            }
+
+            try {
+                const isi = await file.text();
+                if (file.name.toLowerCase().endsWith('.luau') || terlihatSepertiLuau(isi)) {
+                    syntaxSelect.value = 'luau';
+                }
+                inputCode.value = isi;
+                outputCode.value = '';
+                downloadButton.disabled = true;
+                copyButton.disabled = true;
+                perbaruiStatInput();
+                perbaruiStatOutput(0);
+                tampilkanStatus(`File ${file.name} berhasil dimuat.`, false, true);
+            } catch (error) {
+                tampilkanStatus(`Gagal membaca file: ${error.message}`, true);
+            }
+        });
+
+        obfuscateButton.addEventListener('click', async () => {
+            const code = inputCode.value;
+
+            if (!code.trim()) {
+                tampilkanStatus('Kode Lua tidak boleh kosong.', true);
+                return;
+            }
+
+            const ukuran = hitungUkuran(code);
+
+            if (ukuran > batasUkuran) {
+                tampilkanStatus('Ukuran kode melebihi batas 500KB.', true);
+                return;
+            }
+
+            setBusy(true);
+            tampilkanStatus('Memproses script dengan LYVA SHIELD...', false);
+
+            try {
+                const response = await fetch('/obfuscate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        code,
+                        level: levelSelect.value,
+                        syntax: syntaxSelect.value,
+                    }),
+                });
+
+                const payload = await response.json().catch(() => ({}));
+
+                if (!response.ok) {
+                    throw new Error(payload.error || 'Server mengembalikan respons error.');
+                }
+
+                outputCode.value = payload.result || '';
+                downloadButton.disabled = !outputCode.value;
+                copyButton.disabled = !outputCode.value;
+                perbaruiStatInput(payload.stats?.before ?? ukuran);
+                perbaruiStatOutput(payload.stats?.after ?? hitungUkuran(outputCode.value));
+                tampilkanStatus('Shielding selesai.', false, true);
+            } catch (error) {
+                outputCode.value = '';
+                downloadButton.disabled = true;
+                copyButton.disabled = true;
+                perbaruiStatOutput(0);
+                tampilkanStatus(error.message, true);
+            } finally {
+                setBusy(false);
+            }
+        });
+
+        downloadButton.addEventListener('click', () => {
+            const hasil = outputCode.value;
+
+            if (!hasil) {
+                return;
+            }
+
+            const blob = new Blob([hasil], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+
+            anchor.href = url;
+            const ekstensi = syntaxSelect.value === 'luau' ? 'luau' : 'lua';
+            anchor.download = `lyva-shield-${syntaxSelect.value}-${levelSelect.value}.${ekstensi}`;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(url);
+        });
+
+        copyButton.addEventListener('click', async () => {
+            if (!outputCode.value) {
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(outputCode.value);
+                tampilkanStatus('Hasil berhasil disalin ke clipboard.', false, true);
+            } catch (error) {
+                tampilkanStatus(`Gagal menyalin hasil: ${error.message}`, true);
+            }
+        });
+
+        resetButton.addEventListener('click', () => {
+            fileInput.value = '';
+            inputCode.value = '';
+            outputCode.value = '';
+            downloadButton.disabled = true;
+            copyButton.disabled = true;
+            perbaruiStatInput(0);
+            perbaruiStatOutput(0);
+            bersihkanStatus();
+        });
+
+        function setBusy(aktif) {
+            obfuscateButton.disabled = aktif;
+            obfuscateButton.textContent = aktif ? 'Shielding...' : 'Shield Script';
+        }
+
+        function tampilkanStatus(pesan, error = false, sukses = false) {
+            statusMessage.textContent = pesan;
+            statusMessage.className = 'status';
+
+            if (error) {
+                statusMessage.classList.add('error');
+            } else if (sukses) {
+                statusMessage.classList.add('success');
+            }
+        }
+
+        function bersihkanStatus() {
+            statusMessage.textContent = '';
+            statusMessage.className = 'status';
+        }
+
+        function perbaruiStatInput(nilai) {
+            const ukuran = typeof nilai === 'number' ? nilai : hitungUkuran(inputCode.value);
+            beforeSize.dataset.bytes = String(ukuran);
+            beforeSize.textContent = formatUkuran(ukuran);
+            hitungDelta();
+        }
+
+        function perbaruiStatOutput(nilai) {
+            const ukuran = typeof nilai === 'number' ? nilai : hitungUkuran(outputCode.value);
+            afterSize.dataset.bytes = String(ukuran);
+            afterSize.textContent = formatUkuran(ukuran);
+            hitungDelta();
+        }
+
+        function hitungDelta() {
+            const sebelum = Number.parseInt(beforeSize.dataset.bytes || '0', 10);
+            const sesudah = Number.parseInt(afterSize.dataset.bytes || '0', 10);
+            const delta = sesudah - sebelum;
+            deltaSize.textContent = formatUkuran(delta, true);
+        }
+
+        function hitungUkuran(teks) {
+            return new TextEncoder().encode(teks).length;
+        }
+
+        function terlihatSepertiLuau(teks) {
+            return /\btype\s+[A-Za-z_][A-Za-z0-9_]*\s*=/.test(teks)
+                || /\bexport\s+type\b/.test(teks)
+                || /::/.test(teks)
+                || /\bcontinue\b/.test(teks)
+                || /<\s*(const|close)\s*>/.test(teks)
+                || /\bfunction\s+[A-Za-z_][A-Za-z0-9_:.]*\s*\([^)]*:\s*[A-Za-z_]/.test(teks)
+                || /\blocal\s+[A-Za-z_][A-Za-z0-9_]*\s*:\s*/.test(teks)
+                || /\(\s*[A-Za-z_][A-Za-z0-9_]*\s*:\s*/.test(teks);
+        }
+
+        function formatUkuran(nilai, pakaiTanda = false) {
+            const negatif = nilai < 0;
+            const angka = Math.abs(nilai);
+
+            if (angka < 1024) {
+                const prefix = negatif ? '-' : (pakaiTanda && nilai > 0 ? '+' : '');
+                return `${prefix}${angka} B`;
+            }
+
+            const unit = ['KB', 'MB'];
+            let hasil = angka / 1024;
+            let posisi = 0;
+
+            while (hasil >= 1024 && posisi < unit.length - 1) {
+                hasil /= 1024;
+                posisi += 1;
+            }
+
+            const prefix = negatif ? '-' : (pakaiTanda && nilai > 0 ? '+' : '');
+            return `${prefix}${hasil.toFixed(2)} ${unit[posisi]}`;
+        }
+
+        perbaruiStatInput(0);
+        perbaruiStatOutput(0);
+    </script>
+</body>
+</html>

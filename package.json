@@ -1,6 +1,7 @@
 {
     "$schema": "https://www.schemastore.org/package.json",
     "private": true,
+    "name": "lyva-shield-pro",
     "type": "module",
     "scripts": {
         "bot:start": "node ./bot/index.js",
@@ -9,6 +10,8 @@
         "build": "vite build",
         "dev": "vite",
         "dev:all": "concurrently -c \"#93c5fd,#fdba74,#34d399\" \"php artisan serve\" \"npm run dev\" \"npm run bot:dev\" --names=\"laravel,vite,bot\"",
+        "obfuscator:dev": "node --watch server.js",
+        "obfuscator:start": "node server.js",
         "ship": "powershell -ExecutionPolicy Bypass -File ./scripts/git-push-main.ps1"
     },
     "dependencies": {
@@ -20,7 +23,9 @@
         "concurrently": "^9.0.1",
         "discord.js": "^14.25.1",
         "dotenv": "^17.3.1",
+        "express": "^5.2.1",
         "laravel-vite-plugin": "^2.0",
+        "luaparse": "^0.3.1",
         "tailwindcss": "^4.0.7",
         "vite": "^7.0.4"
     },
