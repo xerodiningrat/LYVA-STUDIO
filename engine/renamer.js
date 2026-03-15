@@ -9,12 +9,9 @@ export function jalankanRenamer(kode, opsi = {}) {
     const kodeTanpaBanner = hasil.result.replace(BANNER_RE, '');
     const warnings = [];
 
-    if (level !== 'light') {
-        warnings.push('Komentar dan petunjuk inline dihapus pada mode balanced/max-safe.');
-    }
-
+    warnings.push('Komentar dan petunjuk inline dihapus dari output untuk semua profile.');
     warnings.push('Layer 1 dan Layer 2 dijalankan lewat parser aman: rename local symbol + string byte escape.');
-    warnings.push('Nama method public seperti :Load atau :Save tidak di-rename otomatis agar API module lintas file tidak rusak.');
+    warnings.push('Nama fungsi top-level dan member table di file yang sama ikut di-rename agresif; pastikan tidak ada file lain yang masih memanggil nama lama.');
 
     return {
         code: kodeTanpaBanner,

@@ -65,9 +65,7 @@ export function obfuscateLua(kodeMasuk, levelMasuk = 'light', syntaxMasuk = 'aut
     praScanChunk(ast, scopeAkar, konteks);
     telusuriChunk(ast, scopeAkar, replacements, konteks);
 
-    if (level !== 'light') {
-        tambahReplacementKomentar(ast.comments, kodeKerja, replacements);
-    }
+    tambahReplacementKomentar(ast.comments, kodeKerja, replacements);
 
     const kodeTertransformasi = terapkanReplacements(kodeKerja, replacements);
     const kodeDirapikan = rapikanKode(kodeTertransformasi);
@@ -1118,6 +1116,16 @@ function praScanPernyataan(node, scope, konteks) {
         }
 
         case 'FunctionDeclaration': {
+            if (node.identifier?.type === 'Identifier') {
+                const bindingLama = scope.cari(node.identifier.name);
+                if (bindingLama) {
+                    node.identifier.__obfuscatedName = bindingLama.namaBaru;
+                } else {
+                    const namaBaru = ambilAtauBuatNamaNode(node.identifier, konteks);
+                    scope.tambahBinding(node.identifier.name, namaBaru);
+                }
+            }
+
             praScanTargetFungsi(node.identifier, scope, konteks);
             const scopeFungsi = new Scope(scope);
             praScanParameter(node.parameters ?? [], scopeFungsi, konteks);
@@ -1198,12 +1206,7 @@ function praScanTargetFungsi(target, scope, konteks) {
         return;
     }
 
-    const binding = scope.cari(target.base.name);
-    if (!binding) {
-        return;
-    }
-
-    const kunci = buatKunciMethod(binding.namaBaru, target.identifier.name);
+    const kunci = buatKunciMethod(resolveMethodBaseKey(target.base.name, scope), target.identifier.name);
     if (!konteks.methodBindings.has(kunci)) {
         konteks.methodBindings.set(kunci, buatNamaObfuscated(konteks));
     }
@@ -1501,12 +1504,7 @@ function telusuriMemberIdentifier(node, scope, replacements, konteks) {
         return;
     }
 
-    const binding = scope.cari(node.base.name);
-    if (!binding) {
-        return;
-    }
-
-    const namaMethod = cariNamaMethod(binding.namaBaru, node.identifier.name, konteks);
+    const namaMethod = cariNamaMethod(resolveMethodBaseKey(node.base.name, scope), node.identifier.name, konteks);
     if (!namaMethod) {
         return;
     }
@@ -1568,4 +1566,14 @@ function buatKunciMethod(namaBaseObfuscated, namaMethodAsli) {
 
 function cariNamaMethod(namaBaseObfuscated, namaMethodAsli, konteks) {
     return konteks.methodBindings.get(buatKunciMethod(namaBaseObfuscated, namaMethodAsli)) ?? null;
+}
+
+function resolveMethodBaseKey(namaBase, scope) {
+    const binding = scope.cari(namaBase);
+
+    if (binding) {
+        return `local:${binding.namaBaru}`;
+    }
+
+    return `global:${namaBase}`;
 }
