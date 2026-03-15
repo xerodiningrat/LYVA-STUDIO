@@ -157,10 +157,17 @@ function cloneTitleStyle(style) {
 }
 
 function getTitleColorPresetSummary() {
-  return 'white, gold, yellow, red, orange, green, lime, cyan, blue, purple, pink, silver, black, rgb';
+  return 'white, gold, yellow, red, orange, green, lime, cyan, blue, purple, pink, silver, black, rgb/rainbow';
 }
 
 function resolveTitleStyle(presetInput, rgbInput) {
+  const presetKey = normalizeText(presetInput);
+  const rgbKeyword = normalizeText(rgbInput);
+
+  if (rgbKeyword === 'rgb' || rgbKeyword === 'rainbow') {
+    return { ok: true, style: cloneTitleStyle(TITLE_COLOR_PRESETS.rgb) };
+  }
+
   const parsedRgb = parseRgbInput(rgbInput);
   if (parsedRgb && !parsedRgb.ok) {
     return parsedRgb;
@@ -174,12 +181,11 @@ function resolveTitleStyle(presetInput, rgbInput) {
         mode: 'SOLID',
         preset: 'VIP',
         color: parsedRgb.color,
-        label: `RGB ${r},${g},${b}`,
+        label: `Custom RGB ${r},${g},${b}`,
       },
     };
   }
 
-  const presetKey = normalizeText(presetInput);
   if (!presetKey) {
     return { ok: true, style: cloneTitleStyle(TITLE_COLOR_PRESETS.white) };
   }
