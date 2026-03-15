@@ -652,7 +652,6 @@ function bangunPayloadLuaObfuscator(levelMasuk) {
     const level = typeof levelMasuk === 'string' ? levelMasuk.toLowerCase().trim() : 'balanced';
     const payload = {
         MinifiyAll: true,
-        Seed: crypto.randomBytes(8).toString('hex'),
     };
 
     if (level === 'max-safe' || level === 'heavy') {
